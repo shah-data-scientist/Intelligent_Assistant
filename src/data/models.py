@@ -32,6 +32,7 @@ class Event(BaseModel):
     raw_data: dict[str, Any] = Field(
         default_factory=dict, description="Original raw data from API"
     )
+    scraped_content: str | None = Field(None, description="Enriched content from URL")
 
     def to_text(self) -> str:
         """Convert event to text representation for embedding.
@@ -43,6 +44,9 @@ class Event(BaseModel):
 
         if self.description:
             parts.append(f"Description: {self.description}")
+
+        if self.scraped_content:
+            parts.append(f"Détails supplémentaires: {self.scraped_content}")
 
         if self.category:
             parts.append(f"Catégorie: {self.category}")

@@ -246,7 +246,13 @@ class EventProcessor:
                 or fields.get("organization")
             )
 
-            url = fields.get("url") or fields.get("link") or fields.get("lien")
+            url = (
+                fields.get("canonicalurl")
+                or fields.get("url")
+                or fields.get("link")
+                or fields.get("lien")
+                or fields.get("location_website")
+            )
 
             image_url = (
                 fields.get("image")

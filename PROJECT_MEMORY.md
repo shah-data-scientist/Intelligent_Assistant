@@ -244,11 +244,12 @@ intelligent-assistant/
   - **Performance Optimization:** Refactored to "Eager Initialization" (pre-loading models at startup) and thread-pool execution for sync AI calls to prevent event-loop blocking.
   - Defined Pydantic models for strict request/response validation ([src/api/schemas.py](src/api/schemas.py)).
   - Added unit tests for API endpoints using `TestClient`.
-- **Phase 4.5 Complete: Optimization & Security**
-  - **Hybrid Search:** Implemented **Metadata Extraction Layer** (extracts Date/City/Category from query) and enhanced `EventVectorStore` to support strict filtering. Solved "date awareness" issues (e.g., specific month queries).
+- **Phase 4.5 Complete: Optimization & Security & Content**
   - **Latency:** Implemented LRU Caching in `EventRetriever` and added a Streaming endpoint (`/chat/stream`).
   - **Security:** Added Guardrails (`src/security/guardrails.py`) to block prompt injection/toxicity and API Key authentication.
+  - **Content Enrichment:** Implemented a **Scraper** (`src/data/scraper.py`) to fetch full event details from URLs. Updated 875 events with scraped content and rebuilt embeddings for deeper semantic search.
   - **Verification:** Added `tests/test_api_security_latency.py` and `scripts/test_hybrid_search.py`. All 71 tests passing.
+
 - **Phase 4.5 Complete: User Interface**
   - **Modern Streamlit App:** Implemented full-featured web interface ([src/frontend/app.py](src/frontend/app.py)).
   - **Chat Interface:** Modern chat UI with session management, message history, and loading states.

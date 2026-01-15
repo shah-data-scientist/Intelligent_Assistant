@@ -14,6 +14,7 @@ from sqlalchemy import (
     Text,
     create_engine,
     select,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -57,6 +58,7 @@ class EventRecord(Base):
 
     # Metadata
     raw_data_json = Column(Text, nullable=True)  # Full raw event data
+    scraped_content = Column(Text, nullable=True)  # Content scraped from URL
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -96,11 +98,30 @@ class EventStorage:
 
         # Create tables
         Base.metadata.create_all(self.engine)
+        
+        # Check for schema migration (add scraped_content if missing)
+        self._ensure_schema()
 
         # Create session factory
         self.SessionLocal = sessionmaker(bind=self.engine)
 
         logger.info(f"Initialized EventStorage at {self.db_path}")
+
+    def _ensure_schema(self):
+        """Ensure the database schema is up to date."""
+        with self.engine.connect() as conn:
+            # Check if scraped_content column exists
+            try:
+                # PRAGMA table_info returns columns: cid, name, type, notnull, dflt_value, pk
+                columns = conn.execute(text("PRAGMA table_info(events)")).fetchall()
+                column_names = [col[1] for col in columns]
+                
+                if "scraped_content" not in column_names:
+                    logger.info("Migrating schema: adding scraped_content column")
+                    conn.execute(text("ALTER TABLE events ADD COLUMN scraped_content TEXT"))
+                    conn.commit()
+            except Exception as e:
+                logger.warning(f"Schema migration check failed: {e}")
 
     def close(self) -> None:
         """Close database connections and dispose engine."""
@@ -137,6 +158,7 @@ class EventStorage:
             image_url=event.image_url,
             tags_json=json.dumps(event.tags) if event.tags else None,
             raw_data_json=json.dumps(event.raw_data) if event.raw_data else None,
+            scraped_content=event.scraped_content,
             faiss_index=faiss_index,
         )
 
@@ -205,6 +227,7 @@ class EventStorage:
             image_url=record.image_url,
             tags=tags,
             raw_data=raw_data,
+            scraped_content=record.scraped_content,
         )
 
     def add_event(self, event: Event, faiss_index: int | None = None) -> bool:
@@ -371,6 +394,7 @@ class EventStorage:
             record.image_url = event.image_url
             record.tags_json = json.dumps(event.tags) if event.tags else None
             record.raw_data_json = json.dumps(event.raw_data) if event.raw_data else None
+            record.scraped_content = event.scraped_content
 
             if event.location:
                 record.city = event.location.city
