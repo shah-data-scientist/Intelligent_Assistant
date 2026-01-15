@@ -210,14 +210,21 @@ class EventVectorStore:
             True if event matches all filters
         """
         for key, value in filters.items():
-            if key == "city" and event.location:
-                if event.location.city != value:
+            if value is None:
+                continue
+
+            if key == "city" and event.location and event.location.city:
+                # Case-insensitive partial match
+                if value.lower() not in event.location.city.lower():
                     return False
-            elif key == "category":
-                if event.category != value:
+            elif key == "category" and event.category:
+                if value.lower() not in event.category.lower():
                     return False
             elif key == "year" and event.start_date:
                 if event.start_date.year != value:
+                    return False
+            elif key == "month" and event.start_date:
+                if event.start_date.month != value:
                     return False
             # Add more filter types as needed
 

@@ -245,9 +245,10 @@ intelligent-assistant/
   - Defined Pydantic models for strict request/response validation ([src/api/schemas.py](src/api/schemas.py)).
   - Added unit tests for API endpoints using `TestClient`.
 - **Phase 4.5 Complete: Optimization & Security**
+  - **Hybrid Search:** Implemented **Metadata Extraction Layer** (extracts Date/City/Category from query) and enhanced `EventVectorStore` to support strict filtering. Solved "date awareness" issues (e.g., specific month queries).
   - **Latency:** Implemented LRU Caching in `EventRetriever` and added a Streaming endpoint (`/chat/stream`).
   - **Security:** Added Guardrails (`src/security/guardrails.py`) to block prompt injection/toxicity and API Key authentication.
-  - **Verification:** Added `tests/test_api_security_latency.py`. All 71 tests passing.
+  - **Verification:** Added `tests/test_api_security_latency.py` and `scripts/test_hybrid_search.py`. All 71 tests passing.
 - **Phase 4.5 Complete: User Interface**
   - **Modern Streamlit App:** Implemented full-featured web interface ([src/frontend/app.py](src/frontend/app.py)).
   - **Chat Interface:** Modern chat UI with session management, message history, and loading states.

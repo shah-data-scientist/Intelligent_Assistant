@@ -3,9 +3,9 @@
 import logging
 from typing import Any, Dict
 
-from langchain_core.runnables import RunnablePassthrough, RunnableLambda
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda, RunnableBranch
 from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain_core.output_parsers import StrOutputParser
+from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from langchain_core.chat_history import BaseChatMessageHistory
 
 # Removing langchain.chains imports to rely on core LCEL
@@ -14,9 +14,10 @@ from langchain_core.chat_history import BaseChatMessageHistory
 
 from src.models.vector_store import EventVectorStore
 from src.generation.llm import MistralLLM
-from src.generation.prompts import get_rag_prompt, get_contextualize_q_prompt
+from src.generation.prompts import get_rag_prompt, get_contextualize_q_prompt, get_metadata_extraction_prompt
 from src.retrieval.retriever import EventRetriever
 from src.data.chat_history import SQLiteChatMessageHistory
+from src.security.guardrails import check_safety
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,10 @@ class RAGChain:
 
         self.llm = llm or MistralLLM()
         
+        # Metadata Extraction Chain
+        extraction_prompt = get_metadata_extraction_prompt()
+        self.extraction_chain = extraction_prompt | self.llm.llm | JsonOutputParser()
+
         # Use provided history factory or default
         session_history_factory = history_factory or get_session_history
         
@@ -73,22 +78,58 @@ class RAGChain:
         # --- Pure LCEL Implementation ---
 
         # 1. History-Aware Question Reformulation
-        # If history exists, reformulate the question. Otherwise, use the original.
+        # Optimize: If history is empty, pass input directly. Else, reformulate.
         contextualize_q_prompt = get_contextualize_q_prompt()
         
-        history_aware_retriever = (
-            RunnablePassthrough.assign(
-                chat_history=lambda x: x.get("chat_history", [])
-            )
-            | contextualize_q_prompt
+        reformulation_chain = (
+            contextualize_q_prompt
             | self.llm.llm
             | StrOutputParser()
         )
+        
+        history_aware_retriever = RunnableBranch(
+            (
+                lambda x: not x.get("chat_history", []),
+                RunnableLambda(lambda x: x["input"])
+            ),
+            reformulation_chain
+        )
 
-        # 2. Retrieval Branch
-        # We need a branch that takes the reformulated question (str) and retrieves docs
-        def retrieve_docs(input_query: str):
-            return self.retriever.invoke(input_query)
+        # 2. Hybrid Retrieval Branch (Semantic + Filters)
+        # We define a custom function to handle extraction + search
+        def retrieve_docs_hybrid(input_query: str):
+            try:
+                # Extract filters (using the raw query for extraction is often better than the reformulated one for dates)
+                # But here we only have input_query which is the reformulated one. That's fine.
+                filters = self.extraction_chain.invoke({"question": input_query})
+                logger.info(f"Extracted filters: {filters}")
+                
+                # Clean filters (remove nulls)
+                clean_filters = {k: v for k, v in filters.items() if v}
+                
+                # Perform search
+                results = self.vector_store.search(input_query, k=k, metadata_filter=clean_filters)
+                
+                # Convert to documents (manually, since we bypassed retriever)
+                docs = []
+                for event, score in results:
+                    # We reuse the logic from EventRetriever or reimplement it briefly
+                    content = event.to_text()
+                    meta = event.get_metadata()
+                    meta["score"] = score
+                    # Add lat/lon from schema requirements
+                    if event.location and event.location.coordinates:
+                        meta["latitude"] = event.location.coordinates.get("lat")
+                        meta["longitude"] = event.location.coordinates.get("lon")
+                    
+                    from langchain_core.documents import Document
+                    docs.append(Document(page_content=content, metadata=meta))
+                
+                return docs
+            except Exception as e:
+                logger.error(f"Hybrid retrieval failed: {e}")
+                # Fallback to simple retrieval
+                return self.retriever.invoke(input_query)
 
         # 3. QA Chain
         qa_prompt = get_rag_prompt()
@@ -97,13 +138,9 @@ class RAGChain:
             return "\n\n".join(doc.page_content for doc in docs)
 
         # Main Chain logic:
-        # Input: {"input": "question", "chat_history": [...]}
-        # Step A: Reformulate question -> "standalone_question"
-        # Step B: Retrieve docs using "standalone_question" -> "context"
-        # Step C: Answer using "context" and "input" (or "standalone_question"?)
         
         context_retrieval_chain = (
-            history_aware_retriever | retrieve_docs
+            history_aware_retriever | retrieve_docs_hybrid
         )
 
         self.rag_chain = (
@@ -144,6 +181,7 @@ class RAGChain:
             Generated response string
         """
         logger.info(f"Processing query: {question} (session: {session_id})")
+        check_safety(question)
         
         result = self.conversational_chain.invoke(
             {"input": question},
@@ -162,6 +200,7 @@ class RAGChain:
             Response chunks
         """
         logger.info(f"Streaming query: {question} (session: {session_id})")
+        check_safety(question)
         
         # We need to stream the 'answer' key.
         # RunnableWithMessageHistory.stream yields dicts usually if output_keys are involved,
@@ -190,6 +229,7 @@ class RAGChain:
             Dictionary with 'answer' and 'sources'
         """
         logger.info(f"Processing query with metadata: {question} (session: {session_id})")
+        check_safety(question)
         
         result = self.conversational_chain.invoke(
             {"input": question},
@@ -207,7 +247,9 @@ class RAGChain:
                     "city": d.metadata.get("city"),
                     "date": d.metadata.get("start_date"),
                     "url": d.metadata.get("url"),
-                    "score": d.metadata.get("score")
+                    "score": d.metadata.get("score"),
+                    "latitude": d.metadata.get("latitude"),
+                    "longitude": d.metadata.get("longitude")
                 }
                 for d in docs
             ]
