@@ -180,7 +180,7 @@ intelligent-assistant/
 - Set up Poetry with dev dependencies
 - Created standard project structure
 - Added documentation templates
-- Defined project requirements (RAG system for Paris cultural events)
+- Defined project requirements (RAG system changed from Paris to Île-de-France)
 - **Phase 1 Complete: Data Pipeline**
   - Installed core dependencies (httpx, langchain, fastapi, faiss-cpu)
   - Implemented configuration management ([src/config.py](src/config.py))
@@ -188,6 +188,16 @@ intelligent-assistant/
   - Implemented OpenAgendaClient for API fetching ([src/data/api_client.py](src/data/api_client.py))
   - Implemented EventProcessor for data normalization ([src/data/processor.py](src/data/processor.py))
   - Added comprehensive test suite (22 tests passing)
+  - Analyzed API: 912,435 events available, 2017-2032 date range
+- **Phase 1.5 Complete: Storage Layer**
+  - Added SQLAlchemy for database ORM
+  - Implemented EventStorage with SQLite backend ([src/data/storage.py](src/data/storage.py))
+  - Designed SQLite + FAISS architecture (metadata + vectors separation)
+  - **Updated geographic filter: Paris → Île-de-France (8 departments, 40+ cities)**
+  - **Implemented dynamic time window: 1,000 events minimum (hard constraint)**
+  - Created data ingestion pipeline ([src/data/ingestion.py](src/data/ingestion.py))
+  - Added 17 storage tests (total: 41 tests passing)
+  - Created comprehensive API analysis documentation ([docs/API_DATA_ANALYSIS.md](docs/API_DATA_ANALYSIS.md))
 
 ### Known Issues
 
@@ -196,6 +206,8 @@ None
 ### Next Steps
 
 **Phase 1: Data Pipeline** ✓ COMPLETE
+
+**Phase 1.5: Storage Layer** ✓ COMPLETE
 
 **Phase 2: Vector Store & Embeddings (Priority 1)** ← CURRENT
 1. Set up Mistral embeddings

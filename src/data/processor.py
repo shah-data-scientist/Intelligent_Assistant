@@ -264,8 +264,71 @@ class EventProcessor:
         logger.info(f"Processed {len(events)} events from {len(records)} records")
         return events
 
+    def filter_ile_de_france_events(self, events: list[Event]) -> list[Event]:
+        """Filter events to only include Île-de-France region events.
+
+        Île-de-France includes: Paris, Hauts-de-Seine (92), Seine-Saint-Denis (93),
+        Val-de-Marne (94), Seine-et-Marne (77), Yvelines (78), Essonne (91),
+        Val-d'Oise (95), and major cities in these departments.
+
+        Args:
+            events: List of Event objects
+
+        Returns:
+            List of events in Île-de-France region
+        """
+        # Major cities and departments in Île-de-France
+        idf_cities = {
+            "paris", "versailles", "boulogne-billancourt", "saint-denis",
+            "argenteuil", "montreuil", "créteil", "nanterre", "courbevoie",
+            "vitry-sur-seine", "asnières-sur-seine", "colombes", "aulnay-sous-bois",
+            "rueil-malmaison", "aubervilliers", "champigny-sur-marne", "saint-maur-des-fossés",
+            "drancy", "issy-les-moulineaux", "levallois-perret", "antony", "noisy-le-grand",
+            "neuilly-sur-seine", "clichy", "ivry-sur-seine", "villejuif", "épinay-sur-seine",
+            "fontenay-sous-bois", "la courneuve", "bondy", "maisons-alfort", "suresnes",
+            "pantin", "vincennes", "meaux", "évry", "corbeil-essonnes", "mantes-la-jolie",
+            "melun", "savigny-sur-orge", "pontoise", "cergy"
+        }
+
+        # Postal code prefixes for Île-de-France departments
+        idf_postal_prefixes = {"75", "77", "78", "91", "92", "93", "94", "95"}
+
+        idf_events = []
+        for event in events:
+            if not event.location:
+                continue
+
+            # Check city name
+            if event.location.city:
+                city_lower = event.location.city.lower().strip()
+                # Remove accents for comparison
+                city_normalized = (
+                    city_lower.replace("é", "e")
+                    .replace("è", "e")
+                    .replace("ê", "e")
+                    .replace("à", "a")
+                    .replace("ô", "o")
+                )
+                if any(idf_city in city_normalized for idf_city in idf_cities):
+                    idf_events.append(event)
+                    continue
+
+            # Check postal code
+            if event.location.postal_code:
+                postal_prefix = event.location.postal_code[:2]
+                if postal_prefix in idf_postal_prefixes:
+                    idf_events.append(event)
+
+        logger.info(
+            f"Filtered to {len(idf_events)} Île-de-France events "
+            f"from {len(events)} total"
+        )
+        return idf_events
+
     def filter_paris_events(self, events: list[Event]) -> list[Event]:
         """Filter events to only include Paris events.
+
+        Deprecated: Use filter_ile_de_france_events() instead for broader coverage.
 
         Args:
             events: List of Event objects

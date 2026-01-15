@@ -22,6 +22,9 @@ class Settings(BaseSettings):
         "evenements-publics-openagenda/records"
     )
 
+    # Storage
+    db_path: str = "./data/events.db"
+
     # Vector Store
     faiss_index_path: str = "./data/faiss_index"
     vector_dimension: int = 1024
@@ -32,8 +35,13 @@ class Settings(BaseSettings):
 
     # Application Settings
     log_level: str = "INFO"
-    max_events_to_fetch: int = 1000
+    max_events_to_fetch: int = 5000  # Increased for Île-de-France coverage
     retrieval_top_k: int = 5
+
+    # Data Ingestion
+    min_events_required: int = 1000  # Hard minimum for RAG system
+    initial_time_window_months: int = 12  # Start with 1 year
+    max_time_window_months: int = 36  # Maximum 3 years if needed
 
 
 settings = Settings()
