@@ -8,6 +8,13 @@ from src.api.endpoints import get_rag_chain
 
 client = TestClient(app)
 
+@pytest.fixture(autouse=True)
+def setup_app_state():
+    """Ensure app state has a rag_chain mock for all API tests."""
+    app.state.rag_chain = MagicMock()
+    yield
+    app.state.rag_chain = None
+
 @pytest.fixture
 def mock_rag_chain():
     """Mock the RAGChain dependency."""

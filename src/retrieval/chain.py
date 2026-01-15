@@ -1,28 +1,42 @@
-"""RAG orchestration chain for cultural events."""
+"""RAG orchestration chain for cultural events with history."""
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict
 
-from langchain_core.runnables import RunnablePassthrough, RunnableParallel
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda
+from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.documents import Document
+from langchain_core.chat_history import BaseChatMessageHistory, InMemoryChatMessageHistory
+# Removing langchain.chains imports to rely on core LCEL
+# from langchain.chains import create_history_aware_retriever, create_retrieval_chain
+# from langchain.chains.combine_documents import create_stuff_documents_chain
 
 from src.models.vector_store import EventVectorStore
 from src.generation.llm import MistralLLM
-from src.generation.prompts import get_rag_prompt
+from src.generation.prompts import get_rag_prompt, get_contextualize_q_prompt
 from src.retrieval.retriever import EventRetriever
 
 logger = logging.getLogger(__name__)
 
+# Global store for chat histories (POC only - use Redis/SQL for production)
+store: Dict[str, BaseChatMessageHistory] = {}
+
+def get_session_history(session_id: str) -> BaseChatMessageHistory:
+    """Get or create chat history for a session."""
+    if session_id not in store:
+        store[session_id] = InMemoryChatMessageHistory()
+    return store[session_id]
+
 
 class RAGChain:
-    """Orchestrator for the Cultural Events RAG system."""
+    """Orchestrator for the Cultural Events RAG system with History."""
 
     def __init__(
         self,
         vector_store: EventVectorStore | None = None,
         llm: MistralLLM | None = None,
         k: int = 5,
+        chain: Any | None = None,
     ) -> None:
         """Initialize the RAG chain.
 
@@ -30,71 +44,123 @@ class RAGChain:
             vector_store: EventVectorStore instance
             llm: MistralLLM instance
             k: Number of events to retrieve
+            chain: Optional pre-configured conversational chain (for testing)
         """
         self.vector_store = vector_store or EventVectorStore()
-        # Ensure index is loaded
         try:
             self.vector_store.load_index()
         except Exception as e:
             logger.warning(f"Could not load FAISS index: {e}. Build it first if needed.")
 
         self.llm = llm or MistralLLM()
-        self.retriever = EventRetriever(vector_store=self.vector_store, k=k)
-        self.prompt = get_rag_prompt()
         
-        # Build the chain using LCEL
-        self.chain = (
-            RunnableParallel({
-                "context": self.retriever,
-                "question": RunnablePassthrough()
-            })
-            | self.prompt
-            | self.llm.llm  # Access the underlying ChatMistralAI instance
+        if chain:
+            self.conversational_chain = chain
+            logger.info("RAGChain initialized with injected chain.")
+            return
+
+        self.retriever = EventRetriever(vector_store=self.vector_store, k=k)
+        
+        # --- Pure LCEL Implementation ---
+
+        # 1. History-Aware Question Reformulation
+        # If history exists, reformulate the question. Otherwise, use the original.
+        contextualize_q_prompt = get_contextualize_q_prompt()
+        
+        history_aware_retriever = (
+            RunnablePassthrough.assign(
+                chat_history=lambda x: x.get("chat_history", [])
+            )
+            | contextualize_q_prompt
+            | self.llm.llm
             | StrOutputParser()
         )
+
+        # 2. Retrieval Branch
+        # We need a branch that takes the reformulated question (str) and retrieves docs
+        def retrieve_docs(input_query: str):
+            return self.retriever.invoke(input_query)
+
+        # 3. QA Chain
+        qa_prompt = get_rag_prompt()
         
-        logger.info("RAGChain initialized successfully")
+        def format_docs(docs):
+            return "\n\n".join(doc.page_content for doc in docs)
 
-    def query(self, question: str) -> str:
-        """Process a user question and generate a response.
+        # Main Chain logic:
+        # Input: {"input": "question", "chat_history": [...]}
+        # Step A: Reformulate question -> "standalone_question"
+        # Step B: Retrieve docs using "standalone_question" -> "context"
+        # Step C: Answer using "context" and "input" (or "standalone_question"?)
+        
+        context_retrieval_chain = (
+            history_aware_retriever | retrieve_docs
+        )
+
+        self.rag_chain = (
+            RunnablePassthrough.assign(
+                context=context_retrieval_chain
+            )
+            .assign(
+                answer=(
+                    RunnablePassthrough.assign(
+                        context=lambda x: format_docs(x["context"])
+                    )
+                    | qa_prompt
+                    | self.llm.llm
+                    | StrOutputParser()
+                )
+            )
+        )
+        
+        # 4. Wrap with Message History
+        self.conversational_chain = RunnableWithMessageHistory(
+            self.rag_chain,
+            get_session_history,
+            input_messages_key="input",
+            history_messages_key="chat_history",
+            output_messages_key="answer", 
+        )
+        
+        logger.info("RAGChain with history initialized successfully")
+
+    def query(self, question: str, session_id: str = "default_session") -> str:
+        """Process a user question with history.
 
         Args:
             question: User's natural language question
+            session_id: Session identifier for chat history
 
         Returns:
             Generated response string
         """
-        logger.info(f"Processing query: {question}")
-        return self.chain.invoke(question)
+        logger.info(f"Processing query: {question} (session: {session_id})")
+        
+        result = self.conversational_chain.invoke(
+            {"input": question},
+            config={"configurable": {"session_id": session_id}},
+        )
+        return result["answer"]
 
-    async def aquery(self, question: str) -> str:
-        """Process a user question asynchronously.
-
-        Args:
-            question: User's natural language question
-
-        Returns:
-            Generated response string
-        """
-        logger.info(f"Processing async query: {question}")
-        return await self.chain.ainvoke(question)
-
-    def query_with_metadata(self, question: str) -> Dict[str, Any]:
-        """Process query and return both response and source documents.
+    def query_with_metadata(self, question: str, session_id: str = "default_session") -> Dict[str, Any]:
+        """Process query and return response with source documents.
 
         Args:
             question: User's natural language question
+            session_id: Session identifier
 
         Returns:
             Dictionary with 'answer' and 'sources'
         """
-        logger.info(f"Processing query with metadata: {question}")
+        logger.info(f"Processing query with metadata: {question} (session: {session_id})")
         
-        # Retrieve docs manually using invoke
-        docs = self.retriever.invoke(question)
+        result = self.conversational_chain.invoke(
+            {"input": question},
+            config={"configurable": {"session_id": session_id}},
+        )
         
-        # Generate answer using the chain
-        answer = self.chain.invoke(question)
+        answer = result["answer"]
+        docs = result.get("context", [])
         
         return {
             "answer": answer,
@@ -112,28 +178,23 @@ class RAGChain:
 
 
 def main() -> None:
-    """CLI entry point for testing the RAG system."""
+    """CLI entry point for testing the RAG system with history."""
     logging.basicConfig(level=logging.INFO)
     
     chain = RAGChain()
+    session_id = "test_user_1"
     
-    questions = [
-        "Quels concerts de jazz y a-t-il prochainement à Paris ?",
-        "Are there any activities for children this weekend in Versailles?",
-        "Je cherche une pièce de théâtre moderne."
-    ]
+    print("\n--- Interaction 1 ---")
+    q1 = "Are there any jazz concerts in Paris?"
+    print(f"User: {q1}")
+    result1 = chain.query_with_metadata(q1, session_id)
+    print(f"AI: {result1['answer']}")
     
-    for q in questions:
-        print("\n" + "="*50)
-        print(f"QUESTION: {q}")
-        print("="*50)
-        
-        result = chain.query_with_metadata(q)
-        print(f"\nANSWER:\n{result['answer']}")
-        
-        print("\nSOURCES:")
-        for i, source in enumerate(result['sources'], 1):
-            print(f"{i}. {source['title']} ({source['city']}) - Score: {source['score']:.4f}")
+    print("\n--- Interaction 2 (Follow-up) ---")
+    q2 = "What is the address of the first one?"
+    print(f"User: {q2}")
+    result2 = chain.query_with_metadata(q2, session_id)
+    print(f"AI: {result2['answer']}")
 
 
 if __name__ == "__main__":

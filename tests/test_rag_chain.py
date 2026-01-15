@@ -6,7 +6,7 @@ from src.retrieval.chain import RAGChain
 from src.data.models import Event
 
 @pytest.fixture
-def mock_components():
+def mock_chain_dependencies():
     """Mock vector store and LLM."""
     with patch("src.retrieval.chain.EventVectorStore") as mock_vs_class, \
          patch("src.retrieval.chain.MistralLLM") as mock_llm_class:
@@ -15,50 +15,44 @@ def mock_components():
         mock_vs_class.return_value = mock_vs
         
         mock_llm = MagicMock()
-        # Mock the underlying ChatMistralAI instance
-        mock_llm.llm = MagicMock()
         mock_llm_class.return_value = mock_llm
         
         yield mock_vs, mock_llm
 
-def test_rag_chain_initialization(mock_components):
+def test_rag_chain_initialization(mock_chain_dependencies):
     """Test chain initialization."""
-    mock_vs, _ = mock_components
+    mock_vs, _ = mock_chain_dependencies
     chain = RAGChain()
-    
     assert chain.vector_store == mock_vs
     mock_vs.load_index.assert_called_once()
 
-def test_rag_chain_query(mock_components):
-    """Test full query workflow by mocking chain.invoke."""
-    mock_vs, _ = mock_components
+def test_rag_chain_query():
+    """Test full query workflow using injected mock chain."""
+    mock_inner_chain = MagicMock()
+    mock_inner_chain.invoke.return_value = {"answer": "Mocked answer about jazz."}
     
-    chain = RAGChain()
-    # Mock the full LCEL chain's invoke method to avoid Pydantic validation issues with partial mocks
-    chain.chain = MagicMock()
-    chain.chain.invoke.return_value = "Mocked answer about jazz."
-    
+    # Inject the mock chain
+    chain = RAGChain(chain=mock_inner_chain)
     answer = chain.query("Tell me about jazz")
     
     assert answer == "Mocked answer about jazz."
-    chain.chain.invoke.assert_called_once()
+    assert mock_inner_chain.invoke.called
 
-def test_rag_chain_query_with_metadata(mock_components):
-    """Test query with source tracking by mocking internal components."""
-    mock_vs, _ = mock_components
+def test_rag_chain_query_with_metadata():
+    """Test query with source tracking using injected mock chain."""
+    mock_inner_chain = MagicMock()
     
-    # Create sample event
-    sample_event = Event(event_id="1", title="Jazz Event")
+    # Create mock doc
+    mock_doc = MagicMock()
+    mock_doc.metadata = {"title": "Jazz Event", "score": 0.9}
+    mock_doc.page_content = "Jazz event content"
     
-    chain = RAGChain()
-    # Mock the retriever and chain
-    chain.retriever = MagicMock()
-    chain.retriever.invoke.return_value = [
-        MagicMock(page_content="Jazz event content", metadata={"title": "Jazz Event", "score": 0.9})
-    ]
-    chain.chain = MagicMock()
-    chain.chain.invoke.return_value = "Mocked answer about jazz."
+    mock_inner_chain.invoke.return_value = {
+        "answer": "Mocked answer about jazz.",
+        "context": [mock_doc]
+    }
     
+    chain = RAGChain(chain=mock_inner_chain)
     result = chain.query_with_metadata("Tell me about jazz")
     
     assert result["answer"] == "Mocked answer about jazz."
