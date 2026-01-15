@@ -70,13 +70,17 @@ class DataIngestionPipeline:
                 f"({now.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')})"
             )
 
-            # Fetch raw records from API
-            # Note: OpenAgenda API doesn't support date filtering in query params
-            # We need to fetch a large batch and filter client-side
-            max_fetch = min(self.min_events * 10, 5000)  # Fetch 10x minimum or 5000 max
+            # Fetch raw records from API with date filtering
+            # Use Opendatasoft Query Language (ODSQL) to filter future events
+            # Format: firstdate_begin >= date'YYYY-MM-DD'
+            where_clause = f"firstdate_begin >= date'{now.strftime('%Y-%m-%d')}'"
+            logger.info(f"API filter: {where_clause}")
+
+            max_fetch = min(self.min_events * 10, 10000)  # Fetch 10x minimum or 10k max
             records = client.fetch_all_events(
                 max_events=max_fetch,
                 batch_size=batch_size,
+                filters={"where": where_clause},
             )
 
             if not records:

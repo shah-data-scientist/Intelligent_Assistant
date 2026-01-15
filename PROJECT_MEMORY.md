@@ -198,10 +198,16 @@ intelligent-assistant/
   - Created data ingestion pipeline ([src/data/ingestion.py](src/data/ingestion.py))
   - Added 17 storage tests (total: 41 tests passing)
   - Created comprehensive API analysis documentation ([docs/API_DATA_ANALYSIS.md](docs/API_DATA_ANALYSIS.md))
+  - **Added API-level date filtering:** Implemented Opendatasoft Query Language (ODSQL) `where` clause to filter future events at API level (reduces fetched data from 912K to 3,867 future events)
+  - **Database populated:** Successfully ingested 368 Île-de-France events (2026-2028)
+  - **Data availability:** API has limited future events in Île-de-France - only 368 available vs 1,000 target
 
 ### Known Issues
 
-None
+**Data Availability Constraint:**
+- OpenAgenda API has only 368 future events in Île-de-France (next 3 years)
+- Does not meet 1,000 event minimum requirement
+- Options: (1) Lower minimum threshold, (2) Expand geographic scope beyond Île-de-France, (3) Include recent past events for testing
 
 ### Next Steps
 
