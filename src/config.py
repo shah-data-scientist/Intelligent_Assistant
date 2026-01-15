@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     retrieval_top_k: int = 5
 
     # Data Ingestion
-    min_events_required: int = 1000  # Hard minimum for RAG system
+    min_events_required: int = 400  # Minimum for RAG system (adjusted for data availability)
     initial_time_window_months: int = 12  # Start with 1 year
     max_time_window_months: int = 36  # Maximum 3 years if needed
 

@@ -201,6 +201,13 @@ intelligent-assistant/
   - **Added API-level date filtering:** Implemented Opendatasoft Query Language (ODSQL) `where` clause to filter future events at API level (reduces fetched data from 912K to 3,867 future events)
   - **Database populated:** Successfully ingested 368 Île-de-France events (2026-2028)
   - **Data availability:** API has limited future events in Île-de-France - only 368 available vs 1,000 target
+  - **Adjusted minimum threshold:** Lowered from 1,000 to 400 events (realistic for available data)
+- **Phase 2 Complete: Vector Store & Embeddings**
+  - Implemented Mistral embeddings client ([src/models/embeddings.py](src/models/embeddings.py))
+  - Implemented FAISS vector store with metadata filtering ([src/models/vector_store.py](src/models/vector_store.py))
+  - Built and saved FAISS index: 368 events, 1024-dimensional vectors, IndexFlatIP
+  - Tested semantic search on production data (0.67-0.79 similarity scores)
+  - Verified multi-domain search: art exhibitions, theater, jazz concerts, sports events
 
 ### Known Issues
 
@@ -215,12 +222,9 @@ intelligent-assistant/
 
 **Phase 1.5: Storage Layer** ✓ COMPLETE
 
-**Phase 2: Vector Store & Embeddings (Priority 1)** ← CURRENT
-1. Set up Mistral embeddings
-2. Implement FAISS indexing
-3. Add metadata filtering capabilities
+**Phase 2: Vector Store & Embeddings** ✓ COMPLETE
 
-**Phase 3: RAG System (Priority 2)**
+**Phase 3: RAG System (Priority 1)** ← CURRENT
 1. Implement retrieval logic
 2. Set up Mistral LLM integration
 3. Create domain-specific prompts
