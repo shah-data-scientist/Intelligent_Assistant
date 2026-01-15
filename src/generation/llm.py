@@ -19,6 +19,7 @@ class MistralLLM:
         self,
         model: str = "mistral-small-latest",
         temperature: float = 0.0,
+        max_tokens: int = 500,
         api_key: str | None = None,
     ) -> None:
         """Initialize Mistral LLM client.
@@ -26,15 +27,18 @@ class MistralLLM:
         Args:
             model: Mistral model name
             temperature: Sampling temperature (0.0 for deterministic)
+            max_tokens: Maximum number of tokens to generate
             api_key: Mistral API key (defaults to settings)
         """
         self.model = model
         self.temperature = temperature
+        self.max_tokens = max_tokens
         self.api_key = api_key or settings.mistral_api_key
 
         self.llm = ChatMistralAI(
             model=model,
             temperature=temperature,
+            max_tokens=max_tokens,
             api_key=self.api_key,
         )
         logger.info(f"Initialized MistralLLM with model: {model}, temp: {temperature}")
