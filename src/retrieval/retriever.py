@@ -20,6 +20,7 @@ class EventRetriever(BaseRetriever):
 
     vector_store: Any  # EventVectorStore instance
     k: int = 5
+    _cache: dict = {}  # Simple in-memory cache
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -35,6 +36,11 @@ class EventRetriever(BaseRetriever):
         Returns:
             List of LangChain Documents
         """
+        # Check cache
+        if query in self._cache:
+            logger.info("Cache hit for query")
+            return self._cache[query]
+
         # For now, we perform simple semantic search.
         # In the future, we can add query analysis to extract metadata filters.
         results = self.vector_store.search(query, k=self.k)
@@ -45,6 +51,12 @@ class EventRetriever(BaseRetriever):
             documents.append(doc)
 
         logger.info(f"Retrieved {len(documents)} documents for query: {query[:50]}...")
+        
+        # Update cache (limit size to avoid memory leaks - simple FIFO)
+        if len(self._cache) > 1000:
+            self._cache.pop(next(iter(self._cache)))
+        self._cache[query] = documents
+        
         return documents
 
     def _event_to_document(self, event: Event, score: float) -> Document:

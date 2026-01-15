@@ -142,6 +142,34 @@ class RAGChain:
         )
         return result["answer"]
 
+    def stream_query(self, question: str, session_id: str = "default_session"):
+        """Stream the response chunk by chunk.
+
+        Args:
+            question: User question
+            session_id: Session identifier
+
+        Yields:
+            Response chunks
+        """
+        logger.info(f"Streaming query: {question} (session: {session_id})")
+        
+        # We need to stream the 'answer' key.
+        # RunnableWithMessageHistory.stream yields dicts usually if output_keys are involved,
+        # or we might need to pick_stream.
+        
+        # Simple approach: iterate over the stream
+        for chunk in self.conversational_chain.stream(
+            {"input": question},
+            config={"configurable": {"session_id": session_id}},
+        ):
+            # chunk is likely a dict {'answer': 'chunk'} or just 'chunk' depending on configuration
+            if isinstance(chunk, dict) and "answer" in chunk:
+                yield chunk["answer"]
+            elif isinstance(chunk, str):
+                yield chunk
+            # If using LCEL with dict output, it might stream dict updates.
+
     def query_with_metadata(self, question: str, session_id: str = "default_session") -> Dict[str, Any]:
         """Process query and return response with source documents.
 

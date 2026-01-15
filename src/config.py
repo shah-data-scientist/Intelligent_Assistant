@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     max_events_to_fetch: int = 20000  # Increased to ensure enough IDF events
     retrieval_top_k: int = 5
+    app_api_key: str = "dev-secret-key"  # Change this in production!
 
     # Data Ingestion
     min_events_required: int = 1000  # Target number of events

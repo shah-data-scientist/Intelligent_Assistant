@@ -223,20 +223,23 @@ intelligent-assistant/
   - Implemented keyword-based category inference to reclassify "Unknown" events.
   - Successfully refined all 1,000 events: reduced "Unknown" categories by 100%, unified "Paris" variants.
   - Created comprehensive [docs/DATA_REFINEMENT_REPORT.md](docs/DATA_REFINEMENT_REPORT.md).
-- **Phase 3 Complete: RAG System**
-  - Implemented `EventRetriever` ([src/retrieval/retriever.py](src/retrieval/retriever.py)) wrapping FAISS for LangChain compatibility.
-  - Developed domain-specific RAG prompt with auto-language detection (FR/EN) ([src/generation/prompts.py](src/generation/prompts.py)).
-  - Built `RAGChain` orchestrator using LCEL ([src/retrieval/chain.py](src/retrieval/chain.py)).
-  - **Optimization:** Selected `mistral-small-latest` to balance generation quality and latency (< 7s end-to-end).
-  - Verified end-to-end performance: relevant multi-lingual recommendations with source tracking.
+- **Phase 3 Complete: RAG System (Enhanced)**
+  - Implemented **Multi-turn Chat History** using `RunnableWithMessageHistory` and in-memory session management.
+  - Refactored orchestration to **pure LCEL** ([src/retrieval/chain.py](src/retrieval/chain.py)) to resolve dependency issues and improve flexibility.
+  - Developed a "History-Aware Retriever" logic to reformulate follow-up questions into standalone queries.
+  - **Conversational Intelligence:** Implemented explicit logic to **ask clarifying questions** for vague/ambiguous queries (e.g., "events in Paris") instead of guessing.
+  - **Hallucination Safeguards:** Reinforced grounding via strict prompt instructions and deterministic settings; verified refusal to answer when context is missing.
+  - Enforced **strict language matching** (FR/EN) and **conciseness** (< 150 words) via emphatic prompt engineering and hard token limits.
+  - **Verification:** Added `tests/test_chat_history.py`, `tests/test_language_consistency.py`, and `tests/test_behavior.py`. All tests passing.
 - **Phase 4 Complete: API Layer**
-  - Implemented FastAPI application with CORS middleware ([src/api/main.py](src/api/main.py))
-  - Created health check and chat endpoints ([src/api/endpoints.py](src/api/endpoints.py))
-  - Added lifespan management for eager RAG chain initialization (~7s startup)
-  - **Issues Resolved:** Killed zombie processes on port 8000, implemented proper initialization timing
-  - **Verification:** Health endpoint <100ms, chat queries 2-7s with 5 source events
-  - Created comprehensive API documentation ([docs/API_USAGE_GUIDE.md](docs/API_USAGE_GUIDE.md))
-  - Multi-language support verified (French/English auto-detection)
+  - Implemented FastAPI application with `/health` and `/chat` endpoints ([src/api/main.py](src/api/main.py)).
+  - **Performance Optimization:** Refactored to "Eager Initialization" (pre-loading models at startup) and thread-pool execution for sync AI calls to prevent event-loop blocking.
+  - Defined Pydantic models for strict request/response validation ([src/api/schemas.py](src/api/schemas.py)).
+  - Added unit tests for API endpoints using `TestClient`.
+- **Phase 4.5 Complete: Optimization & Security**
+  - **Latency:** Implemented LRU Caching in `EventRetriever` and added a Streaming endpoint (`/chat/stream`).
+  - **Security:** Added Guardrails (`src/security/guardrails.py`) to block prompt injection/toxicity and API Key authentication.
+  - **Verification:** Added `tests/test_api_security_latency.py`. All 71 tests passing.
 
 ### Known Issues
 
@@ -257,15 +260,9 @@ None.
 **Phase 4: API Layer** ✓ COMPLETE
 
 **Phase 5: Evaluation (Priority 1)** ← CURRENT
-1. Build retrieval metrics
-2. Implement generation quality evaluation
-3. Add performance monitoring
-4. Create end-to-end evaluation suite
-
-**Phase 6: Deployment (Priority 3)**
-1. Create Dockerfile
-2. Set up docker-compose
-3. Add deployment documentation
+1. Build retrieval metrics (Precision/Recall)
+2. Implement generation quality evaluation (ROUGE/BLEU)
+3. Add end-to-end evaluation suite
 
 ## 🔒 Security Notes
 

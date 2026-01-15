@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 from src.api.main import app
 from src.api.endpoints import get_rag_chain
+from src.config import settings
 
 client = TestClient(app)
 
@@ -45,7 +46,8 @@ def test_chat_endpoint(mock_rag_chain):
     app.dependency_overrides[get_rag_chain] = lambda: mock_rag_chain
     
     payload = {"question": "Tell me about jazz in Paris"}
-    response = client.post("/api/v1/chat", json=payload)
+    headers = {"X-API-Key": settings.app_api_key}
+    response = client.post("/api/v1/chat", json=payload, headers=headers)
     
     assert response.status_code == 200
     data = response.json()
@@ -63,5 +65,6 @@ def test_chat_endpoint(mock_rag_chain):
 def test_chat_endpoint_validation_error():
     """Test chat endpoint validation (short question)."""
     payload = {"question": "Hi"}  # Too short (< 3 chars)
-    response = client.post("/api/v1/chat", json=payload)
+    headers = {"X-API-Key": settings.app_api_key}
+    response = client.post("/api/v1/chat", json=payload, headers=headers)
     assert response.status_code == 422
