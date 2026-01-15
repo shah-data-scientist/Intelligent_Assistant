@@ -227,14 +227,8 @@ intelligent-assistant/
   - Implemented `EventRetriever` ([src/retrieval/retriever.py](src/retrieval/retriever.py)) wrapping FAISS for LangChain compatibility.
   - Developed domain-specific RAG prompt with auto-language detection (FR/EN) ([src/generation/prompts.py](src/generation/prompts.py)).
   - Built `RAGChain` orchestrator using LCEL ([src/retrieval/chain.py](src/retrieval/chain.py)).
-  - Verified end-to-end performance: relevant multi-lingual recommendations with source tracking and healthy similarity scores.
-
-  - Implemented Mistral LLM client using LangChain ([src/generation/llm.py](src/generation/llm.py)).
-  - Configured deterministic generation (temperature=0.0) for consistency.
-- **Phase 4 Complete: API Layer**
-  - Implemented FastAPI application with `/health` and `/chat` endpoints ([src/api/main.py](src/api/main.py)).
-  - Defined Pydantic models for strict request/response validation ([src/api/schemas.py](src/api/schemas.py)).
-  - Added unit tests for API endpoints using `TestClient`.
+  - **Optimization:** Selected `mistral-small-latest` to balance generation quality and latency (< 7s end-to-end).
+  - Verified end-to-end performance: relevant multi-lingual recommendations with source tracking.
 
 ### Known Issues
 

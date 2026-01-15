@@ -17,7 +17,7 @@ class MistralLLM:
 
     def __init__(
         self,
-        model: str = "mistral-large-latest",
+        model: str = "mistral-small-latest",
         temperature: float = 0.0,
         api_key: str | None = None,
     ) -> None:
