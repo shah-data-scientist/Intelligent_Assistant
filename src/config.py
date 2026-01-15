@@ -16,9 +16,9 @@ class Settings(BaseSettings):
     # Mistral API
     mistral_api_key: str
 
-    # OpenAgenda API
+    # OpenAgenda API (via Opendatasoft)
     openagenda_base_url: str = (
-        "https://api.openagenda.com/api/explore/v2.1/catalog/datasets/"
+        "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/"
         "evenements-publics-openagenda/records"
     )
 

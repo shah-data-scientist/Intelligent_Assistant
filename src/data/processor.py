@@ -25,19 +25,25 @@ class EventProcessor:
         if not date_str:
             return None
 
+        # Handle timezone offset (e.g., +00:00, +01:00)
+        # Remove timezone info for simple parsing
+        if "+" in date_str or date_str.endswith("Z"):
+            # Remove timezone suffix for parsing
+            date_str_clean = date_str.split("+")[0].replace("Z", "")
+        else:
+            date_str_clean = date_str
+
         # Common date formats
         formats = [
             "%Y-%m-%dT%H:%M:%S",
             "%Y-%m-%dT%H:%M:%S.%f",
-            "%Y-%m-%dT%H:%M:%SZ",
-            "%Y-%m-%dT%H:%M:%S.%fZ",
             "%Y-%m-%d %H:%M:%S",
             "%Y-%m-%d",
         ]
 
         for fmt in formats:
             try:
-                return datetime.strptime(date_str, fmt)
+                return datetime.strptime(date_str_clean, fmt)
             except ValueError:
                 continue
 
@@ -49,25 +55,43 @@ class EventProcessor:
         """Extract location information from event fields.
 
         Args:
-            fields: Event fields dictionary
+            fields: Event fields dictionary (Opendatasoft v2.1 or legacy format)
 
         Returns:
             EventLocation object or None
         """
         location_data: dict[str, Any] = {}
 
-        # Extract address components
-        if address := fields.get("address"):
+        # Extract address components (Opendatasoft format)
+        if address := (
+            fields.get("location_address")
+            or fields.get("address")
+        ):
             location_data["address"] = address
 
-        if city := fields.get("city") or fields.get("ville"):
+        if city := (
+            fields.get("location_city")
+            or fields.get("city")
+            or fields.get("ville")
+        ):
             location_data["city"] = city
 
-        if postal_code := fields.get("postal_code") or fields.get("code_postal"):
+        if postal_code := (
+            fields.get("location_postalcode")
+            or fields.get("postal_code")
+            or fields.get("code_postal")
+        ):
             location_data["postal_code"] = postal_code
 
-        # Extract coordinates
-        if geo := fields.get("geo_point_2d") or fields.get("geometry"):
+        # Extract coordinates (Opendatasoft format)
+        if coords := fields.get("location_coordinates"):
+            if isinstance(coords, dict) and "lat" in coords and "lon" in coords:
+                location_data["coordinates"] = {
+                    "lat": coords["lat"],
+                    "lon": coords["lon"]
+                }
+        # Legacy format
+        elif geo := fields.get("geo_point_2d") or fields.get("geometry"):
             if isinstance(geo, dict):
                 if "lat" in geo and "lon" in geo:
                     location_data["coordinates"] = {"lat": geo["lat"], "lon": geo["lon"]}
@@ -86,15 +110,15 @@ class EventProcessor:
         """Extract tags from event fields.
 
         Args:
-            fields: Event fields dictionary
+            fields: Event fields dictionary (Opendatasoft v2.1 or legacy format)
 
         Returns:
             List of tags
         """
         tags: list[str] = []
 
-        # Check various tag fields
-        for field in ["tags", "keywords", "mots_cles"]:
+        # Check various tag fields (Opendatasoft and legacy formats)
+        for field in ["keywords_fr", "keywords", "tags", "mots_cles"]:
             if value := fields.get(field):
                 if isinstance(value, list):
                     tags.extend(str(tag) for tag in value)
@@ -107,23 +131,36 @@ class EventProcessor:
         """Process a single event record from OpenAgenda API.
 
         Args:
-            record: Raw event record from API
+            record: Raw event record from API (Opendatasoft v2.1 or legacy format)
 
         Returns:
             Processed Event object or None if processing fails
         """
         try:
-            fields = record.get("fields", {})
+            # Check if this is Opendatasoft v2.1 format (fields at root)
+            # or legacy format (fields nested under "fields" key)
+            if "title_fr" in record or "uid" in record:
+                # Opendatasoft v2.1 format
+                fields = record
+            else:
+                # Legacy format
+                fields = record.get("fields", {})
 
             # Generate unique event ID
-            event_id = record.get("recordid") or record.get("id")
+            event_id = (
+                record.get("uid")
+                or record.get("slug")
+                or record.get("recordid")
+                or record.get("id")
+            )
             if not event_id:
                 logger.warning("Event missing ID, skipping")
                 return None
 
             # Extract title
             title = (
-                fields.get("title")
+                fields.get("title_fr")
+                or fields.get("title")
                 or fields.get("titre")
                 or fields.get("nom")
                 or "Untitled Event"
@@ -131,27 +168,37 @@ class EventProcessor:
 
             # Extract description
             description = (
-                fields.get("description")
+                fields.get("description_fr")
+                or fields.get("longdescription_fr")
+                or fields.get("description")
                 or fields.get("description_longue")
                 or fields.get("free_text")
             )
 
-            # Extract category
-            category = (
-                fields.get("category")
-                or fields.get("categorie")
-                or fields.get("type")
-            )
+            # Extract category (use keywords as proxy for Opendatasoft format)
+            category = None
+            if keywords_fr := fields.get("keywords_fr"):
+                if isinstance(keywords_fr, list) and keywords_fr:
+                    category = keywords_fr[0]
+            if not category:
+                category = (
+                    fields.get("category")
+                    or fields.get("categorie")
+                    or fields.get("type")
+                )
 
-            # Extract dates
+            # Extract dates (Opendatasoft format or legacy)
             start_date = self.parse_date(
-                fields.get("start_date")
+                fields.get("firstdate_begin")
+                or fields.get("start_date")
                 or fields.get("date_debut")
                 or fields.get("date_start")
             )
 
             end_date = self.parse_date(
-                fields.get("end_date")
+                fields.get("lastdate_end")
+                or fields.get("firstdate_end")
+                or fields.get("end_date")
                 or fields.get("date_fin")
                 or fields.get("date_end")
             )
