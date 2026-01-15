@@ -16,12 +16,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+from src.retrieval.chain import RAGChain
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle events."""
     logger.info("Starting up Intelligent Assistant API...")
+    
+    # Eagerly initialize the RAG Chain
+    # This prevents the first user from waiting ~10s for model loading
+    logger.info("Pre-loading RAG Chain (Embeddings & LLM)...")
+    try:
+        app.state.rag_chain = RAGChain()
+        logger.info("RAG Chain loaded successfully.")
+    except Exception as e:
+        logger.error(f"Critical error loading RAG Chain: {e}")
+        # We might want to raise here, but for now we'll log it
+    
     yield
+    
     logger.info("Shutting down...")
+    app.state.rag_chain = None
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
