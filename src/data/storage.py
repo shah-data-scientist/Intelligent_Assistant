@@ -330,6 +330,47 @@ class EventStorage:
             records = session.execute(query).scalars().all()
             return [self._record_to_event(r) for r in records]
 
+    def update_event(self, event: Event) -> bool:
+        """Update an existing event in storage.
+
+        Args:
+            event: Event with updated fields
+
+        Returns:
+            True if updated, False if not found
+        """
+        with self.SessionLocal() as session:
+            record = session.execute(
+                select(EventRecord).where(EventRecord.event_id == event.event_id)
+            ).scalar_one_or_none()
+
+            if not record:
+                logger.debug(f"Event {event.event_id} not found for update")
+                return False
+
+            # Update fields
+            record.title = event.title
+            record.description = event.description
+            record.category = event.category
+            record.start_date = event.start_date
+            record.end_date = event.end_date
+            record.organizer = event.organizer
+            record.url = event.url
+            record.image_url = event.image_url
+            record.tags_json = json.dumps(event.tags) if event.tags else None
+            record.raw_data_json = json.dumps(event.raw_data) if event.raw_data else None
+
+            if event.location:
+                record.city = event.location.city
+                record.postal_code = event.location.postal_code
+                record.address = event.location.address
+                if event.location.coordinates:
+                    record.coordinates_json = json.dumps(event.location.coordinates)
+
+            session.commit()
+            logger.debug(f"Updated event {event.event_id}")
+            return True
+
     def count_events(self) -> int:
         """Count total events in storage.
 

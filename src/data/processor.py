@@ -1,7 +1,7 @@
 """Data processing and normalization for cultural events."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from src.data.models import Event, EventLocation
@@ -127,15 +127,161 @@ class EventProcessor:
 
         return list(set(tags))  # Remove duplicates
 
+    @staticmethod
+    def normalize_string(text: str | None) -> str | None:
+        """Normalize string: strip, title case for names, or specific case logic."""
+        if not text:
+            return None
+        text = text.strip()
+        if not text:
+            return None
+        # Handle all-caps or all-lowercase by converting to Title Case
+        return text.capitalize() if text.isupper() or text.islower() else text
+
+    def infer_category(self, event: Event) -> str | None:
+        """Infer category from title, description, or tags if current category is missing."""
+        if event.category and event.category.lower() != "unknown":
+            return self.normalize_string(event.category)
+
+        # Mapping of keywords to categories
+        mapping = {
+            "Musique": ["concert", "musique", "jazz", "opera", "récital", "chanson", "rock", "groove"],
+            "Théâtre": ["théâtre", "spectacle", "comédie", "tragédie", "scène", "pièce"],
+            "Art": ["exposition", "expo", "peinture", "sculpture", "galerie", "musée", "art"],
+            "Conférence": ["conférence", "débat", "rencontre", "littérature", "histoire", "colloque"],
+            "Atelier": ["atelier", "stage", "cours", "initiation", "formation"],
+            "Sport": ["sport", "match", "compétition", "tournoi", "danse", "yoga"],
+            "Industrie": ["industrie", "métier", "entreprise", "recrutement", "usine"]
+        }
+
+        search_text = f"{event.title or ''} {event.description or ''} {' '.join(event.tags or [])}".lower()
+
+        for cat, keywords in mapping.items():
+            if any(kw in search_text for kw in keywords):
+                return cat
+
+        return "Autre"
+
     def process_record(self, record: dict[str, Any]) -> Event | None:
-        """Process a single event record from OpenAgenda API.
+        """Process a single event record from OpenAgenda API."""
+        try:
+            # Check if this is Opendatasoft v2.1 format (fields at root)
+            # or legacy format (fields nested under "fields" key)
+            if "title_fr" in record or "uid" in record:
+                # Opendatasoft v2.1 format
+                fields = record
+            else:
+                # Legacy format
+                fields = record.get("fields", {})
 
-        Args:
-            record: Raw event record from API (Opendatasoft v2.1 or legacy format)
+            # Generate unique event ID
+            event_id = (
+                record.get("uid")
+                or record.get("slug")
+                or record.get("recordid")
+                or record.get("id")
+            )
+            if not event_id:
+                logger.warning("Event missing ID, skipping")
+                return None
 
-        Returns:
-            Processed Event object or None if processing fails
-        """
+            # Extract title
+            title = (
+                fields.get("title_fr")
+                or fields.get("title")
+                or fields.get("titre")
+                or fields.get("nom")
+                or "Untitled Event"
+            )
+
+            # Extract description
+            description = (
+                fields.get("description_fr")
+                or fields.get("longdescription_fr")
+                or fields.get("description")
+                or fields.get("description_longue")
+                or fields.get("free_text")
+            )
+
+            # Extract category (use keywords as proxy for Opendatasoft format)
+            category = None
+            if keywords_fr := fields.get("keywords_fr"):
+                if isinstance(keywords_fr, list) and keywords_fr:
+                    category = keywords_fr[0]
+            if not category:
+                category = (
+                    fields.get("category")
+                    or fields.get("categorie")
+                    or fields.get("type")
+                )
+            
+            # Normalize category
+            category = self.normalize_string(category)
+
+            # Extract dates
+            start_date = self.parse_date(
+                fields.get("firstdate_begin")
+                or fields.get("start_date")
+                or fields.get("date_debut")
+                or fields.get("date_start")
+            )
+
+            end_date = self.parse_date(
+                fields.get("lastdate_end")
+                or fields.get("firstdate_end")
+                or fields.get("end_date")
+                or fields.get("date_fin")
+                or fields.get("date_end")
+            )
+
+            # Extract location and normalize city
+            location = self.extract_location(fields)
+            if location and location.city:
+                location.city = self.normalize_string(location.city)
+
+            # Extract other fields
+            organizer = (
+                fields.get("organizer")
+                or fields.get("organisateur")
+                or fields.get("organization")
+            )
+
+            url = fields.get("url") or fields.get("link") or fields.get("lien")
+
+            image_url = (
+                fields.get("image")
+                or fields.get("image_url")
+                or fields.get("photo")
+            )
+
+            # Extract tags and normalize
+            tags = [t.capitalize() for t in self.extract_tags(fields)]
+
+            # Create Event object
+            event = Event(
+                event_id=str(event_id),
+                title=title,
+                description=description,
+                category=category,
+                location=location,
+                start_date=start_date,
+                end_date=end_date,
+                organizer=organizer,
+                url=url,
+                image_url=image_url,
+                tags=tags,
+                raw_data=record,
+            )
+
+            # Impute missing category
+            if not event.category or event.category.lower() == "unknown":
+                event.category = self.infer_category(event)
+
+            return event
+
+        except Exception as e:
+            logger.error(f"Error processing event record: {e}")
+            return None
         try:
             # Check if this is Opendatasoft v2.1 format (fields at root)
             # or legacy format (fields nested under "fields" key)
@@ -382,3 +528,86 @@ class EventProcessor:
             f"(date range: {start_date} to {end_date})"
         )
         return filtered_events
+
+    def redistribute_events_seasonally(
+        self,
+        events: list[Event],
+        start_date: datetime | None = None,
+    ) -> list[Event]:
+        """Redistribute events over the next year preserving seasonality.
+
+        Projects past/future event dates to the next occurrence of their
+        month/day within the [start_date, start_date + 365 days] window.
+        Maintains event duration.
+
+        Args:
+            events: List of Event objects
+            start_date: Start of the target 1-year window (default: now)
+
+        Returns:
+            List of events with modified dates
+        """
+        if start_date is None:
+            start_date = datetime.now()
+
+        window_end = start_date + timedelta(days=365)
+        processed_events = []
+
+        for event in events:
+            if not event.start_date:
+                continue
+
+            # Calculate duration
+            duration = timedelta(hours=2)  # Default duration
+            if event.end_date:
+                duration = event.end_date - event.start_date
+                # specific case where duration is negative
+                if duration.total_seconds() < 0:
+                    duration = timedelta(hours=2)
+
+            # Determine target year for the event's month/day
+            # We want the next occurrence of this month/day >= start_date
+            
+            # Create candidate date in start_date's year
+            try:
+                candidate_year = start_date.year
+                candidate_date = event.start_date.replace(year=candidate_year)
+            except ValueError:
+                # Handle leap years (e.g. original was Feb 29, target not leap)
+                # Fallback to Feb 28 or Mar 1
+                candidate_date = event.start_date.replace(year=candidate_year, day=28)
+
+            # If candidate is before start_date, move to next year
+            if candidate_date < start_date:
+                try:
+                    candidate_date = candidate_date.replace(year=candidate_year + 1)
+                except ValueError:
+                    candidate_date = candidate_date.replace(year=candidate_year + 1, day=28)
+
+            # Verify it's within window (should be, but good sanity check)
+            if candidate_date > window_end:
+                # specific case where the loop wraps around too far? 
+                # Should not happen with the logic above unless window < 365
+                pass
+
+            # Update event dates
+            # We must create a copy or modify in place? 
+            # Modifying in place is fine as these are transient objects during ingestion
+            
+            # We need to preserve the time of day
+            new_start = candidate_date
+            new_end = new_start + duration
+
+            event.start_date = new_start
+            event.end_date = new_end
+            
+            # Also update raw_data text fields if they contain the date? 
+            # No, that might be too complex. We trust the object fields.
+            
+            processed_events.append(event)
+
+        logger.info(
+            f"Redistributed {len(processed_events)} events seasonally "
+            f"starting from {start_date.strftime('%Y-%m-%d')}"
+        )
+        return processed_events

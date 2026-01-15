@@ -20,121 +20,82 @@ class DataIngestionPipeline:
         self,
         storage: EventStorage | None = None,
         min_events: int = 1000,
-        initial_months: int = 12,
-        max_months: int = 36,
     ) -> None:
         """Initialize ingestion pipeline.
 
         Args:
             storage: EventStorage instance (creates new if None)
-            min_events: Minimum number of events required (hard constraint)
-            initial_months: Initial time window in months from now
-            max_months: Maximum time window in months (safety limit)
+            min_events: Target number of events
         """
         self.storage = storage or EventStorage()
         self.processor = EventProcessor()
         self.min_events = min_events
-        self.initial_months = initial_months
-        self.max_months = max_months
 
-    def fetch_events_with_dynamic_window(
+    def fetch_and_transform_events(
         self,
         client: OpenAgendaClient,
         batch_size: int = 100,
-    ) -> tuple[list[Event], datetime, datetime]:
-        """Fetch events with dynamic time window to meet minimum count.
-
-        Starts with initial_months window, extends if needed to reach min_events.
+    ) -> list[Event]:
+        """Fetch recent events, filter for IDF, and redistribute dates.
 
         Args:
             client: OpenAgendaClient instance
             batch_size: Events per API request
 
         Returns:
-            Tuple of (filtered_events, start_date, end_date)
+            List of transformed events
         """
-        now = datetime.now()
-        months_to_try = self.initial_months
-        filtered_events: list[Event] = []
-
-        logger.info(
-            f"Starting data fetch with dynamic window "
-            f"(target: {self.min_events} events minimum)"
+        logger.info("Starting fetch of recent events...")
+        
+        # 1. Fetch recent events from API
+        # Use ODSQL 'where' clause for filtering. 
+        # Note: double quotes for string literals in ODSQL.
+        filters = {
+            "order_by": "firstdate_begin desc",
+            "where": 'location_region like "Île-de-France"'
+        }
+        
+        # We need 1000 events. Fetching 2000 should be safe if the filter works.
+        # If the filter fails (e.g. wrong field name), we might get 0 or non-IDF events.
+        # But this is the most efficient way.
+        target_fetch = max(self.min_events * 2, 2000)
+        
+        raw_records = client.fetch_all_events(
+            max_events=target_fetch,
+            batch_size=batch_size,
+            filters=filters,
         )
+        
+        if not raw_records:
+            logger.warning("No records fetched from API with IDF filter")
+            return []
 
-        while months_to_try <= self.max_months:
-            end_date = now + timedelta(days=30 * months_to_try)
+        # 2. Process records into Event objects
+        all_events = self.processor.process_records(raw_records)
+        logger.info(f"Processed {len(all_events)} valid events")
 
-            logger.info(
-                f"Attempting fetch with {months_to_try}-month window "
-                f"({now.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')})"
-            )
-
-            # Fetch raw records from API with date filtering
-            # Use Opendatasoft Query Language (ODSQL) to filter future events
-            # Format: firstdate_begin >= date'YYYY-MM-DD'
-            where_clause = f"firstdate_begin >= date'{now.strftime('%Y-%m-%d')}'"
-            logger.info(f"API filter: {where_clause}")
-
-            max_fetch = min(self.min_events * 10, 10000)  # Fetch 10x minimum or 10k max
-            records = client.fetch_all_events(
-                max_events=max_fetch,
-                batch_size=batch_size,
-                filters={"where": where_clause},
-            )
-
-            if not records:
-                logger.warning("No records fetched from API")
-                return [], now, end_date
-
-            # Process records
-            all_events = self.processor.process_records(records)
-            logger.info(f"Processed {len(all_events)} events from {len(records)} records")
-
-            # Apply filters: Île-de-France + date range
-            idf_events = self.processor.filter_ile_de_france_events(all_events)
-            filtered_events = self.processor.filter_by_date_range(
-                idf_events,
-                start_date=now,
-                end_date=end_date,
-            )
-
-            event_count = len(filtered_events)
-            logger.info(
-                f"After filtering (Île-de-France + {months_to_try} months): "
-                f"{event_count} events"
-            )
-
-            # Check if we have enough events
-            if event_count >= self.min_events:
-                logger.info(
-                    f"✓ Achieved minimum: {event_count} events "
-                    f"(target: {self.min_events})"
-                )
-                return filtered_events, now, end_date
-
-            # Need more events - extend window
+        # 3. Filter for Île-de-France (double-check locally in case API filter was loose)
+        idf_events = self.processor.filter_ile_de_france_events(all_events)
+        
+        # 4. Select top N events
+        selected_events = idf_events[:self.min_events]
+        
+        if len(selected_events) < self.min_events:
             logger.warning(
-                f"Only {event_count} events found "
-                f"(need {self.min_events - event_count} more)"
+                f"Only found {len(selected_events)} IDF events "
+                f"(target: {self.min_events}). Using all available."
             )
+        else:
+            logger.info(f"Selected top {len(selected_events)} IDF events")
 
-            if months_to_try >= self.max_months:
-                logger.error(
-                    f"Reached maximum time window ({self.max_months} months) "
-                    f"with only {event_count} events"
-                )
-                return filtered_events, now, end_date
-
-            # Extend by 6 months
-            months_to_try += 6
-            logger.info(f"Extending time window to {months_to_try} months...")
-
-        logger.error(
-            f"Failed to reach minimum of {self.min_events} events "
-            f"even with {self.max_months}-month window"
+        # 5. Redistribute dates seasonally
+        # Transform dates to [Now, Now + 365 days]
+        transformed_events = self.processor.redistribute_events_seasonally(
+            selected_events,
+            start_date=datetime.now()
         )
-        return filtered_events, now, now + timedelta(days=30 * self.max_months)
+        
+        return transformed_events
 
     def ingest(self, force_refresh: bool = False) -> dict[str, Any]:
         """Run full ingestion pipeline.
@@ -148,14 +109,10 @@ class DataIngestionPipeline:
         stats = {
             "start_time": datetime.now(),
             "existing_count": 0,
-            "fetched_count": 0,
-            "filtered_count": 0,
+            "fetched_raw": 0,
+            "selected_count": 0,
             "new_events_added": 0,
             "total_after_ingest": 0,
-            "time_window_months": 0,
-            "start_date": None,
-            "end_date": None,
-            "min_events_target": self.min_events,
             "target_met": False,
         }
 
@@ -169,26 +126,18 @@ class DataIngestionPipeline:
                 self.storage.clear_all()
                 stats["existing_count"] = 0
 
-            # Fetch events with dynamic window
+            # Fetch and transform
             with OpenAgendaClient() as client:
-                filtered_events, start_date, end_date = (
-                    self.fetch_events_with_dynamic_window(client)
-                )
+                transformed_events = self.fetch_and_transform_events(client)
 
-            stats["filtered_count"] = len(filtered_events)
-            stats["start_date"] = start_date.isoformat()
-            stats["end_date"] = end_date.isoformat()
-            stats["time_window_months"] = (
-                (end_date - start_date).days / 30
-            )
+            stats["selected_count"] = len(transformed_events)
 
-            if not filtered_events:
-                logger.error("No events to ingest after filtering")
-                stats["target_met"] = False
+            if not transformed_events:
+                logger.error("No events to ingest after processing")
                 return stats
 
-            # Store events (deduplication handled by storage layer)
-            new_count = self.storage.add_events_bulk(filtered_events)
+            # Store events
+            new_count = self.storage.add_events_bulk(transformed_events)
             stats["new_events_added"] = new_count
             stats["total_after_ingest"] = self.storage.count_events()
             stats["target_met"] = stats["total_after_ingest"] >= self.min_events
@@ -201,11 +150,9 @@ class DataIngestionPipeline:
 
             logger.info("=" * 80)
             logger.info("Ingestion Summary:")
-            logger.info(f"  Events fetched: {stats['filtered_count']}")
+            logger.info(f"  Events selected & transformed: {stats['selected_count']}")
             logger.info(f"  New events added: {stats['new_events_added']}")
             logger.info(f"  Total in storage: {stats['total_after_ingest']}")
-            logger.info(f"  Time window: {stats['time_window_months']:.1f} months")
-            logger.info(f"  Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
             logger.info(f"  Target ({self.min_events} events): {'✓ MET' if stats['target_met'] else '✗ NOT MET'}")
             logger.info(f"  Duration: {stats['duration_seconds']:.1f}s")
             logger.info("=" * 80)

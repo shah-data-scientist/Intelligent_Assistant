@@ -35,11 +35,11 @@ class Settings(BaseSettings):
 
     # Application Settings
     log_level: str = "INFO"
-    max_events_to_fetch: int = 5000  # Increased for Île-de-France coverage
+    max_events_to_fetch: int = 20000  # Increased to ensure enough IDF events
     retrieval_top_k: int = 5
 
     # Data Ingestion
-    min_events_required: int = 400  # Minimum for RAG system (adjusted for data availability)
+    min_events_required: int = 1000  # Target number of events
     initial_time_window_months: int = 12  # Start with 1 year
     max_time_window_months: int = 36  # Maximum 3 years if needed
 
