@@ -1,7 +1,7 @@
 # Project Memory
 
-**Last Updated:** 2026-01-15
-**Status:** Requirements Defined
+**Last Updated:** 2026-01-15 21:12
+**Status:** Phase 4 Complete - API Operational
 **Project:** RAG-based Cultural Events Recommendation Assistant
 
 ## 📋 Project Requirements
@@ -229,6 +229,14 @@ intelligent-assistant/
   - Built `RAGChain` orchestrator using LCEL ([src/retrieval/chain.py](src/retrieval/chain.py)).
   - **Optimization:** Selected `mistral-small-latest` to balance generation quality and latency (< 7s end-to-end).
   - Verified end-to-end performance: relevant multi-lingual recommendations with source tracking.
+- **Phase 4 Complete: API Layer**
+  - Implemented FastAPI application with CORS middleware ([src/api/main.py](src/api/main.py))
+  - Created health check and chat endpoints ([src/api/endpoints.py](src/api/endpoints.py))
+  - Added lifespan management for eager RAG chain initialization (~7s startup)
+  - **Issues Resolved:** Killed zombie processes on port 8000, implemented proper initialization timing
+  - **Verification:** Health endpoint <100ms, chat queries 2-7s with 5 source events
+  - Created comprehensive API documentation ([docs/API_USAGE_GUIDE.md](docs/API_USAGE_GUIDE.md))
+  - Multi-language support verified (French/English auto-detection)
 
 ### Known Issues
 
@@ -249,12 +257,6 @@ None.
 **Phase 4: API Layer** ✓ COMPLETE
 
 **Phase 5: Evaluation (Priority 1)** ← CURRENT
-1. Build retrieval metrics
-2. Implement generation quality evaluation
-3. Add performance monitoring
-4. Create end-to-end evaluation suite
-
-**Phase 5: Evaluation (Priority 3)**
 1. Build retrieval metrics
 2. Implement generation quality evaluation
 3. Add performance monitoring
