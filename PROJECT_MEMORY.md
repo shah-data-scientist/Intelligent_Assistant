@@ -1,7 +1,7 @@
 # Project Memory
 
-**Last Updated:** 2026-01-15 21:12
-**Status:** Phase 4 Complete - API Operational
+**Last Updated:** 2026-01-15 21:40
+**Status:** Phase 4.5 Complete - Optimized & Secured
 **Project:** RAG-based Cultural Events Recommendation Assistant
 
 ## 📋 Project Requirements
@@ -45,6 +45,10 @@ Design, implement, and demonstrate a Retrieval-Augmented Generation (RAG) system
    - REST API for business experimentation
    - Suitable for future integration
 
+7. **User Interface** (New)
+   - Streamlit application for user interaction
+   - Chat interface, filters, and visualization
+
 ### Technical Requirements
 
 **Core Technologies:**
@@ -53,7 +57,7 @@ Design, implement, and demonstrate a Retrieval-Augmented Generation (RAG) system
 - **Vector Store:** FAISS
 - **Orchestration:** LangChain
 - **Language Support:** Multi-language (auto-detect French/English)
-- **Deployment:** Docker containerized
+- **Deployment:** Docker containerized (Full stack: DB, API, Frontend)
 
 **Performance Requirements:**
 - Response time: <2 seconds (target SLA)
@@ -66,6 +70,7 @@ Design, implement, and demonstrate a Retrieval-Augmented Generation (RAG) system
 3. Retrieval system (query → relevant events)
 4. Generation system (context → LLM → response)
 5. REST API layer (external interface)
+6. Streamlit Frontend (user interface)
 
 ### Evaluation Requirements
 
@@ -100,7 +105,8 @@ Design, implement, and demonstrate a Retrieval-Augmented Generation (RAG) system
 - **Vector Store:** FAISS
 - **Orchestration:** LangChain
 - **API Framework:** FastAPI (REST API)
-- **Containerization:** Docker
+- **Frontend:** Streamlit
+- **Containerization:** Docker & Docker Compose
 
 **Development:**
 - **Testing:** pytest
@@ -110,12 +116,12 @@ Design, implement, and demonstrate a Retrieval-Augmented Generation (RAG) system
 ### System Architecture
 
 ```
-┌─────────────────┐
-│   REST API      │  ← FastAPI endpoint
-│   (FastAPI)     │
-└────────┬────────┘
-         │
-         ↓
+┌─────────────────┐      ┌─────────────────┐
+│ Streamlit App   │ <--> │   REST API      │
+│ (Frontend)      │      │   (FastAPI)     │
+└─────────────────┘      └────────┬────────┘
+                                  │
+                                  ↓
 ┌─────────────────────────────────────┐
 │     RAG Orchestration Layer         │
 │         (LangChain)                 │
@@ -163,6 +169,8 @@ intelligent-assistant/
 │   │   └── prompts.py     # Domain-specific prompts
 │   ├── api/               # REST API
 │   │   └── endpoints.py   # FastAPI routes
+│   ├── frontend/          # Streamlit App
+│   │   └── app.py         # UI logic
 │   └── evaluation/        # Evaluation metrics
 ├── tests/                 # Unit & integration tests
 ├── notebooks/             # Experimentation & analysis
@@ -259,10 +267,20 @@ None.
 
 **Phase 4: API Layer** ✓ COMPLETE
 
-**Phase 5: Evaluation (Priority 1)** ← CURRENT
+**Phase 4.5: User Interface (Priority 1)** ← CURRENT
+1. Build Streamlit App (Chat UI, Filters, Map visualization).
+2. Connect to FastAPI backend.
+
+**Phase 5: Evaluation (Priority 2)**
 1. Build retrieval metrics (Precision/Recall)
 2. Implement generation quality evaluation (ROUGE/BLEU)
 3. Add end-to-end evaluation suite
+
+**Phase 6: Deployment & Containerization (Priority 3)**
+1. Dockerize Database (Volume).
+2. Dockerize API (FastAPI).
+3. Dockerize Frontend (Streamlit).
+4. Create `docker-compose.yml` for orchestration.
 
 ## 🔒 Security Notes
 

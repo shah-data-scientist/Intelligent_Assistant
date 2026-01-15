@@ -1,7 +1,9 @@
-"Tests for the RAGChain orchestrator."
+
+"""Tests for the RAGChain orchestrator."""
 
 from unittest.mock import MagicMock, patch
 import pytest
+from langchain_core.runnables import RunnableLambda
 from src.retrieval.chain import RAGChain
 from src.data.models import Event
 
@@ -28,29 +30,31 @@ def test_rag_chain_initialization(mock_chain_dependencies):
 
 def test_rag_chain_query():
     """Test full query workflow using injected mock chain."""
-    mock_inner_chain = MagicMock()
-    mock_inner_chain.invoke.return_value = {"answer": "Mocked answer about jazz."}
+    def mock_invoke(input_dict):
+        return {"answer": "Mocked answer about jazz."}
+    
+    mock_inner_chain = RunnableLambda(mock_invoke)
     
     # Inject the mock chain
     chain = RAGChain(chain=mock_inner_chain)
     answer = chain.query("Tell me about jazz")
     
     assert answer == "Mocked answer about jazz."
-    assert mock_inner_chain.invoke.called
 
 def test_rag_chain_query_with_metadata():
     """Test query with source tracking using injected mock chain."""
-    mock_inner_chain = MagicMock()
-    
     # Create mock doc
     mock_doc = MagicMock()
     mock_doc.metadata = {"title": "Jazz Event", "score": 0.9}
     mock_doc.page_content = "Jazz event content"
     
-    mock_inner_chain.invoke.return_value = {
-        "answer": "Mocked answer about jazz.",
-        "context": [mock_doc]
-    }
+    def mock_invoke(input_dict):
+        return {
+            "answer": "Mocked answer about jazz.",
+            "context": [mock_doc]
+        }
+    
+    mock_inner_chain = RunnableLambda(mock_invoke)
     
     chain = RAGChain(chain=mock_inner_chain)
     result = chain.query_with_metadata("Tell me about jazz")

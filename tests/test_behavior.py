@@ -1,21 +1,19 @@
 """Tests for specific AI behaviors like clarification and grounding."""
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+from langchain_core.runnables import RunnableLambda
 from src.retrieval.chain import RAGChain
 
 @pytest.mark.integration
 def test_clarification_on_vague_query():
     """Test that the system asks for clarification on vague queries."""
-    # We mock the LLM response to simulate the desired behavior first, 
-    # ensuring our chain logic supports it. 
-    # (In a real e2e test, we'd rely on the prompt, but that's expensive/slow here).
     
-    mock_inner_chain = MagicMock()
-    # Simulate LLM following the prompt instructions
-    mock_inner_chain.invoke.return_value = {
-        "answer": "Could you please specify what type of events you are interested in? (Music, Art, Theater?)"
-    }
+    # Use RunnableLambda to simulate chain behavior correctly
+    def mock_invoke(input_dict):
+        return {"answer": "Could you please specify what type of events you are interested in? (Music, Art, Theater?)"}
+    
+    mock_inner_chain = RunnableLambda(mock_invoke)
     
     chain = RAGChain(chain=mock_inner_chain)
     response = chain.query("Events in Paris")
@@ -27,11 +25,10 @@ def test_clarification_on_vague_query():
 @pytest.mark.integration
 def test_grounding_no_hallucination():
     """Test that the system refuses to answer when no context is found."""
-    mock_inner_chain = MagicMock()
-    # Simulate LLM behavior when context is empty
-    mock_inner_chain.invoke.return_value = {
-        "answer": "I don't have information about that."
-    }
+    def mock_invoke(input_dict):
+        return {"answer": "I don't have information about that."}
+        
+    mock_inner_chain = RunnableLambda(mock_invoke)
     
     chain = RAGChain(chain=mock_inner_chain)
     

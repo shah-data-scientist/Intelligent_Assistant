@@ -6,7 +6,8 @@ from typing import Any, Dict
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.chat_history import BaseChatMessageHistory, InMemoryChatMessageHistory
+from langchain_core.chat_history import BaseChatMessageHistory
+
 # Removing langchain.chains imports to rely on core LCEL
 # from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 # from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -15,17 +16,13 @@ from src.models.vector_store import EventVectorStore
 from src.generation.llm import MistralLLM
 from src.generation.prompts import get_rag_prompt, get_contextualize_q_prompt
 from src.retrieval.retriever import EventRetriever
+from src.data.chat_history import SQLiteChatMessageHistory
 
 logger = logging.getLogger(__name__)
 
-# Global store for chat histories (POC only - use Redis/SQL for production)
-store: Dict[str, BaseChatMessageHistory] = {}
-
 def get_session_history(session_id: str) -> BaseChatMessageHistory:
-    """Get or create chat history for a session."""
-    if session_id not in store:
-        store[session_id] = InMemoryChatMessageHistory()
-    return store[session_id]
+    """Get persistent chat history for a session."""
+    return SQLiteChatMessageHistory(session_id=session_id)
 
 
 class RAGChain:
@@ -37,6 +34,7 @@ class RAGChain:
         llm: MistralLLM | None = None,
         k: int = 5,
         chain: Any | None = None,
+        history_factory: Any | None = None,
     ) -> None:
         """Initialize the RAG chain.
 
@@ -45,6 +43,7 @@ class RAGChain:
             llm: MistralLLM instance
             k: Number of events to retrieve
             chain: Optional pre-configured conversational chain (for testing)
+            history_factory: Optional factory for chat history (for testing)
         """
         self.vector_store = vector_store or EventVectorStore()
         try:
@@ -54,8 +53,18 @@ class RAGChain:
 
         self.llm = llm or MistralLLM()
         
+        # Use provided history factory or default
+        session_history_factory = history_factory or get_session_history
+        
         if chain:
-            self.conversational_chain = chain
+            # If a chain is provided (mock), wrap it with history
+            self.conversational_chain = RunnableWithMessageHistory(
+                chain,
+                session_history_factory,
+                input_messages_key="input",
+                history_messages_key="chat_history",
+                output_messages_key="answer", 
+            )
             logger.info("RAGChain initialized with injected chain.")
             return
 
