@@ -248,6 +248,23 @@ intelligent-assistant/
   - **Latency:** Implemented LRU Caching in `EventRetriever` and added a Streaming endpoint (`/chat/stream`).
   - **Security:** Added Guardrails (`src/security/guardrails.py`) to block prompt injection/toxicity and API Key authentication.
   - **Verification:** Added `tests/test_api_security_latency.py`. All 71 tests passing.
+- **Phase 4.5 Complete: User Interface**
+  - **Modern Streamlit App:** Implemented full-featured web interface ([src/frontend/app.py](src/frontend/app.py)).
+  - **Chat Interface:** Modern chat UI with session management, message history, and loading states.
+  - **Visualizations:**
+    - Interactive folium map with event markers
+    - Plotly charts (score distribution, events by city)
+    - Tabbed interface for sources/map/statistics
+  - **Features:**
+    - Multi-language selector (FR/EN)
+    - API status monitoring
+    - Source event display with detailed cards
+    - Error handling with actionable messages
+    - Custom CSS for modern styling
+  - **Dependencies:** Added streamlit, plotly, folium, streamlit-folium
+  - **Documentation:** Created comprehensive [docs/FRONTEND_GUIDE.md](docs/FRONTEND_GUIDE.md)
+  - **Helper Script:** Added [scripts/run_frontend.py](scripts/run_frontend.py) for easy startup
+  - **Verification:** Frontend tested and operational on http://localhost:8501
 
 ### Known Issues
 
@@ -267,11 +284,9 @@ None.
 
 **Phase 4: API Layer** ✓ COMPLETE
 
-**Phase 4.5: User Interface (Priority 1)** ← CURRENT
-1. Build Streamlit App (Chat UI, Filters, Map visualization).
-2. Connect to FastAPI backend.
+**Phase 4.5: User Interface** ✓ COMPLETE
 
-**Phase 5: Evaluation (Priority 2)**
+**Phase 5: Evaluation (Priority 1)** ← CURRENT
 1. Build retrieval metrics (Precision/Recall)
 2. Implement generation quality evaluation (ROUGE/BLEU)
 3. Add end-to-end evaluation suite

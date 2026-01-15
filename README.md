@@ -5,13 +5,15 @@
 A Retrieval-Augmented Generation (RAG) system that recommends cultural events in Paris using real-time data from OpenAgenda. This POC combines semantic search, metadata filtering, and LLM-powered generation to answer user queries about upcoming events.
 
 **Key Features:**
-- Real-time event data from OpenAgenda API
+- Real-time event data from OpenAgenda API (1,000+ Île-de-France events)
 - Semantic search with FAISS vector store
-- Metadata-based filtering (date, location)
+- Metadata-based filtering (date, location, category)
 - Multi-language support (French/English auto-detection)
 - Mistral LLM for natural language responses
-- REST API for easy integration
-- <2 second response time target
+- REST API with authentication
+- Modern Streamlit web interface
+- Interactive map visualization
+- 2-7 second response time
 
 ## Setup
 
@@ -62,18 +64,26 @@ intelligent-assistant/
 ├── src/
 │   ├── data/              # Data ingestion & processing
 │   │   ├── api_client.py  # OpenAgenda API client
-│   │   └── processor.py   # Data cleaning/normalization
+│   │   ├── processor.py   # Data cleaning/normalization
+│   │   ├── storage.py     # SQLite database
+│   │   └── models.py      # Data models
 │   ├── models/            # Vector store & embeddings
 │   │   ├── embeddings.py  # Mistral embeddings
 │   │   └── vector_store.py# FAISS operations
 │   ├── retrieval/         # RAG retrieval logic
 │   │   ├── retriever.py   # Semantic + metadata search
-│   │   └── reranker.py    # Optional reranking
+│   │   └── chain.py       # RAG orchestration (LCEL)
 │   ├── generation/        # LLM generation
 │   │   ├── llm.py         # Mistral LLM client
 │   │   └── prompts.py     # Domain-specific prompts
 │   ├── api/               # REST API
-│   │   └── endpoints.py   # FastAPI routes
+│   │   ├── main.py        # FastAPI application
+│   │   ├── endpoints.py   # API routes
+│   │   └── schemas.py     # Request/response models
+│   ├── frontend/          # Streamlit web interface
+│   │   └── app.py         # Main UI application
+│   ├── security/          # Security & validation
+│   │   └── guardrails.py  # Input validation
 │   └── evaluation/        # Evaluation metrics
 ├── tests/                 # Unit & integration tests
 ├── docs/                  # Documentation
@@ -99,10 +109,31 @@ poetry run python -m src.models.vector_store build
 
 ```bash
 # Start the FastAPI server
-poetry run uvicorn src.api.endpoints:app --reload
+poetry run uvicorn src.api.main:app --host 127.0.0.1 --port 8000
 
 # API will be available at http://localhost:8000
 # Interactive docs at http://localhost:8000/docs
+```
+
+### Running the Frontend
+
+```bash
+# Start the Streamlit app
+poetry run streamlit run src/frontend/app.py
+
+# Or use the helper script
+poetry run python scripts/run_frontend.py
+
+# Frontend will be available at http://localhost:8501
+```
+
+**Full System:**
+```bash
+# Terminal 1: Start API
+poetry run uvicorn src.api.main:app --host 127.0.0.1 --port 8000
+
+# Terminal 2: Start Frontend
+poetry run streamlit run src/frontend/app.py
 ```
 
 ### Query Examples
@@ -176,6 +207,8 @@ See [PROJECT_MEMORY.md](PROJECT_MEMORY.md) for detailed architecture diagrams.
 
 - [PROJECT_MEMORY.md](PROJECT_MEMORY.md) - Requirements, architecture, and implementation notes
 - [DOCUMENTATION_POLICY.md](DOCUMENTATION_POLICY.md) - Documentation standards
+- [docs/API_USAGE_GUIDE.md](docs/API_USAGE_GUIDE.md) - API endpoints and usage
+- [docs/FRONTEND_GUIDE.md](docs/FRONTEND_GUIDE.md) - Streamlit frontend guide
 - API docs available at `/docs` endpoint when server is running
 
 ## License
