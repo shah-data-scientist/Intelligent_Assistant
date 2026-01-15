@@ -229,6 +229,13 @@ intelligent-assistant/
   - Built `RAGChain` orchestrator using LCEL ([src/retrieval/chain.py](src/retrieval/chain.py)).
   - Verified end-to-end performance: relevant multi-lingual recommendations with source tracking and healthy similarity scores.
 
+  - Implemented Mistral LLM client using LangChain ([src/generation/llm.py](src/generation/llm.py)).
+  - Configured deterministic generation (temperature=0.0) for consistency.
+- **Phase 4 Complete: API Layer**
+  - Implemented FastAPI application with `/health` and `/chat` endpoints ([src/api/main.py](src/api/main.py)).
+  - Defined Pydantic models for strict request/response validation ([src/api/schemas.py](src/api/schemas.py)).
+  - Added unit tests for API endpoints using `TestClient`.
+
 ### Known Issues
 
 None.
@@ -245,14 +252,13 @@ None.
 
 **Phase 3: RAG System** ✓ COMPLETE
 
-**Phase 4: API Layer (Priority 1)** ← CURRENT
-1. Implement FastAPI endpoints
-2. Add query validation & error handling
-3. Implement language detection
-**Phase 4: API Layer (Priority 2)**
-1. Implement FastAPI endpoints
-2. Add query validation & error handling
-3. Implement language detection
+**Phase 4: API Layer** ✓ COMPLETE
+
+**Phase 5: Evaluation (Priority 1)** ← CURRENT
+1. Build retrieval metrics
+2. Implement generation quality evaluation
+3. Add performance monitoring
+4. Create end-to-end evaluation suite
 
 **Phase 5: Evaluation (Priority 3)**
 1. Build retrieval metrics
