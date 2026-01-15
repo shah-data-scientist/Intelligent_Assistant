@@ -1,0 +1,93 @@
+"""Data models for cultural events."""
+
+from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+
+class EventLocation(BaseModel):
+    """Event location information."""
+
+    address: str | None = None
+    city: str | None = None
+    postal_code: str | None = None
+    coordinates: dict[str, float] | None = None
+
+
+class Event(BaseModel):
+    """Cultural event model."""
+
+    event_id: str = Field(..., description="Unique event identifier")
+    title: str = Field(..., description="Event title")
+    description: str | None = Field(None, description="Event description")
+    category: str | None = Field(None, description="Event category")
+    location: EventLocation | None = Field(None, description="Event location")
+    start_date: datetime | None = Field(None, description="Event start date")
+    end_date: datetime | None = Field(None, description="Event end date")
+    organizer: str | None = Field(None, description="Event organizer")
+    url: str | None = Field(None, description="Event URL")
+    image_url: str | None = Field(None, description="Event image URL")
+    tags: list[str] = Field(default_factory=list, description="Event tags")
+    raw_data: dict[str, Any] = Field(
+        default_factory=dict, description="Original raw data from API"
+    )
+
+    def to_text(self) -> str:
+        """Convert event to text representation for embedding.
+
+        Returns:
+            Text representation of the event
+        """
+        parts = [f"Titre: {self.title}"]
+
+        if self.description:
+            parts.append(f"Description: {self.description}")
+
+        if self.category:
+            parts.append(f"Catégorie: {self.category}")
+
+        if self.location:
+            if self.location.address:
+                parts.append(f"Adresse: {self.location.address}")
+            if self.location.city:
+                parts.append(f"Ville: {self.location.city}")
+
+        if self.start_date:
+            parts.append(f"Date de début: {self.start_date.strftime('%Y-%m-%d %H:%M')}")
+
+        if self.end_date:
+            parts.append(f"Date de fin: {self.end_date.strftime('%Y-%m-%d %H:%M')}")
+
+        if self.organizer:
+            parts.append(f"Organisateur: {self.organizer}")
+
+        if self.tags:
+            parts.append(f"Tags: {', '.join(self.tags)}")
+
+        return "\n".join(parts)
+
+    def get_metadata(self) -> dict[str, Any]:
+        """Get metadata for vector store filtering.
+
+        Returns:
+            Dictionary of metadata fields
+        """
+        metadata = {
+            "event_id": self.event_id,
+            "title": self.title,
+            "category": self.category or "unknown",
+        }
+
+        if self.location and self.location.city:
+            metadata["city"] = self.location.city
+
+        if self.start_date:
+            metadata["start_date"] = self.start_date.isoformat()
+            metadata["year"] = self.start_date.year
+            metadata["month"] = self.start_date.month
+
+        if self.url:
+            metadata["url"] = self.url
+
+        return metadata
