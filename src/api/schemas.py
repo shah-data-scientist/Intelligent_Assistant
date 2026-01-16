@@ -15,6 +15,8 @@ class SourceDocument(BaseModel):
     date: Optional[str]
     url: Optional[str]
     score: float
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 class ChatResponse(BaseModel):
     """Response model for chat endpoint."""

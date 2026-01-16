@@ -33,6 +33,12 @@ class Event(BaseModel):
         default_factory=dict, description="Original raw data from API"
     )
     scraped_content: str | None = Field(None, description="Enriched content from URL")
+    
+    # New metadata fields
+    age_min: int | None = Field(None, description="Minimum age")
+    age_max: int | None = Field(None, description="Maximum age")
+    accessibility: str | None = Field(None, description="Accessibility info")
+    conditions: str | None = Field(None, description="Pricing or entry conditions")
 
     def to_text(self) -> str:
         """Convert event to text representation for embedding.
@@ -43,13 +49,33 @@ class Event(BaseModel):
         parts = [f"Titre: {self.title}"]
 
         if self.description:
-            parts.append(f"Description: {self.description}")
+            parts.append(f"Description courte: {self.description}")
 
         if self.scraped_content:
-            parts.append(f"Détails supplémentaires: {self.scraped_content}")
+            parts.append(f"Description complète: {self.scraped_content}")
 
         if self.category:
             parts.append(f"Catégorie: {self.category}")
+            
+        if self.tags:
+            parts.append(f"Mots-clés: {', '.join(self.tags)}")
+
+        if self.location:
+            if self.location.address:
+                parts.append(f"Adresse: {self.location.address}")
+            if self.location.city:
+                parts.append(f"Ville: {self.location.city}")
+
+        if self.organizer:
+            parts.append(f"Organisateur: {self.organizer}")
+            
+        if self.conditions:
+            parts.append(f"Conditions et Tarifs: {self.conditions}")
+            
+        if self.accessibility:
+            parts.append(f"Accessibilité: {self.accessibility}")
+
+        return "\n".join(parts)
 
         if self.location:
             if self.location.address:

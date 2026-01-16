@@ -12,7 +12,9 @@ class EventScraper:
     def __init__(self, timeout: float = 10.0):
         self.timeout = timeout
         self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
         }
 
     async def scrape_url(self, url: str) -> str | None:
@@ -34,20 +36,40 @@ class EventScraper:
                 
                 soup = BeautifulSoup(response.text, "html.parser")
                 
-                # Remove scripts and styles
-                for script in soup(["script", "style", "nav", "footer", "header"]):
+                # Remove only structural clutter
+                for script in soup(["script", "style", "noscript", "iframe"]):
                     script.decompose()
 
+                # Try to find the main content area
+                # OpenAgenda: often has specific classes
+                content_node = (
+                    soup.find(class_="oa-event-description") or
+                    soup.find(class_="event-description") or
+                    soup.find("main") or
+                    soup.find("article") or
+                    soup.find(id="main") or
+                    soup.body
+                )
+
+                if not content_node:
+                    return None
+
                 # Extract text
-                text = soup.get_text(separator="\n")
+                text = content_node.get_text(separator="\n")
                 
-                # Clean whitespace
-                lines = (line.strip() for line in text.splitlines())
-                chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-                text = "\n".join(chunk for chunk in chunks if chunk)
+                # Clean text
+                lines = []
+                for line in text.splitlines():
+                    clean_line = line.strip()
+                    # Filter out cookie noise
+                    if "cookie" in clean_line.lower() or "matomo" in clean_line.lower():
+                        continue
+                    if clean_line:
+                        lines.append(clean_line)
                 
-                # Limit length to avoid massive context
-                return text[:2000] 
+                text = "\n".join(lines)
+                
+                return text[:10000] 
 
         except Exception as e:
             logger.warning(f"Failed to scrape {url}: {e}")

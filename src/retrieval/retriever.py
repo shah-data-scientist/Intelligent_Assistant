@@ -81,6 +81,8 @@ class EventRetriever(BaseRetriever):
             "start_date": event.start_date.isoformat() if event.start_date else None,
             "url": event.url,
             "score": score,
+            "latitude": event.location.coordinates.get("lat") if event.location and event.location.coordinates else None,
+            "longitude": event.location.coordinates.get("lon") if event.location and event.location.coordinates else None,
         }
 
         return Document(page_content=page_content, metadata=metadata)

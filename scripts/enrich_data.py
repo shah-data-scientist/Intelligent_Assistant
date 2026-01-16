@@ -16,9 +16,12 @@ async def enrich_events():
     events = storage.get_all_events()
     logger.info(f"Found {len(events)} events in storage.")
     
-    # Filter events that need scraping
-    to_scrape = [e for e in events if e.url and not e.scraped_content]
-    logger.info(f"{len(to_scrape)} events need scraping.")
+    # Filter events that need scraping (missing or too short/garbage content)
+    to_scrape = [
+        e for e in events 
+        if e.url and (not e.scraped_content or len(e.scraped_content) < 500)
+    ]
+    logger.info(f"{len(to_scrape)} events need scraping (missing or < 500 chars).")
     
     if not to_scrape:
         logger.info("No events to scrape.")

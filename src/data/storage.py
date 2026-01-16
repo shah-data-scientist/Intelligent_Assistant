@@ -55,6 +55,12 @@ class EventRecord(Base):
     url = Column(String(500), nullable=True)
     image_url = Column(String(500), nullable=True)
     tags_json = Column(Text, nullable=True)  # JSON array
+    
+    # New fields for better RAG
+    age_min = Column(Integer, nullable=True)
+    age_max = Column(Integer, nullable=True)
+    accessibility = Column(String(500), nullable=True)
+    conditions = Column(Text, nullable=True)
 
     # Metadata
     raw_data_json = Column(Text, nullable=True)  # Full raw event data
@@ -110,16 +116,26 @@ class EventStorage:
     def _ensure_schema(self):
         """Ensure the database schema is up to date."""
         with self.engine.connect() as conn:
-            # Check if scraped_content column exists
+            # Check if columns exist
             try:
-                # PRAGMA table_info returns columns: cid, name, type, notnull, dflt_value, pk
                 columns = conn.execute(text("PRAGMA table_info(events)")).fetchall()
                 column_names = [col[1] for col in columns]
                 
-                if "scraped_content" not in column_names:
-                    logger.info("Migrating schema: adding scraped_content column")
-                    conn.execute(text("ALTER TABLE events ADD COLUMN scraped_content TEXT"))
-                    conn.commit()
+                # List of new columns to add if missing
+                new_cols = {
+                    "scraped_content": "TEXT",
+                    "age_min": "INTEGER",
+                    "age_max": "INTEGER",
+                    "accessibility": "VARCHAR(500)",
+                    "conditions": "TEXT"
+                }
+                
+                for col_name, col_type in new_cols.items():
+                    if col_name not in column_names:
+                        logger.info(f"Migrating schema: adding {col_name} column")
+                        conn.execute(text(f"ALTER TABLE events ADD COLUMN {col_name} {col_type}"))
+                
+                conn.commit()
             except Exception as e:
                 logger.warning(f"Schema migration check failed: {e}")
 
@@ -159,6 +175,10 @@ class EventStorage:
             tags_json=json.dumps(event.tags) if event.tags else None,
             raw_data_json=json.dumps(event.raw_data) if event.raw_data else None,
             scraped_content=event.scraped_content,
+            age_min=event.age_min,
+            age_max=event.age_max,
+            accessibility=event.accessibility,
+            conditions=event.conditions,
             faiss_index=faiss_index,
         )
 
@@ -228,6 +248,10 @@ class EventStorage:
             tags=tags,
             raw_data=raw_data,
             scraped_content=record.scraped_content,
+            age_min=record.age_min,
+            age_max=record.age_max,
+            accessibility=record.accessibility,
+            conditions=record.conditions,
         )
 
     def add_event(self, event: Event, faiss_index: int | None = None) -> bool:
@@ -395,6 +419,10 @@ class EventStorage:
             record.tags_json = json.dumps(event.tags) if event.tags else None
             record.raw_data_json = json.dumps(event.raw_data) if event.raw_data else None
             record.scraped_content = event.scraped_content
+            record.age_min = event.age_min
+            record.age_max = event.age_max
+            record.accessibility = event.accessibility
+            record.conditions = event.conditions
 
             if event.location:
                 record.city = event.location.city
