@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from src.api.schemas import ChatRequest, ChatResponse
 from src.retrieval.chain import RAGChain
 from src.config import settings
-from src.security.guardrails import check_safety
+from src.security.guardrails import check_safety, SecurityException
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -54,6 +54,9 @@ def chat(request: ChatRequest, chain: RAGChain = Depends(get_rag_chain)):
             answer=result["answer"],
             sources=result["sources"]
         )
+    except SecurityException as se:
+        logger.warning(f"Security guardrail triggered: {se}")
+        return ChatResponse(answer=str(se), sources=[])
     except HTTPException as he:
         raise he
     except Exception as e:
@@ -73,6 +76,11 @@ def chat_stream(request: ChatRequest, chain: RAGChain = Depends(get_rag_chain)):
             chain.stream_query(request.question), 
             media_type="text/plain"
         )
+    except SecurityException as se:
+        logger.warning(f"Security guardrail triggered (stream): {se}")
+        async def stream_refusal():
+            yield str(se)
+        return StreamingResponse(stream_refusal(), media_type="text/plain")
     except HTTPException as he:
         raise he
     except Exception as e:

@@ -2,12 +2,22 @@
 
 import logging
 import re
-from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
+class SecurityException(ValueError):
+    """Exception raised when a security guardrail is triggered."""
+    pass
+
+# Refusal message for inappropriate language
+REFUSAL_MESSAGE = (
+    "I cannot process your request because it contains inappropriate or abusive language. "
+    "Please use respectful language when interacting with the assistant.\n\n"
+    "Je ne peux pas traiter votre demande car elle contient un langage inapproprié ou abusif. "
+    "Merci d'utiliser un langage respectueux lors de vos échanges avec l'assistant."
+)
+
 # Patterns indicative of prompt injection or malicious intent
-# In a real system, use a model like NVIDIA NeMo or Lakera Guard
 MALICIOUS_PATTERNS = [
     r"ignore previous instructions",
     r"ignore all instructions",
@@ -19,8 +29,17 @@ MALICIOUS_PATTERNS = [
 ]
 
 TOXIC_KEYWORDS = [
-    "hate", "kill", "death", "stupid", "idiot" # Very basic list for POC
+    # English
+    "hate", "kill", "death", "stupid", "idiot", "dumb", "moron",
+    "fuck", "shit", "asshole", "bitch", "damn", "cunt", "dick", "pussy",
+    "bastard", "motherfucker", "cock", "slut", "whore", "rape", "sexist", "racist",
+    # French
+    "merde", "putain", "con", "connard", "salope", "abruti", "débile", "enculé", 
+    "crétin", "va te faire", "nique", "pute", "bordel", "chier"
 ]
+
+# Regex to catch variations like f u c k or f.u.c.k
+PROFANITY_REGEX = r"(?i)\b(f[ \.\-_]*u[ \.\-_]*c[ \.\-_]*k|s[ \.\-_]*h[ \.\-_]*i[ \.\-_]*t|a[ \.\-_]*s[ \.\-_]*s|p[ \.\-_]*u[ \.\-_]*t[ \.\-_]*a[ \.\-_]*i[ \.\-_]*n|m[ \.\-_]*e[ \.\-_]*r[ \.\-_]*d[ \.\-_]*e)\b"
 
 def check_safety(query: str) -> None:
     """Check if the query contains malicious patterns or toxic content.
@@ -29,27 +48,26 @@ def check_safety(query: str) -> None:
         query: User input string
 
     Raises:
-        HTTPException: If safety check fails
+        SecurityException: If safety check fails
     """
     query_lower = query.lower()
 
-    # Check for prompt injection patterns
+    # 1. Check for prompt injection patterns
     for pattern in MALICIOUS_PATTERNS:
         if re.search(pattern, query_lower):
             logger.warning(f"Blocked malicious query: {query}")
-            raise HTTPException(
-                status_code=400, 
-                detail="Request rejected: Potential prompt injection detected."
-            )
+            raise SecurityException("Request rejected: Potential prompt injection detected.")
 
-    # Check for basic toxicity
-    # (Note: This is a placeholder for a real toxicity classifier)
+    # 2. Check for regex-based profanity variations
+    if re.search(PROFANITY_REGEX, query_lower):
+        logger.warning(f"Blocked regex profanity query: {query}")
+        raise SecurityException(REFUSAL_MESSAGE)
+
+    # 3. Check for basic toxicity keywords
     for word in TOXIC_KEYWORDS:
-        if f" {word} " in f" {query_lower} ":
-            logger.warning(f"Blocked toxic query: {query}")
-            raise HTTPException(
-                status_code=400, 
-                detail="Request rejected: Inappropriate language detected."
-            )
+        pattern = rf"\b{re.escape(word)}\b"
+        if re.search(pattern, query_lower):
+            logger.warning(f"Blocked toxic query: {word} in {query}")
+            raise SecurityException(REFUSAL_MESSAGE)
             
     logger.info("Query passed safety check.")

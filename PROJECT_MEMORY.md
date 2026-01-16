@@ -100,18 +100,42 @@ Design, implement, and demonstrate a Retrieval-Augmented Generation (RAG) system
 **Core:**
 - **Language:** Python 3.11+
 - **Package Manager:** Poetry
-- **LLM:** Mistral API
-- **Embeddings:** Mistral embeddings
-- **Vector Store:** FAISS
-- **Orchestration:** LangChain
+- **LLM:** Mistral API (mistral-small-latest)
+- **Embeddings:** Mistral embeddings (mistral-embed)
+- **Vector Store:** FAISS (IndexFlatIP)
+- **Orchestration:** LangChain (LCEL)
 - **API Framework:** FastAPI (REST API)
 - **Frontend:** Streamlit
+- **Scraping:** BeautifulSoup4 & httpx
 - **Containerization:** Docker & Docker Compose
 
-**Development:**
-- **Testing:** pytest
-- **Code Quality:** ruff, black, mypy
-- **Visualization:** plotly
+### Data Processing & Enrichment Strategy
+
+To ensure high-quality RAG performance, data undergoes a multi-stage refinement pipeline:
+
+1. **Extraction (Raw to Structured):**
+   - **Source:** OpenAgenda API (Opendatasoft v2.1).
+   - **Persistence:** Entire raw JSON stored in `raw_data_json` to prevent information loss.
+   - **Filtering:** Strict Île-de-France geographic filtering (8 departments).
+   - **Date Shifting:** Seasonal redistribution of historical/future events into a rolling 1-year window (2026-2027).
+
+2. **Advanced Preprocessing (Production-Grade):**
+   - **Encoding:** Strict **UTF-8 only** preservation; no loss of French characters (é, è, ê, etc.) via Unicode NFC normalization.
+   - **Boilerplate Removal:** Regex-based blacklist filters out technical noise ("Voir plus", "Powered by OpenAgenda", "Matomo/Cookies").
+   - **Deduplication:** Sentence-level deduplication within descriptions to maximize semantic density.
+   - **Field Standardisation:** Normalization of Titles (casing), Locations (standard city names), and Organizers (removing legal/contact noise).
+
+3. **Semantic Enrichment & Classification:**
+   - **Web Scraping:** Asynchronous scraping of `canonicalurl` to capture full "Real Descriptions" (up to 10,000 characters).
+   - **Forced Classification:** Elimination of "Other" ("Autre") categories. Every event is mapped to a primary semantic bucket (e.g., *Musique, Festival, Patrimoine, Art / Exposition*).
+
+4. **Hybrid Search Configuration:**
+   - **Vector Data (Semantic):** Concatenated string of `Title` + `Short Description` + `Full Scraped Content` + `Keywords` + `Conditions` + `Accessibility`.
+   - **Metadata (Filtering):** Dedicated columns for `City`, `Month`, `Year`, `Coordinates`, `Age Range`, `Category`, and `Price`.
+
+5. **Automation Pipeline:**
+   - **Background Sync:** Integrated into FastAPI lifespan; triggers every **12 hours**.
+   - **Workflow:** Fetch new events → Scrape URLs → Advanced Preprocessing → Update DB → Rebuild FAISS Index → Hot-reload Index.
 
 ### System Architecture
 
@@ -244,11 +268,14 @@ intelligent-assistant/
   - **Performance Optimization:** Refactored to "Eager Initialization" (pre-loading models at startup) and thread-pool execution for sync AI calls to prevent event-loop blocking.
   - Defined Pydantic models for strict request/response validation ([src/api/schemas.py](src/api/schemas.py)).
   - Added unit tests for API endpoints using `TestClient`.
-- **Phase 4.5 Complete: Optimization & Security & Content**
-  - **Latency:** Implemented LRU Caching in `EventRetriever` and added a Streaming endpoint (`/chat/stream`).
-  - **Security:** Added Guardrails (`src/security/guardrails.py`) to block prompt injection/toxicity and API Key authentication.
-  - **Content Enrichment:** Implemented a **Scraper** (`src/data/scraper.py`) to fetch full event details from URLs. Updated 875 events with scraped content and rebuilt embeddings for deeper semantic search.
-  - **Verification:** Added `tests/test_api_security_latency.py` and `scripts/test_hybrid_search.py`. All 71 tests passing.
+- **Phase 4.5 Complete: Advanced Processing, Automation & Security**
+  - **Latency & UX:** Implemented LRU Caching in `EventRetriever` and a Streaming endpoint (`/chat/stream`) for real-time responses.
+  - **Security:** Added Guardrails (`src/security/guardrails.py`) to block prompt injection/toxicity and enforced API Key authentication. **Reinforced Abuse Refusal:** The assistant now proactively detects abusive language and returns a bilingual refusal/warning message instead of an error.
+  - **Content Enrichment:** Implemented a **Scraper** (`src/data/scraper.py`) to fetch full event details from URLs. Successfully enriched 953 events.
+  - **Advanced Pipeline:** Implemented strict UTF-8 preservation (NFC), regex-based boilerplate removal, and sentence deduplication in `src/data/processor.py`.
+  - **Forced Classification:** Eliminated "Other" category. All events now mapped to semantic buckets: *Art / Exposition, Atelier / Workshop, Conférence / Débat, Festival, Formation / Emploi, Jeunesse / Famille, Musique, Patrimoine, Sport / Loisirs, Théâtre / Spectacle, Vie associative*.
+  - **Auto-Sync:** Integrated 12-hour background sync into FastAPI lifespan. Automatically scrapes new events and rebuilds/reloads the FAISS index without downtime.
+  - **Verification:** Verified `FIAP Jean Monnet` re-classification from "Autre" to "Art / Exposition". All 71 tests passing.
 
 - **Phase 4.5 Complete: User Interface**
   - **Modern Streamlit App:** Implemented full-featured web interface ([src/frontend/app.py](src/frontend/app.py)).
