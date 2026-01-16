@@ -17,13 +17,14 @@ from src.generation.llm import MistralLLM
 from src.generation.prompts import get_rag_prompt, get_contextualize_q_prompt, get_metadata_extraction_prompt
 from src.retrieval.retriever import EventRetriever
 from src.data.chat_history import SQLiteChatMessageHistory
+from src.data.storage import EventStorage
 from src.security.guardrails import check_safety
 
 logger = logging.getLogger(__name__)
 
-def get_session_history(session_id: str) -> BaseChatMessageHistory:
+def get_session_history(session_id: str, storage: EventStorage | None = None) -> BaseChatMessageHistory:
     """Get persistent chat history for a session."""
-    return SQLiteChatMessageHistory(session_id=session_id)
+    return SQLiteChatMessageHistory(session_id=session_id, storage=storage)
 
 
 class RAGChain:
@@ -59,7 +60,7 @@ class RAGChain:
         self.extraction_chain = extraction_prompt | self.llm.llm | JsonOutputParser()
 
         # Use provided history factory or default
-        session_history_factory = history_factory or get_session_history
+        session_history_factory = history_factory or (lambda sid: get_session_history(sid, self.vector_store.storage))
         
         if chain:
             # If a chain is provided (mock), wrap it with history
@@ -226,7 +227,7 @@ class RAGChain:
             session_id: Session identifier
 
         Returns:
-            Dictionary with 'answer' and 'sources'
+            Dictionary with 'answer', 'sources', and 'message_id'
         """
         logger.info(f"Processing query with metadata: {question} (session: {session_id})")
         check_safety(question)
@@ -238,9 +239,24 @@ class RAGChain:
         
         answer = result["answer"]
         docs = result.get("context", [])
+
+        # Retrieve the ID of the assistant's message we just saved
+        message_id = None
+        try:
+            with self.vector_store.storage.SessionLocal() as session:
+                from src.data.storage import ConversationRecord
+                from sqlalchemy import select
+                stmt = select(ConversationRecord.id).where(
+                    ConversationRecord.session_id == session_id,
+                    ConversationRecord.role == "assistant"
+                ).order_by(ConversationRecord.timestamp.desc()).limit(1)
+                message_id = session.execute(stmt).scalar()
+        except Exception as e:
+            logger.error(f"Failed to retrieve message_id for feedback: {e}")
         
         return {
             "answer": answer,
+            "message_id": message_id,
             "sources": [
                 {
                     "title": d.metadata.get("title"),
