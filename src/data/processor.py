@@ -1,6 +1,14 @@
-"""Data processing and normalization for cultural events."""
+"""Advanced data processing and normalization for cultural events.
+Follows strict production-grade rules:
+1. UTF-8 preservation (no loss of French characters).
+2. Boilerplate and technical junk removal.
+3. Sentence deduplication.
+4. Forced semantic classification (no 'Other').
+"""
 
 import logging
+import re
+import unicodedata
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -8,612 +16,253 @@ from src.data.models import Event, EventLocation
 
 logger = logging.getLogger(__name__)
 
-
 class EventProcessor:
-    """Process and normalize event data from OpenAgenda API."""
+    """Production-grade processor for cultural event data."""
 
-    @staticmethod
-    def parse_date(date_str: str | None) -> datetime | None:
-        """Parse date string to datetime object.
+    # Blacklist of technical junk found in scraped/API data
+    JUNK_PHRASES = [
+        r"voir plus", r"lire la suite", r"plus d’informations", 
+        r"inscription obligatoire", r"partager cet événement", r"cliquez ici", 
+        r"powered by openagenda", r"cet événement est proposé par",
+        r"les acceptez-vous", r"accepter", r"refuser", r"matomo",
+        r"tous les événements", r"partager / exporter", r"outils d'inscription",
+        r"s'inscrire / réserver", r"information additionnelle", r"aucune saisie",
+        r"suggérer une modification"
+    ]
 
-        Args:
-            date_str: Date string in various formats
+    # Target category set for forced classification
+    CATEGORIES = {
+        "Musique": ["concert", "musique", "jazz", "opera", "récital", "chanson", "rock", "groove", "orchestre", "philharmonie"],
+        "Théâtre / Spectacle": ["théâtre", "spectacle", "comédie", "tragédie", "scène", "pièce", "marionnettes", "mime", "cirque"],
+        "Art / Exposition": ["exposition", "expo", "peinture", "sculpture", "galerie", "musée", "art", "vernissage", "photographie"],
+        "Conférence / Débat": ["conférence", "débat", "rencontre", "littérature", "histoire", "colloque", "table ronde", "arpentage"],
+        "Atelier / Workshop": ["atelier", "stage", "cours", "initiation", "formation", "masterclasse", "découverte"],
+        "Sport / Loisirs": ["sport", "match", "compétition", "tournoi", "danse", "yoga", "parcours", "randonnée", "vtt"],
+        "Jeunesse / Famille": ["jeunesse", "famille", "enfant", "scolaire", "bébé", "vacances", "jeune public", "kids"],
+        "Festival": ["festival", "fête", "biennale", "salon"],
+        "Patrimoine": ["patrimoine", "château", "visite guidée", "monument", "archives", "historique"],
+        "Formation / Emploi": ["formation", "recrutement", "emploi", "métier", "entreprise", "job dating", "alternance", "jpo", "portes ouvertes"],
+        "Vie associative": ["associative", "bénévolat", "quartier", "citoyenneté", "social", "solidarité"]
+    }
 
-        Returns:
-            Parsed datetime or None if parsing fails
-        """
-        if not date_str:
+    def safe_normalize(self, text: str | None) -> str:
+        """Normalize unicode to NFC without losing French characters."""
+        if not text: return ""
+        # Convert to string if not already (e.g. lists)
+        if isinstance(text, list):
+            text = ", ".join(str(item) for item in text)
+        
+        # Unicode NFC normalization (é remains é)
+        normalized = unicodedata.normalize('NFC', str(text))
+        
+        # Basic cleanup: remove double spaces, fix common punctuation spacing
+        normalized = re.sub(r'\s+', ' ', normalized)
+        normalized = normalized.replace(" .", ".").replace(" ,", ",").replace("( ", "(").replace(" )", ")")
+        
+        return normalized.strip()
+
+    def remove_boilerplate(self, text: str) -> str:
+        """Remove technical junk and repetitive boilerplate."""
+        if not text: return ""
+        
+        cleaned = text
+        for phrase in self.JUNK_PHRASES:
+            cleaned = re.sub(phrase, "", cleaned, flags=re.IGNORECASE)
+        
+        # Remove URLs
+        cleaned = re.sub(r'http\S+', '', cleaned)
+        
+        return cleaned.strip()
+
+    def deduplicate_sentences(self, text: str) -> str:
+        """Remove redundant sentences within a block of text."""
+        if not text: return ""
+        
+        # Split into sentences (simple logic)
+        sentences = re.split(r'(?<=[.!?])\s+', text)
+        seen = set()
+        unique_sentences = []
+        
+        for s in sentences:
+            s_clean = s.strip().lower()
+            if s_clean and s_clean not in seen:
+                seen.add(s_clean)
+                unique_sentences.append(s.strip())
+        
+        return " ".join(unique_sentences)
+
+    def clean_title(self, title: str) -> str:
+        """Fix encoding, shouting, and trailing duplicates."""
+        t = self.safe_normalize(title)
+        # Fix shouting (ALL CAPS)
+        if t.isupper():
+            t = t.capitalize()
+        # Remove emojis (common in titles)
+        t = re.sub(r'[^\w\s,.;:!?\'"]', '', t) # Removed éèêëàâîïôùûçœæ-
+        return t.strip()
+
+    def clean_location(self, loc: EventLocation | None) -> EventLocation | None:
+        """Standardize location and fix city naming."""
+        if not loc: return None
+        
+        loc.city = self.safe_normalize(loc.city).title() if loc.city else None
+        loc.address = self.safe_normalize(loc.address)
+        
+        # Remove city duplication in address if present
+        if loc.address and loc.city and loc.city.lower() in loc.address.lower():
+            # Only remove if it looks like a suffix duplication
+            loc.address = re.sub(rf",\s*{loc.city}.*$", "", loc.address, flags=re.IGNORECASE).strip()
+            
+        return loc
+
+    def clean_organizer(self, name: str | None) -> str | None:
+        """Normalize name and remove technical noise."""
+        if not name: return None
+        n = self.safe_normalize(name)
+        # Remove emails/phones
+        n = re.sub(r'\S+@\S+', '', n)
+        n = re.sub(r'\d{10,}', '', n)
+        # Remove common legal suffixes
+        n = re.sub(r'\b(SAS|SARL|EURL|ASSOCIATION)\b', '', n, flags=re.IGNORECASE)
+        return n.strip() or None
+
+    def classify_category(self, event: Event) -> str:
+        """Forced semantic classification. Never returns 'Other'."""
+        search_text = f"{event.title} {event.description or ''} {event.scraped_content or ''} {' '.join(event.tags)}".lower()
+        
+        best_cat = "Vie associative" # Robust fallback
+        max_matches = -1
+        
+        for cat, keywords in self.CATEGORIES.items():
+            matches = sum(1 for kw in keywords if kw in search_text)
+            if matches > max_matches:
+                max_matches = matches
+                best_cat = cat
+        
+        return best_cat
+
+    def process_record(self, record: dict[str, Any]) -> Event | None:
+        """Process a raw record using the strict production pipeline."""
+        try:
+            fields = record if ("title_fr" in record or "uid" in record) else record.get("fields", {})
+            
+            # 1. Extraction with Basic Normalization
+            event_id = record.get("uid") or record.get("slug") or record.get("recordid")
+            if not event_id: return None
+
+            title = self.clean_title(fields.get("title_fr") or fields.get("title") or "Sans titre")
+            
+            # 2. Description Handling (Merge API and Scraper if needed)
+            api_desc = self.safe_normalize(fields.get("longdescription_fr") or fields.get("description_fr"))
+            api_desc = self.remove_boilerplate(api_desc)
+            
+            # Scraped content will be handled in separate enrichment step, 
+            # but we define placeholders for the model here.
+            
+            # 3. Metadata Extraction
+            age_min = fields.get("age_min")
+            age_max = fields.get("age_max")
+            
+            acc = self.safe_normalize(fields.get("accessibility_label_fr") or fields.get("accessibility"))
+            if "voir site" in acc.lower(): acc = ""
+            
+            cond = self.safe_normalize(fields.get("conditions_fr") or fields.get("conditions"))
+            cond = self.remove_boilerplate(cond)
+
+            # 4. Location & Dates
+            location = self.clean_location(self.extract_location(fields))
+            
+            # Standard Date Parsing (unchanged from legacy logic)
+            start_date = self.parse_date(fields.get("firstdate_begin") or fields.get("start_date"))
+            end_date = self.parse_date(fields.get("lastdate_end") or fields.get("firstdate_end"))
+
+            # 5. Keywords
+            tags = [self.safe_normalize(t).capitalize() for t in self.extract_tags(fields) if len(t) > 1]
+            tags = list(set(tags))
+
+            # Create Event Object
+            event = Event(
+                event_id=str(event_id),
+                title=title,
+                description=api_desc,
+                category=self.safe_normalize(fields.get("category")),
+                location=location,
+                start_date=start_date,
+                end_date=end_date,
+                organizer=self.clean_organizer(fields.get("organizer") or fields.get("organisateur")),
+                url=fields.get("canonicalurl") or fields.get("url") or fields.get("link"),
+                image_url=fields.get("image") or fields.get("photo") or fields.get("image_url") ,
+                tags=tags,
+                raw_data=record,
+                age_min=age_min,
+                age_max=age_max,
+                accessibility=acc or None,
+                conditions=cond or None
+            )
+
+            # 6. Forced Classification
+            event.category = self.classify_category(event)
+            
+            # 7. Final Polish of semantic fields
+            if event.description:
+                event.description = self.deduplicate_sentences(event.description)
+
+            return event
+
+        except Exception as e:
+            logger.error(f"Error processing record {record.get('uid')}: {e}")
             return None
 
-        # Handle timezone offset (e.g., +00:00, +01:00)
-        # Remove timezone info for simple parsing
-        if "+" in date_str or date_str.endswith("Z"):
-            # Remove timezone suffix for parsing
-            date_str_clean = date_str.split("+")[0].replace("Z", "")
-        else:
-            date_str_clean = date_str
-
-        # Common date formats
-        formats = [
-            "%Y-%m-%dT%H:%M:%S",
-            "%Y-%m-%dT%H:%M:%S.%f",
-            "%Y-%m-%d %H:%M:%S",
-            "%Y-%m-%d",
-        ]
-
+    # Helper methods (legacy compatibility or internal use)
+    @staticmethod
+    def parse_date(date_str: str | None) -> datetime | None:
+        if not date_str: return None
+        date_str_clean = date_str.split("+")[0].replace("Z", "") if ("+" in date_str or "Z" in date_str) else date_str
+        formats = ["%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"]
         for fmt in formats:
-            try:
-                return datetime.strptime(date_str_clean, fmt)
-            except ValueError:
-                continue
-
-        logger.warning(f"Could not parse date: {date_str}")
+            try: return datetime.strptime(date_str_clean, fmt)
+            except ValueError: continue
         return None
 
     @staticmethod
     def extract_location(fields: dict[str, Any]) -> EventLocation | None:
-        """Extract location information from event fields.
-
-        Args:
-            fields: Event fields dictionary (Opendatasoft v2.1 or legacy format)
-
-        Returns:
-            EventLocation object or None
-        """
-        location_data: dict[str, Any] = {}
-
-        # Extract address components (Opendatasoft format)
-        if address := (
-            fields.get("location_address")
-            or fields.get("address")
-        ):
-            location_data["address"] = address
-
-        if city := (
-            fields.get("location_city")
-            or fields.get("city")
-            or fields.get("ville")
-        ):
-            location_data["city"] = city
-
-        if postal_code := (
-            fields.get("location_postalcode")
-            or fields.get("postal_code")
-            or fields.get("code_postal")
-        ):
-            location_data["postal_code"] = postal_code
-
-        # Extract coordinates (Opendatasoft format)
-        if coords := fields.get("location_coordinates"):
-            if isinstance(coords, dict) and "lat" in coords and "lon" in coords:
-                location_data["coordinates"] = {
-                    "lat": coords["lat"],
-                    "lon": coords["lon"]
-                }
-        # Legacy format
-        elif geo := fields.get("geo_point_2d") or fields.get("geometry"):
-            if isinstance(geo, dict):
-                if "lat" in geo and "lon" in geo:
-                    location_data["coordinates"] = {"lat": geo["lat"], "lon": geo["lon"]}
-                elif "coordinates" in geo:
-                    coords = geo["coordinates"]
-                    if isinstance(coords, list) and len(coords) >= 2:
-                        location_data["coordinates"] = {"lon": coords[0], "lat": coords[1]}
-
-        if not location_data:
-            return None
-
+        location_data = {}
+        if addr := (fields.get("location_address") or fields.get("address") or fields.get("address_fr") ): location_data["address"] = addr
+        if city := (fields.get("location_city") or fields.get("city") or fields.get("ville") or fields.get("ville_fr") ): location_data["city"] = city
+        if pc := (fields.get("location_postalcode") or fields.get("postal_code") or fields.get("code_postal") ): location_data["postal_code"] = pc
+        if coords := fields.get("location_coordinates") or fields.get("coordinates"):
+            if isinstance(coords, dict) and "lat" in coords and "lon" in coords: location_data["coordinates"] = {"lat": coords["lat"], "lon": coords["lon"]}
+            elif isinstance(coords, list) and len(coords) >= 2: location_data["coordinates"] = {"lon": coords[0], "lat": coords[1]}
+        if not location_data: return None
         return EventLocation(**location_data)
 
     @staticmethod
     def extract_tags(fields: dict[str, Any]) -> list[str]:
-        """Extract tags from event fields.
-
-        Args:
-            fields: Event fields dictionary (Opendatasoft v2.1 or legacy format)
-
-        Returns:
-            List of tags
-        """
-        tags: list[str] = []
-
-        # Check various tag fields (Opendatasoft and legacy formats)
+        tags = []
         for field in ["keywords_fr", "keywords", "tags", "mots_cles"]:
             if value := fields.get(field):
-                if isinstance(value, list):
-                    tags.extend(str(tag) for tag in value)
-                elif isinstance(value, str):
-                    tags.extend(tag.strip() for tag in value.split(","))
-
-        return list(set(tags))  # Remove duplicates
-
-    @staticmethod
-    def normalize_string(text: str | None) -> str | None:
-        """Normalize string: strip, title case for names, or specific case logic."""
-        if not text:
-            return None
-        text = text.strip()
-        if not text:
-            return None
-        # Handle all-caps or all-lowercase by converting to Title Case
-        return text.capitalize() if text.isupper() or text.islower() else text
-
-    def infer_category(self, event: Event) -> str | None:
-        """Infer category from title, description, or tags if current category is missing."""
-        if event.category and event.category.lower() != "unknown":
-            return self.normalize_string(event.category)
-
-        # Mapping of keywords to categories
-        mapping = {
-            "Musique": ["concert", "musique", "jazz", "opera", "récital", "chanson", "rock", "groove"],
-            "Théâtre": ["théâtre", "spectacle", "comédie", "tragédie", "scène", "pièce"],
-            "Art": ["exposition", "expo", "peinture", "sculpture", "galerie", "musée", "art"],
-            "Conférence": ["conférence", "débat", "rencontre", "littérature", "histoire", "colloque"],
-            "Atelier": ["atelier", "stage", "cours", "initiation", "formation"],
-            "Sport": ["sport", "match", "compétition", "tournoi", "danse", "yoga"],
-            "Industrie": ["industrie", "métier", "entreprise", "recrutement", "usine"]
-        }
-
-        search_text = f"{event.title or ''} {event.description or ''} {' '.join(event.tags or [])}".lower()
-
-        for cat, keywords in mapping.items():
-            if any(kw in search_text for kw in keywords):
-                return cat
-
-        return "Autre"
-
-    def process_record(self, record: dict[str, Any]) -> Event | None:
-        """Process a single event record from OpenAgenda API."""
-        try:
-            # Check if this is Opendatasoft v2.1 format (fields at root)
-            # or legacy format (fields nested under "fields" key)
-            if "title_fr" in record or "uid" in record:
-                # Opendatasoft v2.1 format
-                fields = record
-            else:
-                # Legacy format
-                fields = record.get("fields", {})
-
-            # Generate unique event ID
-            event_id = (
-                record.get("uid")
-                or record.get("slug")
-                or record.get("recordid")
-                or record.get("id")
-            )
-            if not event_id:
-                logger.warning("Event missing ID, skipping")
-                return None
-
-            # Extract title
-            title = (
-                fields.get("title_fr")
-                or fields.get("title")
-                or fields.get("titre")
-                or fields.get("nom")
-                or "Untitled Event"
-            )
-
-            # Extract description
-            description = (
-                fields.get("description_fr")
-                or fields.get("longdescription_fr")
-                or fields.get("description")
-                or fields.get("description_longue")
-                or fields.get("free_text")
-            )
-
-            # Extract category (use keywords as proxy for Opendatasoft format)
-            category = None
-            if keywords_fr := fields.get("keywords_fr"):
-                if isinstance(keywords_fr, list) and keywords_fr:
-                    category = keywords_fr[0]
-            if not category:
-                category = (
-                    fields.get("category")
-                    or fields.get("categorie")
-                    or fields.get("type")
-                )
-            
-            # Normalize category
-            category = self.normalize_string(category)
-
-            # Extract dates
-            start_date = self.parse_date(
-                fields.get("firstdate_begin")
-                or fields.get("start_date")
-                or fields.get("date_debut")
-                or fields.get("date_start")
-            )
-
-            end_date = self.parse_date(
-                fields.get("lastdate_end")
-                or fields.get("firstdate_end")
-                or fields.get("end_date")
-                or fields.get("date_fin")
-                or fields.get("date_end")
-            )
-
-            # Extract location and normalize city
-            location = self.extract_location(fields)
-            if location and location.city:
-                location.city = self.normalize_string(location.city)
-
-            # Extract other fields
-            organizer = (
-                fields.get("organizer")
-                or fields.get("organisateur")
-                or fields.get("organization")
-            )
-
-            url = (
-                fields.get("canonicalurl")
-                or fields.get("url")
-                or fields.get("link")
-                or fields.get("lien")
-                or fields.get("location_website")
-            )
-
-            image_url = (
-                fields.get("image")
-                or fields.get("image_url")
-                or fields.get("photo")
-            )
-
-            # Extract tags and normalize
-            tags = [t.capitalize() for t in self.extract_tags(fields)]
-
-            # Create Event object
-            event = Event(
-                event_id=str(event_id),
-                title=title,
-                description=description,
-                category=category,
-                location=location,
-                start_date=start_date,
-                end_date=end_date,
-                organizer=organizer,
-                url=url,
-                image_url=image_url,
-                tags=tags,
-                raw_data=record,
-            )
-
-            # Impute missing category
-            if not event.category or event.category.lower() == "unknown":
-                event.category = self.infer_category(event)
-
-            return event
-
-        except Exception as e:
-            logger.error(f"Error processing event record: {e}")
-            return None
-        try:
-            # Check if this is Opendatasoft v2.1 format (fields at root)
-            # or legacy format (fields nested under "fields" key)
-            if "title_fr" in record or "uid" in record:
-                # Opendatasoft v2.1 format
-                fields = record
-            else:
-                # Legacy format
-                fields = record.get("fields", {})
-
-            # Generate unique event ID
-            event_id = (
-                record.get("uid")
-                or record.get("slug")
-                or record.get("recordid")
-                or record.get("id")
-            )
-            if not event_id:
-                logger.warning("Event missing ID, skipping")
-                return None
-
-            # Extract title
-            title = (
-                fields.get("title_fr")
-                or fields.get("title")
-                or fields.get("titre")
-                or fields.get("nom")
-                or "Untitled Event"
-            )
-
-            # Extract description
-            description = (
-                fields.get("description_fr")
-                or fields.get("longdescription_fr")
-                or fields.get("description")
-                or fields.get("description_longue")
-                or fields.get("free_text")
-            )
-
-            # Extract category (use keywords as proxy for Opendatasoft format)
-            category = None
-            if keywords_fr := fields.get("keywords_fr"):
-                if isinstance(keywords_fr, list) and keywords_fr:
-                    category = keywords_fr[0]
-            if not category:
-                category = (
-                    fields.get("category")
-                    or fields.get("categorie")
-                    or fields.get("type")
-                )
-
-            # Extract dates (Opendatasoft format or legacy)
-            start_date = self.parse_date(
-                fields.get("firstdate_begin")
-                or fields.get("start_date")
-                or fields.get("date_debut")
-                or fields.get("date_start")
-            )
-
-            end_date = self.parse_date(
-                fields.get("lastdate_end")
-                or fields.get("firstdate_end")
-                or fields.get("end_date")
-                or fields.get("date_fin")
-                or fields.get("date_end")
-            )
-
-            # Extract location
-            location = self.extract_location(fields)
-
-            # Extract other fields
-            organizer = (
-                fields.get("organizer")
-                or fields.get("organisateur")
-                or fields.get("organization")
-            )
-
-            url = fields.get("url") or fields.get("link") or fields.get("lien")
-
-            image_url = (
-                fields.get("image")
-                or fields.get("image_url")
-                or fields.get("photo")
-            )
-
-            # Extract tags
-            tags = self.extract_tags(fields)
-
-            # Create Event object
-            event = Event(
-                event_id=str(event_id),
-                title=title,
-                description=description,
-                category=category,
-                location=location,
-                start_date=start_date,
-                end_date=end_date,
-                organizer=organizer,
-                url=url,
-                image_url=image_url,
-                tags=tags,
-                raw_data=record,
-            )
-
-            return event
-
-        except Exception as e:
-            logger.error(f"Error processing event record: {e}")
-            return None
+                if isinstance(value, list): tags.extend(str(tag) for tag in value)
+                elif isinstance(value, str): tags.extend(tag.strip() for tag in value.split(","))
+        return list(set(tags))
 
     def process_records(self, records: list[dict[str, Any]]) -> list[Event]:
-        """Process multiple event records.
-
-        Args:
-            records: List of raw event records from API
-
-        Returns:
-            List of processed Event objects
-        """
-        events: list[Event] = []
-
+        events = []
         for record in records:
-            if event := self.process_record(record):
-                events.append(event)
-
-        logger.info(f"Processed {len(events)} events from {len(records)} records")
+            if event := self.process_record(record): events.append(event)
         return events
 
     def filter_ile_de_france_events(self, events: list[Event]) -> list[Event]:
-        """Filter events to only include Île-de-France region events.
-
-        Île-de-France includes: Paris, Hauts-de-Seine (92), Seine-Saint-Denis (93),
-        Val-de-Marne (94), Seine-et-Marne (77), Yvelines (78), Essonne (91),
-        Val-d'Oise (95), and major cities in these departments.
-
-        Args:
-            events: List of Event objects
-
-        Returns:
-            List of events in Île-de-France region
-        """
-        # Major cities and departments in Île-de-France
-        idf_cities = {
-            "paris", "versailles", "boulogne-billancourt", "saint-denis",
-            "argenteuil", "montreuil", "créteil", "nanterre", "courbevoie",
-            "vitry-sur-seine", "asnières-sur-seine", "colombes", "aulnay-sous-bois",
-            "rueil-malmaison", "aubervilliers", "champigny-sur-marne", "saint-maur-des-fossés",
-            "drancy", "issy-les-moulineaux", "levallois-perret", "antony", "noisy-le-grand",
-            "neuilly-sur-seine", "clichy", "ivry-sur-seine", "villejuif", "épinay-sur-seine",
-            "fontenay-sous-bois", "la courneuve", "bondy", "maisons-alfort", "suresnes",
-            "pantin", "vincennes", "meaux", "évry", "corbeil-essonnes", "mantes-la-jolie",
-            "melun", "savigny-sur-orge", "pontoise", "cergy"
-        }
-
-        # Postal code prefixes for Île-de-France departments
         idf_postal_prefixes = {"75", "77", "78", "91", "92", "93", "94", "95"}
+        return [e for e in events if e.location and e.location.postal_code and e.location.postal_code[:2] in idf_postal_prefixes]
 
-        idf_events = []
+    def redistribute_events_seasonally(self, events: list[Event], start_date: datetime | None = None) -> list[Event]:
+        if start_date is None: start_date = datetime.now()
         for event in events:
-            if not event.location:
-                continue
-
-            # Check city name
-            if event.location.city:
-                city_lower = event.location.city.lower().strip()
-                # Remove accents for comparison
-                city_normalized = (
-                    city_lower.replace("é", "e")
-                    .replace("è", "e")
-                    .replace("ê", "e")
-                    .replace("à", "a")
-                    .replace("ô", "o")
-                )
-                if any(idf_city in city_normalized for idf_city in idf_cities):
-                    idf_events.append(event)
-                    continue
-
-            # Check postal code
-            if event.location.postal_code:
-                postal_prefix = event.location.postal_code[:2]
-                if postal_prefix in idf_postal_prefixes:
-                    idf_events.append(event)
-
-        logger.info(
-            f"Filtered to {len(idf_events)} Île-de-France events "
-            f"from {len(events)} total"
-        )
-        return idf_events
-
-    def filter_paris_events(self, events: list[Event]) -> list[Event]:
-        """Filter events to only include Paris events.
-
-        Deprecated: Use filter_ile_de_france_events() instead for broader coverage.
-
-        Args:
-            events: List of Event objects
-
-        Returns:
-            List of events in Paris
-        """
-        paris_events = [
-            event
-            for event in events
-            if event.location
-            and event.location.city
-            and "paris" in event.location.city.lower()
-        ]
-
-        logger.info(f"Filtered to {len(paris_events)} Paris events from {len(events)} total")
-        return paris_events
-
-    def filter_by_date_range(
-        self,
-        events: list[Event],
-        start_date: datetime | None = None,
-        end_date: datetime | None = None,
-    ) -> list[Event]:
-        """Filter events by date range.
-
-        Args:
-            events: List of Event objects
-            start_date: Minimum start date (inclusive)
-            end_date: Maximum end date (inclusive)
-
-        Returns:
-            List of events within date range
-        """
-        filtered_events = []
-
-        for event in events:
-            if not event.start_date:
-                continue
-
-            if start_date and event.start_date < start_date:
-                continue
-
-            if end_date and event.start_date > end_date:
-                continue
-
-            filtered_events.append(event)
-
-        logger.info(
-            f"Filtered to {len(filtered_events)} events from {len(events)} "
-            f"(date range: {start_date} to {end_date})"
-        )
-        return filtered_events
-
-    def redistribute_events_seasonally(
-        self,
-        events: list[Event],
-        start_date: datetime | None = None,
-    ) -> list[Event]:
-        """Redistribute events over the next year preserving seasonality.
-
-        Projects past/future event dates to the next occurrence of their
-        month/day within the [start_date, start_date + 365 days] window.
-        Maintains event duration.
-
-        Args:
-            events: List of Event objects
-            start_date: Start of the target 1-year window (default: now)
-
-        Returns:
-            List of events with modified dates
-        """
-        if start_date is None:
-            start_date = datetime.now()
-
-        window_end = start_date + timedelta(days=365)
-        processed_events = []
-
-        for event in events:
-            if not event.start_date:
-                continue
-
-            # Calculate duration
-            duration = timedelta(hours=2)  # Default duration
-            if event.end_date:
-                duration = event.end_date - event.start_date
-                # specific case where duration is negative
-                if duration.total_seconds() < 0:
-                    duration = timedelta(hours=2)
-
-            # Determine target year for the event's month/day
-            # We want the next occurrence of this month/day >= start_date
-            
-            # Create candidate date in start_date's year
+            if not event.start_date: continue
+            duration = (event.end_date - event.start_date) if event.end_date else timedelta(hours=2)
             try:
-                candidate_year = start_date.year
-                candidate_date = event.start_date.replace(year=candidate_year)
-            except ValueError:
-                # Handle leap years (e.g. original was Feb 29, target not leap)
-                # Fallback to Feb 28 or Mar 1
-                candidate_date = event.start_date.replace(year=candidate_year, day=28)
-
-            # If candidate is before start_date, move to next year
-            if candidate_date < start_date:
-                try:
-                    candidate_date = candidate_date.replace(year=candidate_year + 1)
-                except ValueError:
-                    candidate_date = candidate_date.replace(year=candidate_year + 1, day=28)
-
-            # Verify it's within window (should be, but good sanity check)
-            if candidate_date > window_end:
-                # specific case where the loop wraps around too far? 
-                # Should not happen with the logic above unless window < 365
-                pass
-
-            # Update event dates
-            # We must create a copy or modify in place? 
-            # Modifying in place is fine as these are transient objects during ingestion
-            
-            # We need to preserve the time of day
-            new_start = candidate_date
-            new_end = new_start + duration
-
-            event.start_date = new_start
-            event.end_date = new_end
-            
-            # Also update raw_data text fields if they contain the date? 
-            # No, that might be too complex. We trust the object fields.
-            
-            processed_events.append(event)
-
-        logger.info(
-            f"Redistributed {len(processed_events)} events seasonally "
-            f"starting from {start_date.strftime('%Y-%m-%d')}"
-        )
-        return processed_events
+                candidate = event.start_date.replace(year=start_date.year)
+                if candidate < start_date: candidate = candidate.replace(year=start_date.year + 1)
+                event.start_date, event.end_date = candidate, candidate + duration
+            except ValueError: pass # Leap year
+        return events

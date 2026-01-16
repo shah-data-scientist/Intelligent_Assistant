@@ -1,5 +1,6 @@
 """Data ingestion pipeline with dynamic time window to ensure minimum event count."""
 
+import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import Any
@@ -9,6 +10,8 @@ from src.data.api_client import OpenAgendaClient
 from src.data.models import Event
 from src.data.processor import EventProcessor
 from src.data.storage import EventStorage
+from src.data.scraper import EventScraper
+from src.models.vector_store import EventVectorStore
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +32,7 @@ class DataIngestionPipeline:
         """
         self.storage = storage or EventStorage()
         self.processor = EventProcessor()
+        self.scraper = EventScraper()
         self.min_events = min_events
 
     def fetch_and_transform_events(
@@ -48,16 +52,11 @@ class DataIngestionPipeline:
         logger.info("Starting fetch of recent events...")
         
         # 1. Fetch recent events from API
-        # Use ODSQL 'where' clause for filtering. 
-        # Note: double quotes for string literals in ODSQL.
         filters = {
             "order_by": "firstdate_begin desc",
             "where": 'location_region like "Île-de-France"'
         }
         
-        # We need 1000 events. Fetching 2000 should be safe if the filter works.
-        # If the filter fails (e.g. wrong field name), we might get 0 or non-IDF events.
-        # But this is the most efficient way.
         target_fetch = max(self.min_events * 2, 2000)
         
         raw_records = client.fetch_all_events(
@@ -74,7 +73,7 @@ class DataIngestionPipeline:
         all_events = self.processor.process_records(raw_records)
         logger.info(f"Processed {len(all_events)} valid events")
 
-        # 3. Filter for Île-de-France (double-check locally in case API filter was loose)
+        # 3. Filter for Île-de-France
         idf_events = self.processor.filter_ile_de_france_events(all_events)
         
         # 4. Select top N events
@@ -89,7 +88,6 @@ class DataIngestionPipeline:
             logger.info(f"Selected top {len(selected_events)} IDF events")
 
         # 5. Redistribute dates seasonally
-        # Transform dates to [Now, Now + 365 days]
         transformed_events = self.processor.redistribute_events_seasonally(
             selected_events,
             start_date=datetime.now()
@@ -97,7 +95,7 @@ class DataIngestionPipeline:
         
         return transformed_events
 
-    def ingest(self, force_refresh: bool = False) -> dict[str, Any]:
+    async def ingest(self, force_refresh: bool = False) -> dict[str, Any]:
         """Run full ingestion pipeline.
 
         Args:
@@ -112,6 +110,7 @@ class DataIngestionPipeline:
             "fetched_raw": 0,
             "selected_count": 0,
             "new_events_added": 0,
+            "scraped_count": 0,
             "total_after_ingest": 0,
             "target_met": False,
         }
@@ -137,8 +136,37 @@ class DataIngestionPipeline:
                 return stats
 
             # Store events
-            new_count = self.storage.add_events_bulk(transformed_events)
-            stats["new_events_added"] = new_count
+            # We filter for only NEW events to avoid re-scraping existing ones
+            existing_ids = self.storage.get_existing_event_ids()
+            new_events = [e for e in transformed_events if e.event_id not in existing_ids]
+            
+            if new_events:
+                logger.info(f"Scraping {len(new_events)} new events...")
+                # Scrape in batches
+                BATCH_SIZE = 10
+                for i in range(0, len(new_events), BATCH_SIZE):
+                    batch = new_events[i:i+BATCH_SIZE]
+                    tasks = [self.scraper.scrape_url(e.url) for e in batch]
+                    results = await asyncio.gather(*tasks)
+                    for event, content in zip(batch, results):
+                        if content:
+                            event.scraped_content = content
+                            stats["scraped_count"] += 1
+                
+                # Add to DB
+                new_count = self.storage.add_events_bulk(new_events)
+                stats["new_events_added"] = new_count
+                
+                # REBUILD INDEX if new events were added
+                if new_count > 0:
+                    logger.info("Rebuilding FAISS index with new events...")
+                    with EventVectorStore(storage=self.storage) as vector_store:
+                        all_events = self.storage.get_all_events()
+                        vector_store.build_index(all_events)
+                        vector_store.save_index()
+            else:
+                logger.info("No new events to scrape or add.")
+
             stats["total_after_ingest"] = self.storage.count_events()
             stats["target_met"] = stats["total_after_ingest"] >= self.min_events
 
@@ -150,10 +178,8 @@ class DataIngestionPipeline:
 
             logger.info("=" * 80)
             logger.info("Ingestion Summary:")
-            logger.info(f"  Events selected & transformed: {stats['selected_count']}")
-            logger.info(f"  New events added: {stats['new_events_added']}")
+            logger.info(f"  New events added & scraped: {stats['new_events_added']}")
             logger.info(f"  Total in storage: {stats['total_after_ingest']}")
-            logger.info(f"  Target ({self.min_events} events): {'✓ MET' if stats['target_met'] else '✗ NOT MET'}")
             logger.info(f"  Duration: {stats['duration_seconds']:.1f}s")
             logger.info("=" * 80)
 
@@ -166,7 +192,7 @@ class DataIngestionPipeline:
             return stats
 
 
-def run_ingestion(
+async def run_ingestion(
     force_refresh: bool = False,
     min_events: int = 1000,
 ) -> dict[str, Any]:
@@ -185,11 +211,8 @@ def run_ingestion(
     )
 
     logger.info("Starting data ingestion pipeline")
-    logger.info(f"Minimum events target: {min_events}")
-    logger.info(f"Force refresh: {force_refresh}")
-
     pipeline = DataIngestionPipeline(min_events=min_events)
-    stats = pipeline.ingest(force_refresh=force_refresh)
+    stats = await pipeline.ingest(force_refresh=force_refresh)
 
     return stats
 
@@ -198,4 +221,4 @@ if __name__ == "__main__":
     import sys
 
     force_refresh = "--force" in sys.argv or "-f" in sys.argv
-    run_ingestion(force_refresh=force_refresh)
+    asyncio.run(run_ingestion(force_refresh=force_refresh))
