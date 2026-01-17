@@ -1,7 +1,7 @@
 # Project Memory
 
-**Last Updated:** 2026-01-16 13:00
-**Status:** Phase 4.5 Complete - Production-Grade Processing & Reinforced Security
+**Last Updated:** 2026-01-17 19:50
+**Status:** Phase 4.9 Complete - Critical Bug Fixed - Ready for Phase 5 Evaluation
 **Project:** RAG-based Cultural Events Recommendation Assistant
 
 ## 📋 Project Requirements
@@ -276,7 +276,6 @@ intelligent-assistant/
   - **Forced Classification:** Eliminated "Other" category. All events now mapped to semantic buckets: *Art / Exposition, Atelier / Workshop, Conférence / Débat, Festival, Formation / Emploi, Jeunesse / Famille, Musique, Patrimoine, Sport / Loisirs, Théâtre / Spectacle, Vie associative*.
   - **Auto-Sync:** Integrated 12-hour background sync into FastAPI lifespan. Automatically scrapes new events and rebuilds/reloads the FAISS index without downtime.
   - **Verification:** Verified `FIAP Jean Monnet` re-classification from "Autre" to "Art / Exposition". All 71 tests passing.
-
 - **Phase 4.5 Complete: User Interface**
   - **Modern Streamlit App:** Implemented full-featured web interface ([src/frontend/app.py](src/frontend/app.py)).
   - **Chat Interface:** Modern chat UI with session management, message history, and loading states.
@@ -295,25 +294,57 @@ intelligent-assistant/
   - **Helper Script:** Added [scripts/run_frontend.py](scripts/run_frontend.py) for easy startup
   - **Verification:** Frontend tested and operational on http://localhost:8501
 
+**2026-01-17:**
+- **Phase 4.8 Complete: User Feedback & Prompt Engineering**
+  - **Automated Feedback Analysis:** Implemented [scripts/generate_feedback_report.py](scripts/generate_feedback_report.py) which performs Root Cause Analysis (RCA) on user feedback using the LLM and generates a Markdown report ([docs/FEEDBACK_REPORT_LATEST.md](docs/FEEDBACK_REPORT_LATEST.md)).
+  - **Enhanced Persona:** Refactored `RAG_SYSTEM_PROMPT` into a "Helpful Cultural Guide" persona—warmer, more enthusiastic, and less robotic.
+  - **Global Context Injection:** The RAG chain now dynamically injects database statistics (total count: 1,009 events, date range: Jan 2026 - Jan 2027) into the prompt, enabling the bot to answer "how many events" questions accurately.
+  - **Regional Fallback Mechanism:** Implemented "Nearby" suggestions in `src/retrieval/chain.py`. If a specific city filter returns 0 results, the system automatically falls back to a regional search (Île-de-France) and notifies the user via a synthetic system note.
+  - **Link Fixes:** Enhanced `format_docs` to pass URLs from metadata to the LLM, eliminating hallucinated/broken links.
+  - **Deduplication:** Added content-based deduplication in the formatting layer to ensure unique event listings.
+- **Phase 4.9 Complete: Stability & Quality Assurance**
+  - **Bug Fixes:** Resolved critical issues in `EventProcessor` (missing methods, coordinate parsing) and `Event` models (label mismatches, duplicate code removal).
+  - **Architectural Refactoring:** Decoupled **Conversation History** from **Event Data**.
+    - Created `src/data/chat_storage.py` and dedicated `data/chat_history.db` for interactions (SRP).
+    - Removed `ConversationRecord` and `FeedbackRecord` from `EventStorage`.
+    - Updated `RAGChain` and API endpoints to utilize `ChatStorage` for improved modularity.
+  - **Test Suite Expansion:** Added [tests/test_rag_prompts.py](tests/test_rag_prompts.py) to validate fallback logic and data reporting. Verified chat storage isolation with updated [tests/test_chat_history.py](tests/test_chat_history.py).
+  - **Config Optimization:** Increased `retrieval_top_k` to 10 to ensure "at least 5 events" can be presented as requested by users.
+  - **Verification:** 74 tests passing (Total suite validation).
+
 ### Known Issues
 
-None.
+- **Performance Flakiness:** `test_search_latency_requirement` occasionally fails (> 2s) depending on local machine load during embedding generation.
 
 ### Next Steps
 
 **Phase 1: Data Pipeline** ✓ COMPLETE
-
 **Phase 1.5: Storage Layer** ✓ COMPLETE
-
 **Phase 2: Vector Store & Embeddings** ✓ COMPLETE
-
 **Phase 2.5: Data Refinement** ✓ COMPLETE
-
 **Phase 3: RAG System** ✓ COMPLETE
-
 **Phase 4: API Layer** ✓ COMPLETE
-
 **Phase 4.5: User Interface** ✓ COMPLETE
+**Phase 4.8: User Feedback & Fallbacks** ✓ COMPLETE
+**Phase 4.9: Stability** ✓ COMPLETE
+
+- **Critical Bug Fix: API Timeout Resolution**
+  - **Root Cause:** SQLite database locking causing API queries to hang indefinitely under concurrent load.
+  - **Investigation:** Identified three critical issues:
+    1. ChatStorage and EventStorage created without proper timeout/concurrency settings
+    2. SQLite default timeout (5s) too short for concurrent access
+    3. RAGChain creating new ChatStorage instances per invocation, leading to connection pool exhaustion
+  - **Solution:**
+    - Added 30-second timeout for SQLite database locks
+    - Enabled `check_same_thread=False` for multi-threaded access
+    - Configured `pool_pre_ping` and `pool_recycle` for connection health
+    - Enabled WAL (Write-Ahead Logging) mode for concurrent reads during writes
+    - Fixed RAGChain to reuse shared ChatStorage instance via lambda closure
+  - **Verification:**
+    - Single query: 12s response (normal, includes Mistral API calls)
+    - 3 concurrent requests: All completed successfully without blocking
+    - Database updated: 1,022 events now indexed
+  - **Files Modified:** [src/data/chat_storage.py](src/data/chat_storage.py), [src/data/storage.py](src/data/storage.py), [src/retrieval/chain.py](src/retrieval/chain.py)
 
 **Phase 5: Evaluation (Priority 1)** ← CURRENT
 1. Build retrieval metrics (Precision/Recall)

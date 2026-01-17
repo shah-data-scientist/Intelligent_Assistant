@@ -18,11 +18,12 @@ from src.generation.prompts import get_rag_prompt, get_contextualize_q_prompt, g
 from src.retrieval.retriever import EventRetriever
 from src.data.chat_history import SQLiteChatMessageHistory
 from src.data.storage import EventStorage
+from src.data.chat_storage import ChatStorage
 from src.security.guardrails import check_safety
 
 logger = logging.getLogger(__name__)
 
-def get_session_history(session_id: str, storage: EventStorage | None = None) -> BaseChatMessageHistory:
+def get_session_history(session_id: str, storage: ChatStorage | None = None) -> BaseChatMessageHistory:
     """Get persistent chat history for a session."""
     return SQLiteChatMessageHistory(session_id=session_id, storage=storage)
 
@@ -37,6 +38,7 @@ class RAGChain:
         k: int = 5,
         chain: Any | None = None,
         history_factory: Any | None = None,
+        chat_storage: ChatStorage | None = None,
     ) -> None:
         """Initialize the RAG chain.
 
@@ -46,6 +48,7 @@ class RAGChain:
             k: Number of events to retrieve
             chain: Optional pre-configured conversational chain (for testing)
             history_factory: Optional factory for chat history (for testing)
+            chat_storage: Optional ChatStorage instance
         """
         self.vector_store = vector_store or EventVectorStore()
         try:
@@ -54,13 +57,14 @@ class RAGChain:
             logger.warning(f"Could not load FAISS index: {e}. Build it first if needed.")
 
         self.llm = llm or MistralLLM()
+        self.chat_storage = chat_storage or ChatStorage()
         
         # Metadata Extraction Chain
         extraction_prompt = get_metadata_extraction_prompt()
         self.extraction_chain = extraction_prompt | self.llm.llm | JsonOutputParser()
 
         # Use provided history factory or default
-        session_history_factory = history_factory or (lambda sid: get_session_history(sid, self.vector_store.storage))
+        session_history_factory = history_factory or (lambda sid: get_session_history(sid, self.chat_storage))
         
         if chain:
             # If a chain is provided (mock), wrap it with history
@@ -111,8 +115,27 @@ class RAGChain:
                 # Perform search
                 results = self.vector_store.search(input_query, k=k, metadata_filter=clean_filters)
                 
+                # Fallback Logic: If no results and city filter exists, try removing city (regional search)
+                fallback_triggered = False
+                original_city = clean_filters.get("city")
+                
+                if not results and original_city:
+                    logger.info(f"No results for {original_city}, attempting fallback to regional search.")
+                    fallback_filters = clean_filters.copy()
+                    del fallback_filters["city"]
+                    results = self.vector_store.search(input_query, k=k, metadata_filter=fallback_filters)
+                    if results:
+                        fallback_triggered = True
+
                 # Convert to documents (manually, since we bypassed retriever)
                 docs = []
+                from langchain_core.documents import Document
+                
+                # Inject a system note if fallback was triggered
+                if fallback_triggered:
+                    note = f"SYSTEM_NOTE: No events found in {original_city}. These are nearby events in Île-de-France."
+                    docs.append(Document(page_content=note, metadata={"system_note": True, "score": 0.0}))
+
                 for event, score in results:
                     # We reuse the logic from EventRetriever or reimplement it briefly
                     content = event.to_text()
@@ -123,7 +146,6 @@ class RAGChain:
                         meta["latitude"] = event.location.coordinates.get("lat")
                         meta["longitude"] = event.location.coordinates.get("lon")
                     
-                    from langchain_core.documents import Document
                     docs.append(Document(page_content=content, metadata=meta))
                 
                 return docs
@@ -135,8 +157,34 @@ class RAGChain:
         # 3. QA Chain
         qa_prompt = get_rag_prompt()
         
+        # Pre-fetch global stats
+        try:
+            total_events = self.vector_store.storage.count_events()
+            min_date, max_date = self.vector_store.storage.get_date_range()
+            date_range_str = f"{min_date.strftime('%Y-%m-%d') if min_date else '?'} to {max_date.strftime('%Y-%m-%d') if max_date else '?'}"
+        except Exception as e:
+            logger.warning(f"Could not fetch global stats: {e}")
+            total_events = "Unknown"
+            date_range_str = "Unknown"
+
         def format_docs(docs):
-            return "\n\n".join(doc.page_content for doc in docs)
+            # Basic deduplication by content to avoid exact text repeats
+            seen = set()
+            formatted_docs = []
+            for doc in docs:
+                if doc.page_content not in seen:
+                    seen.add(doc.page_content)
+                    
+                    # Enhance context with metadata that might be missing from page_content
+                    content = doc.page_content
+                    meta = doc.metadata
+                    
+                    # Append URL if present (crucial for valid links)
+                    if meta.get("url"):
+                        content += f"\nLien: {meta['url']}"
+                        
+                    formatted_docs.append(content)
+            return "\n\n".join(formatted_docs)
 
         # Main Chain logic:
         
@@ -146,7 +194,10 @@ class RAGChain:
 
         self.rag_chain = (
             RunnablePassthrough.assign(
-                context=context_retrieval_chain
+                context=context_retrieval_chain,
+                total_events=lambda _: str(total_events),
+                date_range=lambda _: date_range_str,
+                k=lambda _: str(k)
             )
             .assign(
                 answer=(
@@ -161,12 +212,13 @@ class RAGChain:
         )
         
         # 4. Wrap with Message History
+        # Use lambda to pass shared storage instance to avoid creating new connections
         self.conversational_chain = RunnableWithMessageHistory(
             self.rag_chain,
-            get_session_history,
+            lambda sid: get_session_history(sid, self.chat_storage),
             input_messages_key="input",
             history_messages_key="chat_history",
-            output_messages_key="answer", 
+            output_messages_key="answer",
         )
         
         logger.info("RAGChain with history initialized successfully")
@@ -243,8 +295,8 @@ class RAGChain:
         # Retrieve the ID of the assistant's message we just saved
         message_id = None
         try:
-            with self.vector_store.storage.SessionLocal() as session:
-                from src.data.storage import ConversationRecord
+            with self.chat_storage.SessionLocal() as session:
+                from src.data.chat_storage import ConversationRecord
                 from sqlalchemy import select
                 stmt = select(ConversationRecord.id).where(
                     ConversationRecord.session_id == session_id,

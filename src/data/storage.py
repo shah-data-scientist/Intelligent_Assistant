@@ -15,6 +15,7 @@ from sqlalchemy import (
     create_engine,
     select,
     text,
+    func,
 )
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -72,20 +73,8 @@ class EventRecord(Base):
     faiss_index = Column(Integer, nullable=True, index=True)
 
 
-class ConversationRecord(Base):
-    """SQLAlchemy model for storing chat history."""
-
-    __tablename__ = "conversations"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    session_id = Column(String(255), nullable=False, index=True)
-    role = Column(String(50), nullable=False)  # "user" or "assistant"
-    content = Column(Text, nullable=False)
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
-
-
 class EventStorage:
-    """Storage layer for events and chat history using SQLite."""
+    """Storage layer for events and embeddings metadata using SQLite."""
 
     def __init__(self, db_path: str = "./data/events.db") -> None:
         """Initialize storage with SQLite database.
@@ -96,15 +85,26 @@ class EventStorage:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Create engine
+        # Create engine with proper SQLite configuration
         self.engine = create_engine(
             f"sqlite:///{self.db_path}",
             echo=False,  # Set to True for SQL debugging
+            connect_args={
+                "timeout": 30,  # 30 second timeout for database locks
+                "check_same_thread": False  # Allow multi-threaded access
+            },
+            pool_pre_ping=True,  # Verify connections before use
+            pool_recycle=3600,  # Recycle connections after 1 hour
         )
 
         # Create tables
         Base.metadata.create_all(self.engine)
-        
+
+        # Enable WAL mode for better concurrency
+        with self.engine.connect() as conn:
+            conn.execute(text("PRAGMA journal_mode=WAL"))
+            conn.commit()
+
         # Check for schema migration (add scraped_content if missing)
         self._ensure_schema()
 
@@ -444,6 +444,19 @@ class EventStorage:
         with self.SessionLocal() as session:
             return session.query(EventRecord).count()
 
+    def get_date_range(self) -> tuple[datetime | None, datetime | None]:
+        """Get the range of event dates in storage.
+
+        Returns:
+            Tuple of (min_start_date, max_start_date)
+        """
+        with self.SessionLocal() as session:
+            result = session.query(
+                func.min(EventRecord.start_date),
+                func.max(EventRecord.start_date)
+            ).first()
+            return result if result else (None, None)
+
     def get_existing_event_ids(self) -> set[str]:
         """Get set of all existing event IDs.
 
@@ -498,50 +511,7 @@ class EventStorage:
     def clear_all(self) -> None:
         """Clear all events from storage (use with caution)."""
         with self.SessionLocal() as session:
-            session.query(EventRecord).delete()
-            session.commit()
-            logger.warning("Cleared all events from storage")
-
-    def add_chat_message(self, session_id: str, role: str, content: str) -> None:
-        """Add a chat message to history.
-
-        Args:
-            session_id: Session identifier
-            role: "user" or "assistant"
-            content: Message content
-        """
-        with self.SessionLocal() as session:
-            record = ConversationRecord(
-                session_id=session_id,
-                role=role,
-                content=content
-            )
-            session.add(record)
-            session.commit()
-
-    def get_chat_history(self, session_id: str, limit: int = 50) -> list[dict[str, str]]:
-        """Get chat history for a session.
-
-        Args:
-            session_id: Session identifier
-            limit: Maximum number of recent messages to retrieve
-
-        Returns:
-            List of dicts with 'role' and 'content', ordered chronologically.
-        """
-        with self.SessionLocal() as session:
-            # Fetch most recent messages
-            query = (
-                select(ConversationRecord)
-                .where(ConversationRecord.session_id == session_id)
-                .order_by(ConversationRecord.timestamp.desc())
-                .limit(limit)
-            )
-            records = session.execute(query).scalars().all()
+                        session.query(EventRecord).delete()
+                        session.commit()
+                        logger.warning("Cleared all events from storage")
             
-            # Reverse to return chronological order
-            history = []
-            for r in reversed(records):
-                history.append({"role": r.role, "content": r.content})
-            
-            return history
