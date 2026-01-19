@@ -142,7 +142,7 @@ def test_process_record_success(
     assert event.event_id == "test-record-123"
     assert event.title == "Concert de Musique Classique"
     assert event.description == "Un concert magnifique au cœur de Paris"
-    assert event.category == "Music"
+    assert event.category == "Musique"
     assert event.location is not None
     assert event.location.city == "Paris"
     assert event.start_date is not None

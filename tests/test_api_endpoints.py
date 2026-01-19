@@ -63,8 +63,8 @@ def test_chat_endpoint(mock_rag_chain):
     app.dependency_overrides = {}
 
 def test_chat_endpoint_validation_error():
-    """Test chat endpoint validation (short question)."""
-    payload = {"question": "Hi"}  # Too short (< 3 chars)
+    """Test chat endpoint validation (empty question)."""
+    payload = {"question": ""}  # Too short (min 1 char)
     headers = {"X-API-Key": settings.app_api_key}
     response = client.post("/api/v1/chat", json=payload, headers=headers)
     assert response.status_code == 422

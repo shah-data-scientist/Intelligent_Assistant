@@ -43,57 +43,52 @@ class Event(BaseModel):
     def to_text(self) -> str:
         """Convert event to text representation for embedding.
 
+        URLs and critical information are placed first to help prevent hallucination.
+
         Returns:
             Text representation of the event
         """
-        parts = [f"Titre: {self.title}"]
+        parts = []
 
+        # Title and URL first (most important for preventing URL hallucination)
+        parts.append(f"Titre: {self.title}")
+        if self.url:
+            parts.append(f"Lien de l'événement: {self.url}")
+
+        # Core details
+        if self.category:
+            parts.append(f"Catégorie: {self.category}")
+
+        if self.start_date:
+            parts.append(f"Date de début: {self.start_date.strftime('%d/%m/%Y %H:%M')}")
+        if self.end_date:
+            parts.append(f"Date de fin: {self.end_date.strftime('%d/%m/%Y %H:%M')}")
+
+        # Location information
+        if self.location:
+            if self.location.address:
+                parts.append(f"Adresse: {self.location.address}")
+            if self.location.city:
+                parts.append(f"Ville: {self.location.city}")
+            if self.location.postal_code:
+                parts.append(f"Code postal: {self.location.postal_code}")
+
+        # Descriptions (after core details)
         if self.description:
-            parts.append(f"Description courte: {self.description}")
+            parts.append(f"Description: {self.description}")
 
         if self.scraped_content:
             parts.append(f"Description complète: {self.scraped_content}")
 
-        if self.category:
-            parts.append(f"Catégorie: {self.category}")
-            
+        # Additional metadata
         if self.tags:
             parts.append(f"Mots-clés: {', '.join(self.tags)}")
-
-        if self.location:
-            if self.location.address:
-                parts.append(f"Adresse: {self.location.address}")
-            if self.location.city:
-                parts.append(f"Ville: {self.location.city}")
-
         if self.organizer:
             parts.append(f"Organisateur: {self.organizer}")
-            
         if self.conditions:
             parts.append(f"Conditions et Tarifs: {self.conditions}")
-            
         if self.accessibility:
             parts.append(f"Accessibilité: {self.accessibility}")
-
-        return "\n".join(parts)
-
-        if self.location:
-            if self.location.address:
-                parts.append(f"Adresse: {self.location.address}")
-            if self.location.city:
-                parts.append(f"Ville: {self.location.city}")
-
-        if self.start_date:
-            parts.append(f"Date de début: {self.start_date.strftime('%Y-%m-%d %H:%M')}")
-
-        if self.end_date:
-            parts.append(f"Date de fin: {self.end_date.strftime('%Y-%m-%d %H:%M')}")
-
-        if self.organizer:
-            parts.append(f"Organisateur: {self.organizer}")
-
-        if self.tags:
-            parts.append(f"Tags: {', '.join(self.tags)}")
 
         return "\n".join(parts)
 
@@ -121,3 +116,21 @@ class Event(BaseModel):
             metadata["url"] = self.url
 
         return metadata
+
+
+class ChatMessage(BaseModel):
+    """Model for a single chat message."""
+
+    session_id: str
+    role: str  # "user" or "assistant"
+    content: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Feedback(BaseModel):
+    """Model for user feedback."""
+
+    message_id: int
+    is_positive: bool
+    comment: str | None = None
+    timestamp: datetime = Field(default_factory=datetime.utcnow)

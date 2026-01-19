@@ -150,16 +150,18 @@ class EventVectorStore:
         query: str,
         k: int = 5,
         metadata_filter: dict[str, Any] | None = None,
+        enable_hybrid: bool = True,
     ) -> list[tuple[Event, float]]:
-        """Search for similar events using semantic similarity.
+        """Search for similar events using semantic similarity with optional hybrid boosting.
 
         Args:
             query: Search query text
             k: Number of results to return
             metadata_filter: Optional metadata filters (e.g., {"city": "Paris"})
+            enable_hybrid: Enable genre keyword boosting (default: True)
 
         Returns:
-            List of (Event, similarity_score) tuples
+            List of (Event, similarity_score) tuples sorted by score (descending)
         """
         if self.index is None:
             raise ValueError("No index loaded. Build or load index first.")
@@ -169,12 +171,12 @@ class EventVectorStore:
         query_array = np.array([query_embedding], dtype=np.float32)
         faiss.normalize_L2(query_array)
 
-        # Search FAISS index (get more results if filtering needed)
-        search_k = k * 10 if metadata_filter else k
+        # Search FAISS index (get more results for filtering/reranking)
+        search_k = k * 20 if (metadata_filter or enable_hybrid) else k
         distances, indices = self.index.search(query_array, search_k)
 
         # Retrieve events from storage
-        results: list[tuple[Event, float]] = []
+        candidates: list[tuple[Event, float]] = []
         for idx, distance in zip(indices[0], distances[0]):
             if idx == -1:  # FAISS returns -1 for no result
                 continue
@@ -191,13 +193,133 @@ class EventVectorStore:
                 if not self._matches_filter(event, metadata_filter):
                     continue
 
-            results.append((event, float(distance)))
+            candidates.append((event, float(distance)))
 
-            if len(results) >= k:
-                break
+        # Apply hybrid boosting if enabled
+        if enable_hybrid:
+            candidates = self._apply_genre_boosting(query, candidates)
 
+        # Take top k and return
+        results = candidates[:k]
         logger.info(f"Found {len(results)} results for query: {query[:50]}")
         return results
+
+    def _apply_genre_boosting(
+        self,
+        query: str,
+        candidates: list[tuple[Event, float]],
+        boost_factor: float = 0.30
+    ) -> list[tuple[Event, float]]:
+        """Apply keyword boosting for genre terms to rerank candidates.
+
+        Args:
+            query: Original search query
+            candidates: List of (Event, score) candidates from semantic search
+            boost_factor: Score boost to apply for keyword matches (default: 0.30)
+
+        Returns:
+            Reranked list of (Event, score) tuples
+        """
+        # Define genre keywords (organized by category for better matching)
+        genre_keywords = {
+            # Classical music
+            'classical': ['classique', 'classical', 'orchestre', 'orchestra', 'symphony', 'symphonie',
+                         'philharmonic', 'philharmonique', 'concert classique', 'classical concert',
+                         'mozart', 'beethoven', 'bach', 'vivaldi', 'haydn', 'schubert', 'chopin',
+                         'quatuor', 'quartet', 'concerto', 'sonate', 'sonata', 'opéra', 'opera'],
+
+            # Jazz
+            'jazz': ['jazz', 'swing', 'bebop', 'blues', 'improvisation'],
+
+            # Rock/Pop
+            'rock': ['rock', 'pop', 'metal', 'punk', 'indie', 'alternative'],
+
+            # Electronic
+            'electronic': ['électronique', 'electronic', 'electro', 'techno', 'house', 'edm', 'dj'],
+
+            # Hip-hop
+            'hip-hop': ['hip-hop', 'hiphop', 'rap', 'r&b', 'rnb'],
+
+            # World music
+            'world': ['musique du monde', 'world music', 'folk', 'traditionnel', 'traditional',
+                     'african', 'africain', 'asian', 'asiatique', 'latin'],
+
+            # Theater/Performance
+            'theater': ['théâtre', 'theater', 'spectacle', 'performance', 'danse', 'dance',
+                       'ballet', 'contemporain', 'contemporary'],
+
+            # Other genres
+            'other': ['reggae', 'ska', 'funk', 'soul', 'gospel', 'country']
+        }
+
+        # Flatten genre keywords for easier searching
+        all_genre_keywords = []
+        for keywords in genre_keywords.values():
+            all_genre_keywords.extend(keywords)
+
+        # Extract genre keywords from query
+        query_lower = query.lower()
+        query_genres = [kw for kw in all_genre_keywords if kw in query_lower]
+
+        if not query_genres:
+            # No genre keywords in query, return as-is
+            return candidates
+
+        logger.info(f"Genre keywords detected in query: {query_genres}")
+
+        # Determine if query has exclusive genre intent (e.g., "classique" NOT "jazz")
+        # Define genre conflicts
+        genre_conflicts = {
+            'classical': ['jazz'],  # Classical excludes jazz
+            'jazz': ['classical', 'classique'],  # Jazz excludes classical
+            'rock': ['classical', 'classique', 'jazz'],
+            'electronic': ['classical', 'classique', 'jazz'],
+        }
+
+        # Check which genre category the query belongs to
+        query_genre_category = None
+        for category, keywords in genre_keywords.items():
+            if any(kw in query_lower for kw in keywords):
+                query_genre_category = category
+                break
+
+        # Get conflicting keywords to filter out
+        conflicting_keywords = []
+        if query_genre_category and query_genre_category in genre_conflicts:
+            conflicting_keywords = genre_conflicts[query_genre_category]
+
+        # Boost candidates that match genre keywords, filter out conflicting genres
+        boosted_results = []
+        for event, score in candidates:
+            # Create searchable text from event
+            event_text = f"{event.title} {event.description or ''} {event.scraped_content or ''}"
+            event_text += f" {' '.join(event.tags or [])}"  # Include tags
+            event_text = event_text.lower()
+
+            # Check for genre keyword matches
+            matched_keywords = [kw for kw in query_genres if kw in event_text]
+
+            # Check for conflicting genre keywords (negative filtering)
+            has_conflict = any(conflict in event_text for conflict in conflicting_keywords)
+
+            # If event has conflicting genre AND doesn't match the query genre, skip it
+            if has_conflict and not matched_keywords:
+                logger.debug(f"Filtering out '{event.title}' due to genre conflict (has: {conflicting_keywords}, query: {query_genres})")
+                continue
+
+            # Apply boost if matches found
+            if matched_keywords:
+                boosted_score = score + (boost_factor * len(matched_keywords))
+                logger.debug(f"Boosting '{event.title}' from {score:.3f} to {boosted_score:.3f} (matched: {matched_keywords})")
+                boosted_results.append((event, boosted_score))
+            else:
+                boosted_results.append((event, score))
+
+        # Re-sort by boosted scores (descending)
+        boosted_results.sort(key=lambda x: x[1], reverse=True)
+
+        logger.info(f"After genre filtering: {len(boosted_results)}/{len(candidates)} candidates remaining")
+        return boosted_results
 
     def _matches_filter(self, event: Event, filters: dict[str, Any]) -> bool:
         """Check if event matches metadata filters.

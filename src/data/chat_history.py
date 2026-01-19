@@ -6,14 +6,14 @@ from typing import List
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 
-from src.data.storage import EventStorage
+from src.data.chat_storage import ChatStorage
 
 logger = logging.getLogger(__name__)
 
 class SQLiteChatMessageHistory(BaseChatMessageHistory):
     """Chat history implementation that stores messages in SQLite."""
 
-    def __init__(self, session_id: str, storage: EventStorage | None = None) -> None:
+    def __init__(self, session_id: str, storage: ChatStorage | None = None) -> None:
         """Initialize with session ID.
 
         Args:
@@ -23,7 +23,7 @@ class SQLiteChatMessageHistory(BaseChatMessageHistory):
         self.session_id = session_id
         # We create a new storage instance if not provided.
         # Ideally, this should be a singleton or dependency injected.
-        self.storage = storage or EventStorage()
+        self.storage = storage or ChatStorage()
         print(f"DEBUG: Initialized history for {session_id} with storage {self.storage}")
 
     @property

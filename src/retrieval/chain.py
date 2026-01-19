@@ -14,8 +14,9 @@ from langchain_core.chat_history import BaseChatMessageHistory
 
 from src.models.vector_store import EventVectorStore
 from src.generation.llm import MistralLLM
-from src.generation.prompts import get_rag_prompt, get_contextualize_q_prompt, get_metadata_extraction_prompt
+from src.generation.prompts import get_rag_prompt, get_contextualize_q_prompt, get_metadata_extraction_prompt, get_query_refinement_prompt
 from src.retrieval.retriever import EventRetriever
+from src.retrieval.cache import QueryCache
 from src.data.chat_history import SQLiteChatMessageHistory
 from src.data.storage import EventStorage
 from src.data.chat_storage import ChatStorage
@@ -39,6 +40,8 @@ class RAGChain:
         chain: Any | None = None,
         history_factory: Any | None = None,
         chat_storage: ChatStorage | None = None,
+        enable_cache: bool = True,
+        cache_ttl_minutes: int = 60,
     ) -> None:
         """Initialize the RAG chain.
 
@@ -49,6 +52,8 @@ class RAGChain:
             chain: Optional pre-configured conversational chain (for testing)
             history_factory: Optional factory for chat history (for testing)
             chat_storage: Optional ChatStorage instance
+            enable_cache: Enable query result caching (default: True)
+            cache_ttl_minutes: Cache time-to-live in minutes (default: 60)
         """
         self.vector_store = vector_store or EventVectorStore()
         try:
@@ -58,10 +63,19 @@ class RAGChain:
 
         self.llm = llm or MistralLLM()
         self.chat_storage = chat_storage or ChatStorage()
+
+        # Initialize cache if enabled
+        self.cache = QueryCache(ttl_minutes=cache_ttl_minutes) if enable_cache else None
+        if self.cache:
+            logger.info(f"Query caching ENABLED (TTL: {cache_ttl_minutes}min)")
         
         # Metadata Extraction Chain
         extraction_prompt = get_metadata_extraction_prompt()
         self.extraction_chain = extraction_prompt | self.llm.llm | JsonOutputParser()
+
+        # Query Refinement Chain
+        refinement_prompt = get_query_refinement_prompt()
+        self.refinement_chain = refinement_prompt | self.llm.llm | StrOutputParser()
 
         # Use provided history factory or default
         session_history_factory = history_factory or (lambda sid: get_session_history(sid, self.chat_storage))
@@ -104,16 +118,19 @@ class RAGChain:
         # We define a custom function to handle extraction + search
         def retrieve_docs_hybrid(input_query: str):
             try:
-                # Extract filters (using the raw query for extraction is often better than the reformulated one for dates)
-                # But here we only have input_query which is the reformulated one. That's fine.
-                filters = self.extraction_chain.invoke({"question": input_query})
+                # Refine query (typos/expansion)
+                refined_query = self.refinement_chain.invoke({"question": input_query})
+                logger.info(f"Refined query: '{input_query}' -> '{refined_query}'")
+
+                # Extract filters (using the refined query)
+                filters = self.extraction_chain.invoke({"question": refined_query})
                 logger.info(f"Extracted filters: {filters}")
                 
                 # Clean filters (remove nulls)
                 clean_filters = {k: v for k, v in filters.items() if v}
                 
-                # Perform search
-                results = self.vector_store.search(input_query, k=k, metadata_filter=clean_filters)
+                # Perform search with refined query
+                results = self.vector_store.search(refined_query, k=k, metadata_filter=clean_filters)
                 
                 # Fallback Logic: If no results and city filter exists, try removing city (regional search)
                 fallback_triggered = False
@@ -123,18 +140,17 @@ class RAGChain:
                     logger.info(f"No results for {original_city}, attempting fallback to regional search.")
                     fallback_filters = clean_filters.copy()
                     del fallback_filters["city"]
-                    results = self.vector_store.search(input_query, k=k, metadata_filter=fallback_filters)
+                    results = self.vector_store.search(refined_query, k=k, metadata_filter=fallback_filters)
                     if results:
                         fallback_triggered = True
 
                 # Convert to documents (manually, since we bypassed retriever)
                 docs = []
                 from langchain_core.documents import Document
-                
-                # Inject a system note if fallback was triggered
-                if fallback_triggered:
-                    note = f"SYSTEM_NOTE: No events found in {original_city}. These are nearby events in Île-de-France."
-                    docs.append(Document(page_content=note, metadata={"system_note": True, "score": 0.0}))
+
+                # NOTE: Removed SYSTEM_NOTE injection - it was causing confusing answers
+                # The retrieval system finds relevant events, and the LLM can present them naturally
+                # without disclaimers about fallback searches
 
                 for event, score in results:
                     # We reuse the logic from EventRetriever or reimplement it briefly
@@ -168,23 +184,32 @@ class RAGChain:
             date_range_str = "Unknown"
 
         def format_docs(docs):
-            # Basic deduplication by content to avoid exact text repeats
-            seen = set()
+            """Format documents with source attribution and metadata for citation."""
+            seen_event_ids = set()
             formatted_docs = []
+            source_num = 1  # Track actual source numbering after deduplication
+
             for doc in docs:
-                if doc.page_content not in seen:
-                    seen.add(doc.page_content)
-                    
-                    # Enhance context with metadata that might be missing from page_content
-                    content = doc.page_content
-                    meta = doc.metadata
-                    
-                    # Append URL if present (crucial for valid links)
-                    if meta.get("url"):
-                        content += f"\nLien: {meta['url']}"
-                        
-                    formatted_docs.append(content)
-            return "\n\n".join(formatted_docs)
+                # Extract metadata
+                meta = doc.metadata
+                event_id = meta.get("event_id", "unknown")
+
+                # Deduplicate by event_id to avoid showing same event multiple times
+                if event_id != "unknown" and event_id in seen_event_ids:
+                    continue
+
+                seen_event_ids.add(event_id)
+                relevance_score = meta.get("score", 0.0)
+
+                # Add source header for LLM citation
+                source_header = f"=== SOURCE {source_num} (Event ID: {event_id}, Relevance: {relevance_score:.2f}) ==="
+
+                formatted_docs.append(f"{source_header}\n{doc.page_content}")
+                source_num += 1
+
+            if formatted_docs:
+                return "\n\n" + "\n\n".join(formatted_docs) + "\n\n"
+            return ""
 
         # Main Chain logic:
         
@@ -283,12 +308,26 @@ class RAGChain:
         """
         logger.info(f"Processing query with metadata: {question} (session: {session_id})")
         check_safety(question)
-        
+
+        # Detect follow-up queries (references to previous context)
+        follow_up_keywords = ['first', 'second', 'third', 'last', 'previous', 'that one', 'this one',
+                              'tell me more', 'more about', 'more info', 'premier', 'deuxi', 'troisi',
+                              'dernier', 'celui', 'cette', 'plus sur', 'davantage']
+        is_follow_up = any(keyword in question.lower() for keyword in follow_up_keywords)
+
+        # Check cache (skip for follow-up queries that reference previous context)
+        if self.cache and not is_follow_up:
+            cached_result = self.cache.get(question, session_id)
+            if cached_result:
+                logger.info("Returning cached result")
+                return cached_result
+
+        # Process query (cache miss or cache disabled)
         result = self.conversational_chain.invoke(
             {"input": question},
             config={"configurable": {"session_id": session_id}},
         )
-        
+
         answer = result["answer"]
         docs = result.get("context", [])
 
@@ -305,8 +344,9 @@ class RAGChain:
                 message_id = session.execute(stmt).scalar()
         except Exception as e:
             logger.error(f"Failed to retrieve message_id for feedback: {e}")
-        
-        return {
+
+        # Build result
+        result_dict = {
             "answer": answer,
             "message_id": message_id,
             "sources": [
@@ -317,11 +357,18 @@ class RAGChain:
                     "url": d.metadata.get("url"),
                     "score": d.metadata.get("score"),
                     "latitude": d.metadata.get("latitude"),
-                    "longitude": d.metadata.get("longitude")
+                    "longitude": d.metadata.get("longitude"),
+                    "full_text": d.page_content  # Add full event details for faithfulness evaluation
                 }
                 for d in docs
             ]
         }
+
+        # Cache result (skip follow-up queries that reference previous context)
+        if self.cache and not is_follow_up:
+            self.cache.set(question, session_id, result_dict)
+
+        return result_dict
 
 
 def main() -> None:

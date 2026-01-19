@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 from langchain_core.messages import AIMessage
 from src.retrieval.chain import RAGChain
 from src.data.models import Event
-from src.data.storage import EventStorage
+from src.data.chat_storage import ChatStorage
 
 @pytest.fixture
 def mock_chain_dependencies():
@@ -27,7 +27,7 @@ def test_chat_history_statefulness(tmp_path):
     from langchain_core.runnables import RunnableLambda
     
     db_path = tmp_path / "test_history.db"
-    real_storage = EventStorage(db_path=str(db_path))
+    real_storage = ChatStorage(db_path=str(db_path))
     
     from src.data.chat_history import SQLiteChatMessageHistory
     def get_test_history(session_id: str):
@@ -73,8 +73,8 @@ def test_full_conversation_flow(tmp_path):
     # Use a temp DB to avoid polluting the main one
     db_path = tmp_path / "integration_test.db"
     
-    with patch("src.data.chat_history.EventStorage") as MockStorage:
-        real_storage = EventStorage(db_path=str(db_path))
+    with patch("src.data.chat_history.ChatStorage") as MockStorage:
+        real_storage = ChatStorage(db_path=str(db_path))
         MockStorage.return_value = real_storage
         
         # We need real VectorStore and LLM here, so we don't mock them

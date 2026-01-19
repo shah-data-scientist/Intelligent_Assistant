@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 import pandas as pd
 import folium
-from streamlit_folium import folium_static
+from streamlit_folium import st_folium
 import uuid
 from datetime import datetime
 
@@ -19,10 +19,27 @@ API_KEY = "dev-secret-key"  # Matching src/config.py default
 
 # Initialize session state for chat history and session ID
 if "messages" not in st.session_state:
-    st.session_state.messages = []
+    welcome_msg = """
+**Welcome to the Île-de-France Cultural Assistant!** 🎭
+
+I can help you discover **Music, Theater, Art, and Sports** events happening in **Paris and the surrounding region** (Île-de-France).
+
+**Capabilities:**
+*   🔍 Search by **topic** (e.g., 'jazz concerts'), **location** ('in Versailles'), or **date** ('next weekend').
+*   📍 Suggest **nearby events** if your specific city has no results.
+*   🇬🇧/🇫🇷 Speak **English and French**.
+
+**Constraints:**
+*   📅 I currently have access to a curated selection of **1,009 events** scheduled between **January 2026 and January 2027**.
+*   ⚠️ I may not have every single local event, but I'll do my best to find the most relevant ones for you.
+"""
+    st.session_state.messages = [{"role": "assistant", "content": welcome_msg}]
 
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
+
+if "feedback_submitted" not in st.session_state:
+    st.session_state.feedback_submitted = set()
 
 # Sidebar
 with st.sidebar:
@@ -32,6 +49,7 @@ with st.sidebar:
     if st.button("Clear Chat History"):
         st.session_state.messages = []
         st.session_state.session_id = str(uuid.uuid4())
+        st.session_state.feedback_submitted = set()
         st.rerun()
     
     st.divider()
@@ -40,15 +58,59 @@ with st.sidebar:
 # Main UI
 st.title("🎭 Île-de-France Cultural Assistant")
 
+# Function to submit feedback to API
+def submit_feedback(message_id, is_positive, comment=""):
+    try:
+        headers = {"X-API-Key": API_KEY}
+        payload = {
+            "message_id": message_id,
+            "is_positive": is_positive,
+            "comment": comment
+        }
+        resp = requests.post("http://localhost:8000/api/v1/feedback", json=payload, headers=headers)
+        if resp.status_code == 200:
+            st.session_state.feedback_submitted.add(message_id)
+            return True
+    except Exception as e:
+        st.error(f"Feedback error: {e}")
+    return False
+
 # Chat interface
 # Display chat messages from history on app rerun
-for message in st.session_state.messages:
+for i, message in enumerate(st.session_state.messages):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
         if "sources" in message and message["sources"]:
             with st.expander("Sources"):
                 for src in message["sources"]:
                     st.write(f"- **{src['title']}** ({src['city']})")
+        
+        # Feedback logic for assistant messages
+        if message["role"] == "assistant" and "message_id" in message and message["message_id"]:
+            msg_id = message["message_id"]
+            
+            if msg_id not in st.session_state.feedback_submitted:
+                col1, col2, _ = st.columns([0.05, 0.05, 0.9])
+                with col1:
+                    if st.button("👍", key=f"up_{msg_id}"):
+                        if submit_feedback(msg_id, True):
+                            st.toast("Thanks for your positive feedback!")
+                            st.rerun()
+                with col2:
+                    if st.button("👎", key=f"down_{msg_id}"):
+                        st.session_state[f"show_comment_{msg_id}"] = True
+                
+                # Show comment box if thumbs down was clicked
+                if st.session_state.get(f"show_comment_{msg_id}"):
+                    with st.form(key=f"form_{msg_id}"):
+                        comment = st.text_area("How can we improve?", key=f"text_{msg_id}")
+                        if st.form_submit_button("Submit"):
+                            if submit_feedback(msg_id, False, comment):
+                                st.toast("Thanks for your feedback. We will improve!")
+                                del st.session_state[f"show_comment_{msg_id}"]
+                                st.rerun()
+            else:
+                st.caption("Feedback received. Thank you!")
 
 # React to user input
 if prompt := st.chat_input("What would you like to do in Paris?"):
@@ -71,6 +133,7 @@ if prompt := st.chat_input("What would you like to do in Paris?"):
                     data = response.json()
                     answer = data["answer"]
                     sources = data["sources"]
+                    msg_id = data.get("message_id")
                     
                     # Display answer
                     st.markdown(answer)
@@ -99,7 +162,7 @@ if prompt := st.chat_input("What would you like to do in Paris?"):
                                     popup=f"<b>{loc['title']}</b><br>{loc['city']}",
                                     tooltip=loc["title"]
                                 ).add_to(m)
-                            folium_static(m)
+                            st_folium(m, returned_objects=[], width=None, height=400)
                         
                         with st.expander("Sources"):
                             for src in sources:
@@ -110,8 +173,10 @@ if prompt := st.chat_input("What would you like to do in Paris?"):
                     st.session_state.messages.append({
                         "role": "assistant", 
                         "content": answer,
-                        "sources": sources
+                        "sources": sources,
+                        "message_id": msg_id
                     })
+                    st.rerun() # Rerun to show feedback buttons for the new message
                 else:
                     error_msg = f"Error {response.status_code}: {response.text}"
                     st.error(error_msg)

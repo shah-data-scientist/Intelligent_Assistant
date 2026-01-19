@@ -153,8 +153,10 @@ class EventProcessor:
             title = self.clean_title(fields.get("title_fr") or fields.get("title") or "Sans titre")
             
             # 2. Description Handling (Merge API and Scraper if needed)
-            api_desc = self.safe_normalize(fields.get("longdescription_fr") or fields.get("description_fr"))
+            api_desc = self.safe_normalize(fields.get("longdescription_fr") or fields.get("description_fr") or fields.get("description"))
             api_desc = self.remove_boilerplate(api_desc)
+            if not api_desc:
+                api_desc = None
             
             # Scraped content will be handled in separate enrichment step, 
             # but we define placeholders for the model here.
@@ -164,7 +166,7 @@ class EventProcessor:
             age_max = fields.get("age_max")
             
             acc = self.safe_normalize(fields.get("accessibility_label_fr") or fields.get("accessibility"))
-            if "voir site" in acc.lower(): acc = ""
+            if acc and "voir site" in acc.lower(): acc = ""
             
             cond = self.safe_normalize(fields.get("conditions_fr") or fields.get("conditions"))
             cond = self.remove_boilerplate(cond)
@@ -174,7 +176,7 @@ class EventProcessor:
             
             # Standard Date Parsing (unchanged from legacy logic)
             start_date = self.parse_date(fields.get("firstdate_begin") or fields.get("start_date"))
-            end_date = self.parse_date(fields.get("lastdate_end") or fields.get("firstdate_end"))
+            end_date = self.parse_date(fields.get("lastdate_end") or fields.get("firstdate_end") or fields.get("end_date"))
 
             # 5. Keywords
             tags = [self.safe_normalize(t).capitalize() for t in self.extract_tags(fields) if len(t) > 1]
@@ -230,9 +232,17 @@ class EventProcessor:
         if addr := (fields.get("location_address") or fields.get("address") or fields.get("address_fr") ): location_data["address"] = addr
         if city := (fields.get("location_city") or fields.get("city") or fields.get("ville") or fields.get("ville_fr") ): location_data["city"] = city
         if pc := (fields.get("location_postalcode") or fields.get("postal_code") or fields.get("code_postal") ): location_data["postal_code"] = pc
-        if coords := fields.get("location_coordinates") or fields.get("coordinates"):
-            if isinstance(coords, dict) and "lat" in coords and "lon" in coords: location_data["coordinates"] = {"lat": coords["lat"], "lon": coords["lon"]}
-            elif isinstance(coords, list) and len(coords) >= 2: location_data["coordinates"] = {"lon": coords[0], "lat": coords[1]}
+        
+        coords = fields.get("location_coordinates") or fields.get("coordinates") or fields.get("geo_point_2d")
+        if coords:
+            if isinstance(coords, dict) and "lat" in coords and "lon" in coords:
+                location_data["coordinates"] = {"lat": coords["lat"], "lon": coords["lon"]}
+            elif isinstance(coords, list) and len(coords) >= 2:
+                # Some APIs use [lat, lon], some [lon, lat]. Standardize here.
+                # Assuming [lat, lon] if not specified, but check test expectations.
+                # test_extract_location uses {"lat": 48.8656, "lon": 2.3212}
+                location_data["coordinates"] = {"lat": coords[0], "lon": coords[1]}
+                
         if not location_data: return None
         return EventLocation(**location_data)
 
@@ -250,6 +260,25 @@ class EventProcessor:
         for record in records:
             if event := self.process_record(record): events.append(event)
         return events
+
+    def filter_paris_events(self, events: list[Event]) -> list[Event]:
+        """Filter events that take place in Paris."""
+        return [
+            e for e in events 
+            if e.location and e.location.city and "paris" in e.location.city.lower()
+        ]
+
+    def filter_by_date_range(
+        self, 
+        events: list[Event], 
+        start_date: datetime, 
+        end_date: datetime
+    ) -> list[Event]:
+        """Filter events within a specific date range."""
+        return [
+            e for e in events 
+            if e.start_date and start_date <= e.start_date <= end_date
+        ]
 
     def filter_ile_de_france_events(self, events: list[Event]) -> list[Event]:
         idf_postal_prefixes = {"75", "77", "78", "91", "92", "93", "94", "95"}

@@ -4,7 +4,7 @@ import logging
 from fastapi import APIRouter, HTTPException, Depends, Request, Security
 from fastapi.security import APIKeyHeader
 from fastapi.responses import StreamingResponse
-from src.api.schemas import ChatRequest, ChatResponse
+from src.api.schemas import ChatRequest, ChatResponse, FeedbackRequest
 from src.retrieval.chain import RAGChain
 from src.config import settings
 from src.security.guardrails import check_safety, SecurityException
@@ -52,16 +52,33 @@ def chat(request: ChatRequest, chain: RAGChain = Depends(get_rag_chain)):
         
         return ChatResponse(
             answer=result["answer"],
-            sources=result["sources"]
+            sources=result["sources"],
+            message_id=result.get("message_id")
         )
     except SecurityException as se:
         logger.warning(f"Security guardrail triggered: {se}")
-        return ChatResponse(answer=str(se), sources=[])
+        raise HTTPException(status_code=400, detail=str(se))
     except HTTPException as he:
         raise he
     except Exception as e:
         logger.error(f"Error processing chat request: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/feedback", dependencies=[Depends(verify_api_key)])
+def post_feedback(request: FeedbackRequest, chain: RAGChain = Depends(get_rag_chain)):
+    """
+    Submit user feedback for a specific message.
+    """
+    try:
+        chain.chat_storage.add_feedback(
+            message_id=request.message_id,
+            is_positive=request.is_positive,
+            comment=request.comment
+        )
+        return {"status": "success", "message": "Feedback submitted"}
+    except Exception as e:
+        logger.error(f"Error submitting feedback: {e}")
+        raise HTTPException(status_code=500, detail="Failed to submit feedback")
 
 @router.post("/chat/stream", dependencies=[Depends(verify_api_key)])
 def chat_stream(request: ChatRequest, chain: RAGChain = Depends(get_rag_chain)):
@@ -78,9 +95,7 @@ def chat_stream(request: ChatRequest, chain: RAGChain = Depends(get_rag_chain)):
         )
     except SecurityException as se:
         logger.warning(f"Security guardrail triggered (stream): {se}")
-        async def stream_refusal():
-            yield str(se)
-        return StreamingResponse(stream_refusal(), media_type="text/plain")
+        raise HTTPException(status_code=400, detail=str(se))
     except HTTPException as he:
         raise he
     except Exception as e:

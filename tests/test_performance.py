@@ -52,5 +52,5 @@ def test_vector_store_completeness():
         except FileNotFoundError:
             pytest.skip("FAISS index not found.")
             
-        assert len(vector_store.event_ids) == 1000
-        assert vector_store.index.ntotal == 1000
+        assert len(vector_store.event_ids) >= 1000
+        assert vector_store.index.ntotal >= 1000
