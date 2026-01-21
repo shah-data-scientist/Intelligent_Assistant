@@ -53,7 +53,7 @@ class Event(BaseModel):
         # Title and URL first (most important for preventing URL hallucination)
         parts.append(f"Titre: {self.title}")
         if self.url:
-            parts.append(f"Lien de l'événement: {self.url}")
+            parts.append(f"🔗 Lien de l'événement: {self.url}")
 
         # Core details
         if self.category:

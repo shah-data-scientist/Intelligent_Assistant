@@ -296,6 +296,29 @@ class RAGChain:
                 yield chunk
             # If using LCEL with dict output, it might stream dict updates.
 
+    def _is_statistical_query(self, question: str) -> bool:
+        """Detect if query is asking for database statistics/aggregations."""
+        question_lower = question.lower()
+
+        # Statistical keywords
+        stat_keywords = [
+            'how many', 'combien', 'nombre', 'number of', 'count',
+            'distribution', 'répartition', 'breakdown',
+            'total', 'sum', 'average', 'moyenne',
+            'which city has the most', 'quelle ville a le plus',
+            'monthly', 'mensuel', 'par mois', 'by month',
+            'statistics', 'statistiques', 'overview', 'aperçu'
+        ]
+
+        # Entity keywords (asking about counts/stats)
+        entity_keywords = ['events', 'événements', 'cities', 'villes']
+
+        # Check if it's asking for statistics
+        has_stat_keyword = any(kw in question_lower for kw in stat_keywords)
+        has_entity = any(kw in question_lower for kw in entity_keywords)
+
+        return has_stat_keyword and has_entity
+
     def query_with_metadata(self, question: str, session_id: str = "default_session") -> Dict[str, Any]:
         """Process query and return response with source documents.
 
@@ -308,6 +331,44 @@ class RAGChain:
         """
         logger.info(f"Processing query with metadata: {question} (session: {session_id})")
         check_safety(question)
+
+        # Detect and reject statistical queries
+        if self._is_statistical_query(question):
+            logger.info("Detected statistical query - providing refusal response")
+
+            # Provide helpful context about data coverage without exact counts
+            coverage_note = (
+                "\n\nNote: My database covers cultural events across Île-de-France (Paris and surrounding region), "
+                "including theaters, concerts, exhibitions, and festivals. I can help you find events matching your interests!"
+            )
+
+            refusal_msg = (
+                "I'm designed to help you find specific cultural events rather than provide database statistics. "
+                "Could you tell me what kind of events you're looking for? For example:\n"
+                "- 'Jazz concerts in Paris in February'\n"
+                "- 'Free family events this weekend'\n"
+                "- 'Contemporary art exhibitions in Versailles'"
+                + coverage_note
+            )
+            if any(fr in question.lower() for fr in ['combien', 'répartition', 'nombre']):
+                coverage_note_fr = (
+                    "\n\nNote : Ma base de données couvre les événements culturels dans toute l'Île-de-France (Paris et sa région), "
+                    "incluant théâtres, concerts, expositions et festivals. Je peux vous aider à trouver des événements correspondant à vos intérêts !"
+                )
+                refusal_msg = (
+                    "Je suis conçu pour vous aider à trouver des événements culturels spécifiques plutôt que de fournir des statistiques. "
+                    "Quel type d'événements recherchez-vous ? Par exemple :\n"
+                    "- 'Concerts de jazz à Paris en février'\n"
+                    "- 'Événements gratuits pour familles ce week-end'\n"
+                    "- 'Expositions d'art contemporain à Versailles'"
+                    + coverage_note_fr
+                )
+
+            return {
+                "answer": refusal_msg,
+                "sources": [],
+                "message_id": None
+            }
 
         # Detect follow-up queries (references to previous context)
         follow_up_keywords = ['first', 'second', 'third', 'last', 'previous', 'that one', 'this one',

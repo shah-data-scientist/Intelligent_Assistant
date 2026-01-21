@@ -4,6 +4,7 @@ import pandas as pd
 import folium
 from streamlit_folium import st_folium
 import uuid
+import os
 from datetime import datetime
 
 # Page configuration
@@ -13,9 +14,9 @@ st.set_page_config(
     layout="wide"
 )
 
-# Constants
-API_URL = "http://localhost:8000/api/v1/chat"
-API_KEY = "dev-secret-key"  # Matching src/config.py default
+# Constants - Read from environment variables (for Docker) or use defaults (for local dev)
+API_URL = os.getenv("API_URL", "http://localhost:8000/api/v1/chat")
+API_KEY = os.getenv("API_KEY", "dev-secret-key")
 
 # Initialize session state for chat history and session ID
 if "messages" not in st.session_state:

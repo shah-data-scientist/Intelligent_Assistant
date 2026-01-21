@@ -1,0 +1,77 @@
+services:
+  # FastAPI Backend
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: cultural-assistant-api
+    ports:
+      - "8000:8000"
+    environment:
+      # Mistral API Key (required)
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+
+      # Database paths (container paths)
+      - DB_PATH=/app/data/events.db
+      - CHAT_DB_PATH=/app/data/chat_history.db
+      - FAISS_INDEX_PATH=/app/data/faiss_index
+
+      # API Settings
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - APP_API_KEY=${APP_API_KEY:-dev-secret-key}
+
+      # Application Settings
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - MAX_EVENTS_TO_FETCH=${MAX_EVENTS_TO_FETCH:-20000}
+      - RETRIEVAL_TOP_K=${RETRIEVAL_TOP_K:-10}
+
+      # Evaluation Settings (optional)
+      - EVALUATION_LLM_BACKEND=${EVALUATION_LLM_BACKEND:-mistral}
+      - EVALUATION_HF_TOKEN=${EVALUATION_HF_TOKEN:-}
+    volumes:
+      # Mount data directory for persistence
+      - ./data:/app/data
+    restart: unless-stopped
+    networks:
+      - cultural-assistant
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/api/v1/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Streamlit Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: cultural-assistant-frontend
+    ports:
+      - "8501:8501"
+    environment:
+      # API connection (points to the api service)
+      - API_URL=http://api:8000/api/v1/chat
+      - API_KEY=${APP_API_KEY:-dev-secret-key}
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - cultural-assistant
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8501/_stcore/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  cultural-assistant:
+    driver: bridge
+
+volumes:
+  # Named volumes for explicit data management (optional alternative to bind mounts)
+  data:
+    driver: local
