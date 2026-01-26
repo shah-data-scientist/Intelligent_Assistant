@@ -29,6 +29,10 @@ def refine_data():
         # Re-process from raw data to get clean fields
         clean_event = processor.process_record(event.raw_data)
         if clean_event:
+            # PRESERVE SCRAPED CONTENT from the existing database record
+            if event.scraped_content:
+                clean_event.scraped_content = event.scraped_content
+                
             refined_events.append(clean_event)
 
     logger.info(f"Successfully cleaned {len(refined_events)} events.")

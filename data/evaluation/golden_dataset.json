@@ -1,4679 +1,1240 @@
 {
-  "version": "2.0",
-  "created_at": "2026-01-18",
-  "description": "Golden evaluation dataset for RAG-based Cultural Events Recommendation Assistant - Complete 50 queries",
-  "queries": [
+  "version": "3.0",
+  "created_at": "2026-01-26",
+  "description": "Conversational evaluation dataset for RAG-based Cultural Events Chatbot - Emphasis on multi-turn dialogues, context retention, and clarifying questions",
+  "schema_notes": {
+    "conversations": "Multi-turn test scenarios grouped by session_id. Each turn builds on previous context.",
+    "single_queries": "Standalone queries for testing specific functionality (reduced from v2.0)",
+    "turn_types": {
+      "initial": "First query in a conversation - establishes context",
+      "refinement": "User modifies previous request (e.g., 'actually, make that February')",
+      "follow_up": "User asks about specific results (e.g., 'tell me more about the first one')",
+      "topic_shift": "User changes to entirely new topic within same session",
+      "clarification_response": "User responds to chatbot's clarifying question"
+    }
+  },
+  "conversations": [
     {
-      "id": "Q001",
-      "query": "Concerts de jazz à Paris en février",
+      "session_id": "conv_001",
+      "description": "Simple refinement: User narrows down date after initial broad query",
+      "test_focus": ["context_retention", "incremental_modification"],
       "language": "fr",
-      "query_type": "simple_search",
-      "complexity": "low",
-      "expected_entities": [
-        "jazz",
-        "Paris",
-        "février"
-      ],
-      "expected_categories": [
-        "Musique"
-      ],
-      "expected_filters": {
-        "city": "Paris",
-        "month": 2
-      },
-      "relevance_ground_truth": [
+      "turns": [
         {
-          "event_id": "14551589",
-          "relevance_score": 1.0,
-          "reason": null
+          "turn_id": "conv_001_t1",
+          "turn_number": 1,
+          "turn_type": "initial",
+          "query": "Concerts de jazz à Paris",
+          "expected_behavior": {
+            "should_ask_clarification": true,
+            "clarification_topics": ["date", "month"],
+            "acceptable_actions": ["ask_clarification", "show_results_with_suggestion"],
+            "reason": "Query missing date - chatbot should ask when or suggest upcoming options"
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Musique"
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["jazz", "Paris"],
+            "must_not_hallucinate": true,
+            "expected_language": "fr"
+          }
         },
         {
-          "event_id": "89710664",
-          "relevance_score": 0.9,
-          "reason": null
+          "turn_id": "conv_001_t2",
+          "turn_number": 2,
+          "turn_type": "refinement",
+          "query": "En février plutôt",
+          "previous_turn": "conv_001_t1",
+          "context_dependency": "Must understand 'février' applies to the previous jazz/Paris query",
+          "expected_behavior": {
+            "should_use_context": true,
+            "inherited_filters": ["city", "category"],
+            "new_filters": {"month": 2}
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Musique",
+            "month": 2
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["jazz", "Paris", "février"],
+            "must_not_hallucinate": true,
+            "expected_language": "fr"
+          }
         },
         {
-          "event_id": "44104225",
-          "relevance_score": 0.8,
-          "reason": null
+          "turn_id": "conv_001_t3",
+          "turn_number": 3,
+          "turn_type": "follow_up",
+          "query": "Parle-moi du premier",
+          "previous_turn": "conv_001_t2",
+          "context_dependency": "Must reference the first event from previous turn's results",
+          "expected_behavior": {
+            "should_use_context": true,
+            "references_previous_results": true,
+            "expected_action": "provide_details_on_first_result"
+          },
+          "generation_expectations": {
+            "must_not_hallucinate": true,
+            "must_reference_specific_event": true,
+            "expected_language": "fr"
+          }
         }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "jazz",
-          "Paris"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
+      ]
     },
     {
-      "id": "Q002",
-      "query": "Tell me about Finnish artists and exhibitions",
+      "session_id": "conv_002",
+      "description": "Topic shift: User starts with jazz, shifts to theater completely",
+      "test_focus": ["context_retention", "topic_shift_detection"],
+      "language": "en",
+      "turns": [
+        {
+          "turn_id": "conv_002_t1",
+          "turn_number": 1,
+          "turn_type": "initial",
+          "query": "Jazz concerts in Paris this weekend",
+          "expected_behavior": {
+            "should_ask_clarification": false
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Musique"
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["jazz", "Paris", "weekend"],
+            "must_not_hallucinate": true,
+            "expected_language": "en"
+          }
+        },
+        {
+          "turn_id": "conv_002_t2",
+          "turn_number": 2,
+          "turn_type": "topic_shift",
+          "query": "Actually, what about theater shows in Versailles?",
+          "previous_turn": "conv_002_t1",
+          "context_dependency": "Must recognize this is a NEW search, not a modification",
+          "expected_behavior": {
+            "should_use_context": false,
+            "should_reset_filters": true,
+            "reason": "Completely different topic (theater vs jazz, Versailles vs Paris)"
+          },
+          "expected_filters": {
+            "city": "Versailles",
+            "category": "Théâtre"
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["theater", "Versailles"],
+            "must_not_contain_keywords": ["jazz", "Paris"],
+            "must_not_hallucinate": true,
+            "expected_language": "en"
+          }
+        }
+      ]
+    },
+    {
+      "session_id": "conv_003",
+      "description": "Clarifying question flow: Broad query triggers clarification, user responds",
+      "test_focus": ["clarifying_questions", "context_retention"],
+      "language": "en",
+      "turns": [
+        {
+          "turn_id": "conv_003_t1",
+          "turn_number": 1,
+          "turn_type": "initial",
+          "query": "events",
+          "expected_behavior": {
+            "should_ask_clarification": true,
+            "clarification_topics": ["category", "city", "date"],
+            "acceptable_actions": ["ask_clarification"],
+            "reason": "Query too vague - missing category, location, and date"
+          },
+          "generation_expectations": {
+            "should_ask_questions": true,
+            "question_topics": ["type of event", "location", "when"],
+            "must_not_hallucinate": true,
+            "expected_language": "en"
+          }
+        },
+        {
+          "turn_id": "conv_003_t2",
+          "turn_number": 2,
+          "turn_type": "clarification_response",
+          "query": "Art exhibitions in Paris",
+          "previous_turn": "conv_003_t1",
+          "context_dependency": "User is responding to clarification request",
+          "expected_behavior": {
+            "should_ask_clarification": true,
+            "clarification_topics": ["date"],
+            "reason": "Now has category and city, still missing date"
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Art"
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["art", "exhibition", "Paris"],
+            "should_ask_about_date": true,
+            "must_not_hallucinate": true,
+            "expected_language": "en"
+          }
+        },
+        {
+          "turn_id": "conv_003_t3",
+          "turn_number": 3,
+          "turn_type": "clarification_response",
+          "query": "In March",
+          "previous_turn": "conv_003_t2",
+          "context_dependency": "Must apply March filter to the art exhibitions in Paris query",
+          "expected_behavior": {
+            "should_use_context": true,
+            "inherited_filters": ["city", "category"],
+            "new_filters": {"month": 3}
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Art",
+            "month": 3
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["art", "exhibition", "Paris", "March"],
+            "must_not_hallucinate": true,
+            "expected_language": "en"
+          }
+        }
+      ]
+    },
+    {
+      "session_id": "conv_004",
+      "description": "Complex refinement chain: Multiple incremental changes",
+      "test_focus": ["context_retention", "incremental_modification", "filter_accumulation"],
+      "language": "fr",
+      "turns": [
+        {
+          "turn_id": "conv_004_t1",
+          "turn_number": 1,
+          "turn_type": "initial",
+          "query": "Expositions à Paris",
+          "expected_behavior": {
+            "should_ask_clarification": true,
+            "clarification_topics": ["date"]
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Art"
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["exposition", "Paris"],
+            "must_not_hallucinate": true,
+            "expected_language": "fr"
+          }
+        },
+        {
+          "turn_id": "conv_004_t2",
+          "turn_number": 2,
+          "turn_type": "refinement",
+          "query": "Gratuites seulement",
+          "previous_turn": "conv_004_t1",
+          "context_dependency": "Adds 'free' filter to existing Paris/exhibitions context",
+          "expected_behavior": {
+            "should_use_context": true,
+            "inherited_filters": ["city", "category"],
+            "new_filters": {"price": 0}
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Art",
+            "price": 0
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["exposition", "Paris", "gratuit"],
+            "must_not_hallucinate": true,
+            "expected_language": "fr"
+          }
+        },
+        {
+          "turn_id": "conv_004_t3",
+          "turn_number": 3,
+          "turn_type": "refinement",
+          "query": "Ce week-end",
+          "previous_turn": "conv_004_t2",
+          "context_dependency": "Adds weekend date filter to existing free/Paris/exhibitions",
+          "expected_behavior": {
+            "should_use_context": true,
+            "inherited_filters": ["city", "category", "price"],
+            "new_filters": {"date_range": "weekend"}
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Art",
+            "price": 0
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["exposition", "Paris", "gratuit", "week-end"],
+            "must_not_hallucinate": true,
+            "expected_language": "fr"
+          }
+        },
+        {
+          "turn_id": "conv_004_t4",
+          "turn_number": 4,
+          "turn_type": "refinement",
+          "query": "Non, plutôt à Versailles finalement",
+          "previous_turn": "conv_004_t3",
+          "context_dependency": "Changes city but keeps other accumulated filters (free, weekend, art)",
+          "expected_behavior": {
+            "should_use_context": true,
+            "replaced_filters": {"city": "Versailles"},
+            "kept_filters": ["category", "price", "date_range"]
+          },
+          "expected_filters": {
+            "city": "Versailles",
+            "category": "Art",
+            "price": 0
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["exposition", "Versailles", "gratuit"],
+            "must_not_contain_keywords": ["Paris"],
+            "must_not_hallucinate": true,
+            "expected_language": "fr"
+          }
+        }
+      ]
+    },
+    {
+      "session_id": "conv_005",
+      "description": "Follow-up details with comparison request",
+      "test_focus": ["context_retention", "result_reference", "comparison"],
+      "language": "en",
+      "turns": [
+        {
+          "turn_id": "conv_005_t1",
+          "turn_number": 1,
+          "turn_type": "initial",
+          "query": "Classical music concerts in February in Paris",
+          "expected_behavior": {
+            "should_ask_clarification": false
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Musique",
+            "month": 2
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["classical", "music", "Paris", "February"],
+            "must_not_hallucinate": true,
+            "expected_language": "en"
+          }
+        },
+        {
+          "turn_id": "conv_005_t2",
+          "turn_number": 2,
+          "turn_type": "follow_up",
+          "query": "What's the price for the second one?",
+          "previous_turn": "conv_005_t1",
+          "context_dependency": "Must identify 'second one' from previous results",
+          "expected_behavior": {
+            "should_use_context": true,
+            "references_previous_results": true,
+            "result_index": 2
+          },
+          "generation_expectations": {
+            "must_reference_specific_event": true,
+            "must_include_price_info": true,
+            "must_not_hallucinate": true,
+            "expected_language": "en"
+          }
+        },
+        {
+          "turn_id": "conv_005_t3",
+          "turn_number": 3,
+          "turn_type": "follow_up",
+          "query": "Is the first one more expensive?",
+          "previous_turn": "conv_005_t2",
+          "context_dependency": "Must compare first and second results from original query",
+          "expected_behavior": {
+            "should_use_context": true,
+            "references_previous_results": true,
+            "comparison_required": true
+          },
+          "generation_expectations": {
+            "must_compare_prices": true,
+            "must_not_hallucinate": true,
+            "expected_language": "en"
+          }
+        }
+      ]
+    },
+    {
+      "session_id": "conv_006",
+      "description": "Ambiguous refinement requiring disambiguation",
+      "test_focus": ["clarifying_questions", "ambiguity_detection"],
+      "language": "fr",
+      "turns": [
+        {
+          "turn_id": "conv_006_t1",
+          "turn_number": 1,
+          "turn_type": "initial",
+          "query": "Concerts à Paris en mars",
+          "expected_behavior": {
+            "should_ask_clarification": false
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Musique",
+            "month": 3
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["concert", "Paris", "mars"],
+            "must_not_hallucinate": true,
+            "expected_language": "fr"
+          }
+        },
+        {
+          "turn_id": "conv_006_t2",
+          "turn_number": 2,
+          "turn_type": "refinement",
+          "query": "Plus tard",
+          "previous_turn": "conv_006_t1",
+          "context_dependency": "Ambiguous: does 'later' mean April? Later in March? Evening shows?",
+          "expected_behavior": {
+            "should_ask_clarification": true,
+            "clarification_topics": ["date_interpretation"],
+            "reason": "'Plus tard' is ambiguous - could mean different month or time of day"
+          },
+          "generation_expectations": {
+            "should_ask_for_clarification": true,
+            "clarification_options": ["Un autre mois?", "Plus tard dans la soirée?"],
+            "must_not_hallucinate": true,
+            "expected_language": "fr"
+          }
+        }
+      ]
+    },
+    {
+      "session_id": "conv_007",
+      "description": "Bilingual conversation - user switches language mid-conversation",
+      "test_focus": ["language_detection", "context_retention", "language_consistency"],
+      "language": "mixed",
+      "turns": [
+        {
+          "turn_id": "conv_007_t1",
+          "turn_number": 1,
+          "turn_type": "initial",
+          "query": "Spectacles de danse à Paris",
+          "expected_behavior": {
+            "should_ask_clarification": true,
+            "clarification_topics": ["date"]
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Danse"
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["danse", "Paris"],
+            "must_not_hallucinate": true,
+            "expected_language": "fr"
+          }
+        },
+        {
+          "turn_id": "conv_007_t2",
+          "turn_number": 2,
+          "turn_type": "refinement",
+          "query": "In February please",
+          "previous_turn": "conv_007_t1",
+          "context_dependency": "User switched to English but query relates to previous French query",
+          "expected_behavior": {
+            "should_use_context": true,
+            "language_switch": true,
+            "inherited_filters": ["city", "category"],
+            "new_filters": {"month": 2}
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Danse",
+            "month": 2
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["dance", "Paris", "February"],
+            "must_not_hallucinate": true,
+            "expected_language": "en"
+          }
+        }
+      ]
+    },
+    {
+      "session_id": "conv_008",
+      "description": "Negative refinement - user excludes options",
+      "test_focus": ["context_retention", "negative_filters"],
+      "language": "en",
+      "turns": [
+        {
+          "turn_id": "conv_008_t1",
+          "turn_number": 1,
+          "turn_type": "initial",
+          "query": "Art events in Paris in February",
+          "expected_behavior": {
+            "should_ask_clarification": false
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Art",
+            "month": 2
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["art", "Paris", "February"],
+            "must_not_hallucinate": true,
+            "expected_language": "en"
+          }
+        },
+        {
+          "turn_id": "conv_008_t2",
+          "turn_number": 2,
+          "turn_type": "refinement",
+          "query": "Not the paid ones though",
+          "previous_turn": "conv_008_t1",
+          "context_dependency": "Adds negative filter (exclude paid) to existing query",
+          "expected_behavior": {
+            "should_use_context": true,
+            "inherited_filters": ["city", "category", "month"],
+            "new_filters": {"price": 0}
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Art",
+            "month": 2,
+            "price": 0
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["art", "Paris", "February", "free"],
+            "must_not_hallucinate": true,
+            "expected_language": "en"
+          }
+        },
+        {
+          "turn_id": "conv_008_t3",
+          "turn_number": 3,
+          "turn_type": "refinement",
+          "query": "And nothing in Montmartre",
+          "previous_turn": "conv_008_t2",
+          "context_dependency": "Adds location exclusion while keeping previous filters",
+          "expected_behavior": {
+            "should_use_context": true,
+            "negative_location_filter": "Montmartre"
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Art",
+            "month": 2,
+            "price": 0,
+            "exclude_neighborhood": "Montmartre"
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["art", "Paris", "February", "free"],
+            "must_not_contain_locations": ["Montmartre"],
+            "must_not_hallucinate": true,
+            "expected_language": "en"
+          }
+        }
+      ]
+    },
+    {
+      "session_id": "conv_009",
+      "description": "Result-based refinement - user reacts to what they see",
+      "test_focus": ["context_retention", "adaptive_search"],
+      "language": "fr",
+      "turns": [
+        {
+          "turn_id": "conv_009_t1",
+          "turn_number": 1,
+          "turn_type": "initial",
+          "query": "Événements culturels à Nanterre ce mois-ci",
+          "expected_behavior": {
+            "should_ask_clarification": false
+          },
+          "expected_filters": {
+            "city": "Nanterre",
+            "month": 1
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["Nanterre"],
+            "must_not_hallucinate": true,
+            "expected_language": "fr"
+          }
+        },
+        {
+          "turn_id": "conv_009_t2",
+          "turn_number": 2,
+          "turn_type": "refinement",
+          "query": "Il n'y en a pas beaucoup... et aux alentours?",
+          "previous_turn": "conv_009_t1",
+          "context_dependency": "User is disappointed with results, wants to expand search radius",
+          "expected_behavior": {
+            "should_use_context": true,
+            "expand_geographic_scope": true,
+            "kept_filters": ["month", "category"]
+          },
+          "expected_filters": {
+            "region": "nearby_Nanterre",
+            "month": 1
+          },
+          "generation_expectations": {
+            "should_expand_location": true,
+            "should_mention_original_location": true,
+            "must_not_hallucinate": true,
+            "expected_language": "fr"
+          }
+        }
+      ]
+    },
+    {
+      "session_id": "conv_010",
+      "description": "Family planning scenario - complex multi-constraint refinement",
+      "test_focus": ["context_retention", "multi_constraint", "practical_planning"],
+      "language": "en",
+      "turns": [
+        {
+          "turn_id": "conv_010_t1",
+          "turn_number": 1,
+          "turn_type": "initial",
+          "query": "Family events this weekend",
+          "expected_behavior": {
+            "should_ask_clarification": true,
+            "clarification_topics": ["city", "children_ages"]
+          },
+          "expected_filters": {
+            "audience": "family"
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["family", "weekend"],
+            "must_not_hallucinate": true,
+            "expected_language": "en"
+          }
+        },
+        {
+          "turn_id": "conv_010_t2",
+          "turn_number": 2,
+          "turn_type": "clarification_response",
+          "query": "In Paris, with kids aged 5 and 8",
+          "previous_turn": "conv_010_t1",
+          "context_dependency": "Provides location and age context for family events",
+          "expected_behavior": {
+            "should_use_context": true,
+            "inherited_filters": ["date_range", "audience"],
+            "new_filters": {"city": "Paris", "age_range": "5-8"}
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "audience": "family",
+            "age_min": 5,
+            "age_max": 8
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["family", "Paris", "children"],
+            "must_be_age_appropriate": true,
+            "must_not_hallucinate": true,
+            "expected_language": "en"
+          }
+        },
+        {
+          "turn_id": "conv_010_t3",
+          "turn_number": 3,
+          "turn_type": "refinement",
+          "query": "Something free if possible",
+          "previous_turn": "conv_010_t2",
+          "context_dependency": "Adds price constraint while keeping family/Paris/weekend/age filters",
+          "expected_behavior": {
+            "should_use_context": true,
+            "price_preference": "free",
+            "soft_constraint": true
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "audience": "family",
+            "age_min": 5,
+            "age_max": 8,
+            "price": 0
+          },
+          "generation_expectations": {
+            "should_prioritize_free": true,
+            "may_suggest_low_cost_alternatives": true,
+            "must_not_hallucinate": true,
+            "expected_language": "en"
+          }
+        }
+      ]
+    },
+    {
+      "session_id": "conv_011",
+      "description": "Correction flow - user corrects a misunderstanding",
+      "test_focus": ["context_retention", "error_correction"],
+      "language": "fr",
+      "turns": [
+        {
+          "turn_id": "conv_011_t1",
+          "turn_number": 1,
+          "turn_type": "initial",
+          "query": "Concerts rock à Lyon",
+          "expected_behavior": {
+            "should_clarify_scope": true,
+            "reason": "Lyon is not in Île-de-France"
+          },
+          "expected_filters": {
+            "city": "Lyon",
+            "category": "Musique"
+          },
+          "generation_expectations": {
+            "should_clarify_coverage_area": true,
+            "must_not_hallucinate": true,
+            "expected_language": "fr"
+          }
+        },
+        {
+          "turn_id": "conv_011_t2",
+          "turn_number": 2,
+          "turn_type": "refinement",
+          "query": "Pardon, je voulais dire Paris",
+          "previous_turn": "conv_011_t1",
+          "context_dependency": "User corrects city - keeps rock/music context",
+          "expected_behavior": {
+            "should_use_context": true,
+            "correction_applied": {"city": "Lyon -> Paris"},
+            "kept_filters": ["category", "genre"]
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Musique"
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["rock", "Paris"],
+            "must_not_contain_keywords": ["Lyon"],
+            "must_not_hallucinate": true,
+            "expected_language": "fr"
+          }
+        }
+      ]
+    },
+    {
+      "session_id": "conv_012",
+      "description": "Exploratory conversation - user discovers interests",
+      "test_focus": ["clarifying_questions", "recommendation_flow"],
+      "language": "en",
+      "turns": [
+        {
+          "turn_id": "conv_012_t1",
+          "turn_number": 1,
+          "turn_type": "initial",
+          "query": "I want to do something cultural this weekend but I don't know what",
+          "expected_behavior": {
+            "should_ask_clarification": true,
+            "clarification_topics": ["preferences", "category", "city"],
+            "should_offer_options": true
+          },
+          "generation_expectations": {
+            "should_ask_about_preferences": true,
+            "should_offer_category_options": true,
+            "must_not_hallucinate": true,
+            "expected_language": "en"
+          }
+        },
+        {
+          "turn_id": "conv_012_t2",
+          "turn_number": 2,
+          "turn_type": "clarification_response",
+          "query": "Maybe something with music? I'm near Montmartre",
+          "previous_turn": "conv_012_t1",
+          "context_dependency": "User provides tentative preferences",
+          "expected_behavior": {
+            "should_use_context": true,
+            "soft_preferences": true,
+            "new_filters": {"category": "Musique", "neighborhood": "Montmartre"}
+          },
+          "expected_filters": {
+            "category": "Musique",
+            "neighborhood": "Montmartre"
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["music", "Montmartre"],
+            "should_show_variety": true,
+            "must_not_hallucinate": true,
+            "expected_language": "en"
+          }
+        },
+        {
+          "turn_id": "conv_012_t3",
+          "turn_number": 3,
+          "turn_type": "follow_up",
+          "query": "These look nice! Any jazz specifically?",
+          "previous_turn": "conv_012_t2",
+          "context_dependency": "User narrows from general music to jazz, keeps location",
+          "expected_behavior": {
+            "should_use_context": true,
+            "refined_category": "jazz",
+            "kept_filters": ["neighborhood", "date_range"]
+          },
+          "expected_filters": {
+            "category": "Musique",
+            "genre": "jazz",
+            "neighborhood": "Montmartre"
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["jazz", "Montmartre"],
+            "must_not_hallucinate": true,
+            "expected_language": "en"
+          }
+        }
+      ]
+    },
+    {
+      "session_id": "conv_013",
+      "description": "Date range clarification needed",
+      "test_focus": ["clarifying_questions", "temporal_ambiguity"],
+      "language": "fr",
+      "turns": [
+        {
+          "turn_id": "conv_013_t1",
+          "turn_number": 1,
+          "turn_type": "initial",
+          "query": "Expositions à Paris",
+          "expected_behavior": {
+            "should_ask_clarification": true,
+            "clarification_topics": ["date"],
+            "reason": "Query missing when - could be now, upcoming, or specific period"
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Art"
+          },
+          "generation_expectations": {
+            "should_ask_when": true,
+            "must_not_hallucinate": true,
+            "expected_language": "fr"
+          }
+        },
+        {
+          "turn_id": "conv_013_t2",
+          "turn_number": 2,
+          "turn_type": "clarification_response",
+          "query": "La semaine prochaine",
+          "previous_turn": "conv_013_t1",
+          "context_dependency": "User specifies 'next week' for the exhibitions query",
+          "expected_behavior": {
+            "should_use_context": true,
+            "inherited_filters": ["city", "category"],
+            "new_filters": {"date_range": "next_week"}
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Art",
+            "date_range": "next_week"
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["exposition", "Paris", "semaine"],
+            "must_not_hallucinate": true,
+            "expected_language": "fr"
+          }
+        }
+      ]
+    },
+    {
+      "session_id": "conv_014",
+      "description": "Partial topic shift - related category change",
+      "test_focus": ["context_retention", "partial_topic_shift"],
+      "language": "en",
+      "turns": [
+        {
+          "turn_id": "conv_014_t1",
+          "turn_number": 1,
+          "turn_type": "initial",
+          "query": "Opera performances in Paris in March",
+          "expected_behavior": {
+            "should_ask_clarification": false
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Musique",
+            "genre": "opera",
+            "month": 3
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["opera", "Paris", "March"],
+            "must_not_hallucinate": true,
+            "expected_language": "en"
+          }
+        },
+        {
+          "turn_id": "conv_014_t2",
+          "turn_number": 2,
+          "turn_type": "refinement",
+          "query": "What about ballet instead?",
+          "previous_turn": "conv_014_t1",
+          "context_dependency": "Partial shift: changes from opera to ballet but keeps Paris/March",
+          "expected_behavior": {
+            "should_use_context": true,
+            "replaced_filters": {"genre": "ballet"},
+            "kept_filters": ["city", "month"]
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Danse",
+            "genre": "ballet",
+            "month": 3
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["ballet", "Paris", "March"],
+            "must_not_contain_keywords": ["opera"],
+            "must_not_hallucinate": true,
+            "expected_language": "en"
+          }
+        }
+      ]
+    },
+    {
+      "session_id": "conv_015",
+      "description": "Accessibility requirements conversation",
+      "test_focus": ["context_retention", "accessibility_filters"],
+      "language": "fr",
+      "turns": [
+        {
+          "turn_id": "conv_015_t1",
+          "turn_number": 1,
+          "turn_type": "initial",
+          "query": "Théâtre accessible en fauteuil roulant à Paris",
+          "expected_behavior": {
+            "should_ask_clarification": true,
+            "clarification_topics": ["date"]
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Théâtre",
+            "accessibility": "wheelchair"
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["théâtre", "accessible", "Paris"],
+            "must_not_hallucinate": true,
+            "expected_language": "fr"
+          }
+        },
+        {
+          "turn_id": "conv_015_t2",
+          "turn_number": 2,
+          "turn_type": "refinement",
+          "query": "En février, et si possible avec audio-description",
+          "previous_turn": "conv_015_t1",
+          "context_dependency": "Adds date and additional accessibility requirement",
+          "expected_behavior": {
+            "should_use_context": true,
+            "inherited_filters": ["city", "category", "accessibility"],
+            "new_filters": {"month": 2, "accessibility_audio": true}
+          },
+          "expected_filters": {
+            "city": "Paris",
+            "category": "Théâtre",
+            "accessibility": ["wheelchair", "audio_description"],
+            "month": 2
+          },
+          "generation_expectations": {
+            "must_contain_keywords": ["théâtre", "accessible", "Paris", "février"],
+            "should_mention_audio_description": true,
+            "must_not_hallucinate": true,
+            "expected_language": "fr"
+          }
+        }
+      ]
+    }
+  ],
+  "single_queries": [
+    {
+      "id": "SQ001",
+      "query": "Finnish art exhibitions",
       "language": "en",
       "query_type": "entity_specific",
       "complexity": "medium",
-      "expected_entities": [
-        "Finnish",
-        "Finland",
-        "artists",
-        "exhibitions"
-      ],
-      "expected_categories": [
-        "Art"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "41058107",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "38031842",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "76646775",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "Finland",
-          "Finnish"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q003",
-      "query": "Événements gratuits accessibles aux personnes à mobilité réduite",
-      "language": "fr",
-      "query_type": "metadata_heavy",
-      "complexity": "high",
-      "expected_entities": [
-        "gratuits",
-        "accessibles",
-        "mobilité réduite"
-      ],
-      "expected_categories": [],
       "expected_filters": {
-        "price": 0,
-        "accessibility": "wheelchair"
+        "category": "Art"
       },
-      "relevance_ground_truth": [
-        {
-          "event_id": "65720577",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "71002209",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "23564712",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
       "generation_expectations": {
-        "must_contain_keywords": [
-          "gratuit",
-          "accessible"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q004",
-      "query": "What theater events are available this weekend?",
-      "language": "en",
-      "query_type": "simple_search",
-      "complexity": "low",
-      "expected_entities": [
-        "theater",
-        "weekend"
-      ],
-      "expected_categories": [
-        "Théâtre"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "38801601",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "23564712",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "63437158",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "theater",
-          "theatre"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q005",
-      "query": "events",
-      "language": "en",
-      "query_type": "edge_case",
-      "complexity": "low",
-      "expected_entities": [],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "26655261",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "85039485",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "11754934",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
+        "must_contain_keywords": ["Finland", "Finnish", "art"],
         "should_ask_clarification": true,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q006",
-      "query": "Tell me about the first one",
-      "language": "en",
-      "query_type": "multi_turn",
-      "complexity": "medium",
-      "expected_entities": [
-        "first"
-      ],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "8671845",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "96952201",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "22539058",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [],
+        "clarification_topics": ["city", "date"],
         "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
         "expected_language": "en"
       }
     },
     {
-      "id": "Q007",
-      "query": "Japanese art exhibitions in Île-de-France",
+      "id": "SQ002",
+      "query": "VR immersive digital art experiences in Île-de-France",
       "language": "en",
       "query_type": "entity_specific",
-      "complexity": "medium",
-      "expected_entities": [
-        "Japanese",
-        "Japan",
-        "art",
-        "Île-de-France"
-      ],
-      "expected_categories": [
-        "Art"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "11754934",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "92527833",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "97000579",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "Japan",
-          "Japanese",
-          "art"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q008",
-      "query": "finish artists events",
-      "language": "en",
-      "query_type": "edge_case",
-      "complexity": "low",
-      "expected_entities": [
-        "finish",
-        "artists"
-      ],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "32138894",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "65991144",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "32151815",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "Finnish",
-          "Finland"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q009",
-      "query": "Spectacles pour enfants pendant les vacances de Noël",
-      "language": "fr",
-      "query_type": "complex",
-      "complexity": "medium",
-      "expected_entities": [
-        "enfants",
-        "vacances",
-        "Noël"
-      ],
-      "expected_categories": [
-        "Spectacle",
-        "Théâtre"
-      ],
-      "expected_filters": {
-        "age_min": 0,
-        "age_max": 12,
-        "month": 12
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "56495630",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "65720577",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "60903831",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "enfants"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q010",
-      "query": "unicorn exhibitions in Paris",
-      "language": "en",
-      "query_type": "edge_case",
-      "complexity": "low",
-      "expected_entities": [
-        "unicorn",
-        "Paris"
-      ],
-      "expected_categories": [],
-      "expected_filters": {
-        "city": "Paris"
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "40826490",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "10147870",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "33103396",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": true,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q011",
-      "query": "Music concerts in Versailles",
-      "language": "en",
-      "query_type": "simple_search",
-      "complexity": "low",
-      "expected_entities": [
-        "music",
-        "concerts",
-        "Versailles"
-      ],
-      "expected_categories": [
-        "Musique"
-      ],
-      "expected_filters": {
-        "city": "Versailles"
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "41589408",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "50318604",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "83399179",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "Versailles",
-          "concert"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q012",
-      "query": "Expositions d'art à Paris",
-      "language": "fr",
-      "query_type": "simple_search",
-      "complexity": "low",
-      "expected_entities": [
-        "expositions",
-        "art",
-        "Paris"
-      ],
-      "expected_categories": [
-        "Art"
-      ],
-      "expected_filters": {
-        "city": "Paris"
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "14187446",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "92527833",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "8528233",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "art",
-          "Paris",
-          "exposition"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q013",
-      "query": "Comedy shows and humor events",
-      "language": "en",
-      "query_type": "simple_search",
-      "complexity": "low",
-      "expected_entities": [
-        "comedy",
-        "humor",
-        "shows"
-      ],
-      "expected_categories": [
-        "Théâtre",
-        "Spectacle"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "47810752",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "35433747",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "9496616",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "humor",
-          "spectacle"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q014",
-      "query": "Spectacles de théâtre musical",
-      "language": "fr",
-      "query_type": "simple_search",
-      "complexity": "low",
-      "expected_entities": [
-        "théâtre",
-        "musical"
-      ],
-      "expected_categories": [
-        "Théâtre"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "38801601",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "61078856",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "65720577",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "théâtre",
-          "musical"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q015",
-      "query": "Events for families and children",
-      "language": "en",
-      "query_type": "simple_search",
-      "complexity": "low",
-      "expected_entities": [
-        "families",
-        "children"
-      ],
-      "expected_categories": [
-        "Jeunesse"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "44945697",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "72919849",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "56495630",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "family",
-          "children",
-          "jeunesse"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q016",
-      "query": "Sports et loisirs en Île-de-France",
-      "language": "fr",
-      "query_type": "simple_search",
-      "complexity": "low",
-      "expected_entities": [
-        "sports",
-        "loisirs",
-        "Île-de-France"
-      ],
-      "expected_categories": [
-        "Sport"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "25109487",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "36823929",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "75928021",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "sport",
-          "loisirs"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q017",
-      "query": "Opera and classical music performances",
-      "language": "en",
-      "query_type": "simple_search",
-      "complexity": "low",
-      "expected_entities": [
-        "opera",
-        "classical",
-        "music"
-      ],
-      "expected_categories": [
-        "Musique",
-        "Opéra"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "5142333",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "12138049",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "5148482",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "opéra",
-          "music"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q018",
-      "query": "Événements patrimoine et culture",
-      "language": "fr",
-      "query_type": "simple_search",
-      "complexity": "low",
-      "expected_entities": [
-        "patrimoine",
-        "culture"
-      ],
-      "expected_categories": [
-        "Patrimoine"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "32416950",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "79310593",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "8528233",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "patrimoine",
-          "culture"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q019",
-      "query": "Free outdoor events in Paris during June for families",
-      "language": "en",
-      "query_type": "complex",
       "complexity": "high",
-      "expected_entities": [
-        "free",
-        "outdoor",
-        "Paris",
-        "June",
-        "families"
-      ],
-      "expected_categories": [
-        "Jeunesse"
-      ],
       "expected_filters": {
-        "city": "Paris",
-        "month": 6,
-        "price": 0
+        "category": "Art",
+        "region": "Île-de-France"
       },
-      "relevance_ground_truth": [
-        {
-          "event_id": "17647904",
-          "relevance_score": 1.0,
-          "reason": "Strong match (score 4)"
-        },
-        {
-          "event_id": "39166294",
-          "relevance_score": 1.0,
-          "reason": "Strong match (score 4)"
-        },
-        {
-          "event_id": "70205938",
-          "relevance_score": 1.0,
-          "reason": "Strong match (score 4)"
-        }
-      ],
       "generation_expectations": {
-        "must_contain_keywords": [
-          "Paris",
-          "June",
-          "free",
-          "family"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q020",
-      "query": "Concerts de musique jazz en plein air à Paris en juin",
-      "language": "fr",
-      "query_type": "complex",
-      "complexity": "high",
-      "expected_entities": [
-        "concerts",
-        "jazz",
-        "plein air",
-        "Paris",
-        "juin"
-      ],
-      "expected_categories": [
-        "Musique"
-      ],
-      "expected_filters": {
-        "city": "Paris",
-        "month": 6
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "65189825",
-          "relevance_score": 1.0,
-          "reason": "Strong match (score 5)"
-        },
-        {
-          "event_id": "99263760",
-          "relevance_score": 1.0,
-          "reason": "Strong match (score 4)"
-        },
-        {
-          "event_id": "5791113",
-          "relevance_score": 1.0,
-          "reason": "Strong match (score 4)"
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "jazz",
-          "Paris",
-          "juin",
-          "music"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q021",
-      "query": "Theater shows with subtitles and accessibility features in Paris",
-      "language": "en",
-      "query_type": "complex",
-      "complexity": "high",
-      "expected_entities": [
-        "theater",
-        "subtitles",
-        "accessibility",
-        "Paris"
-      ],
-      "expected_categories": [
-        "Théâtre"
-      ],
-      "expected_filters": {
-        "city": "Paris",
-        "accessibility": "subtitles"
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "61078856",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "93869820",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "85976355",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "Paris",
-          "accessible",
-          "subtitles"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q022",
-      "query": "Spectacles d'humour à Versailles entre octobre et novembre",
-      "language": "fr",
-      "query_type": "complex",
-      "complexity": "high",
-      "expected_entities": [
-        "humour",
-        "Versailles",
-        "octobre",
-        "novembre"
-      ],
-      "expected_categories": [
-        "Théâtre",
-        "Spectacle"
-      ],
-      "expected_filters": {
-        "city": "Versailles",
-        "month": [
-          10,
-          11
-        ]
-      },
-      "relevance_ground_truth": [],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "humour",
-          "Versailles",
-          "octobre",
-          "novembre"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q023",
-      "query": "Art exhibitions in Disney hotels with music events",
-      "language": "en",
-      "query_type": "complex",
-      "complexity": "high",
-      "expected_entities": [
-        "art",
-        "exhibitions",
-        "Disney",
-        "music"
-      ],
-      "expected_categories": [
-        "Art",
-        "Musique"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "32151815",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "72683435",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "38258900",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "Disney",
-          "art"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q024",
-      "query": "Événements musicaux pour jeunes enfants de 3 à 8 ans à Paris",
-      "language": "fr",
-      "query_type": "complex",
-      "complexity": "high",
-      "expected_entities": [
-        "musicaux",
-        "enfants",
-        "3-8 ans",
-        "Paris"
-      ],
-      "expected_categories": [
-        "Musique",
-        "Jeunesse"
-      ],
-      "expected_filters": {
-        "city": "Paris",
-        "age_min": 3,
-        "age_max": 8
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "17647904",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "44945697",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "46071971",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "enfants",
-          "Paris",
-          "musique"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q025",
-      "query": "Contemporary theater in suburbs with social themes",
-      "language": "en",
-      "query_type": "complex",
-      "complexity": "high",
-      "expected_entities": [
-        "contemporary",
-        "theater",
-        "suburbs",
-        "social"
-      ],
-      "expected_categories": [
-        "Théâtre"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "11013830",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "38801601",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "80649202",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "theater",
-          "social"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q026",
-      "query": "Concerts et spectacles à Bondy en juin avec improvisations",
-      "language": "fr",
-      "query_type": "complex",
-      "complexity": "high",
-      "expected_entities": [
-        "concerts",
-        "spectacles",
-        "Bondy",
-        "juin",
-        "improvisations"
-      ],
-      "expected_categories": [
-        "Musique",
-        "Spectacle"
-      ],
-      "expected_filters": {
-        "city": "Bondy",
-        "month": 6
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "64450227",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "98928053",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "27269183",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "Bondy",
-          "juin",
-          "concert"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q027",
-      "query": "Accessible cultural events with audio description and sign language",
-      "language": "en",
-      "query_type": "complex",
-      "complexity": "high",
-      "expected_entities": [
-        "accessible",
-        "audio description",
-        "sign language"
-      ],
-      "expected_categories": [],
-      "expected_filters": {
-        "accessibility": [
-          "audio_description",
-          "sign_language"
-        ]
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "93869820",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "6519744",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "42232722",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "accessible",
-          "audio",
-          "sign language"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q028",
-      "query": "Show me music events in Versailles",
-      "language": "en",
-      "query_type": "multi_turn",
-      "complexity": "low",
-      "expected_entities": [
-        "music",
-        "Versailles"
-      ],
-      "expected_categories": [
-        "Musique"
-      ],
-      "expected_filters": {
-        "city": "Versailles"
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "41589408",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "80497569",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "92816716",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "Versailles",
-          "music"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q029",
-      "query": "Tell me more about the Calogero concert",
-      "language": "en",
-      "query_type": "multi_turn",
-      "complexity": "medium",
-      "expected_entities": [
-        "Calogero",
-        "concert"
-      ],
-      "expected_categories": [
-        "Musique"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "83399179",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "5632919",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "30659059",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "Calogero"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q030",
-      "query": "What about prices and accessibility?",
-      "language": "en",
-      "query_type": "multi_turn",
-      "complexity": "medium",
-      "expected_entities": [
-        "prices",
-        "accessibility"
-      ],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "85539135",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "30701617",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "38384941",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q031",
-      "query": "Any similar events nearby?",
-      "language": "en",
-      "query_type": "multi_turn",
-      "complexity": "medium",
-      "expected_entities": [
-        "similar",
-        "nearby"
-      ],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "41361525",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "72919849",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "11754934",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q032",
-      "query": "Cherche concerts à Paris",
-      "language": "fr",
-      "query_type": "multi_turn",
-      "complexity": "low",
-      "expected_entities": [
-        "concerts",
-        "Paris"
-      ],
-      "expected_categories": [
-        "Musique"
-      ],
-      "expected_filters": {
-        "city": "Paris"
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "34511602",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "49241558",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "23564712",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "Paris",
-          "concert"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q033",
-      "query": "Dis-moi plus sur le premier",
-      "language": "fr",
-      "query_type": "multi_turn",
-      "complexity": "medium",
-      "expected_entities": [
-        "premier"
-      ],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "21220269",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "14843445",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "89460310",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q034",
-      "query": "C'est dans quel arrondissement?",
-      "language": "fr",
-      "query_type": "multi_turn",
-      "complexity": "medium",
-      "expected_entities": [
-        "arrondissement"
-      ],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "74029133",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "19760238",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "1509701",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q035",
-      "query": "Calogero performances and concerts",
-      "language": "en",
-      "query_type": "entity_specific",
-      "complexity": "medium",
-      "expected_entities": [
-        "Calogero"
-      ],
-      "expected_categories": [
-        "Musique"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "83399179",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "30659059",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "16028818",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "Calogero"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q036",
-      "query": "Jacques Offenbach opera performances",
-      "language": "en",
-      "query_type": "entity_specific",
-      "complexity": "medium",
-      "expected_entities": [
-        "Jacques Offenbach",
-        "opera"
-      ],
-      "expected_categories": [
-        "Théâtre",
-        "Opéra"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "63166587",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "87845427",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "66383233",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "Offenbach",
-          "opéra"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q037",
-      "query": "Naïssam Jalal flute performances",
-      "language": "en",
-      "query_type": "entity_specific",
-      "complexity": "medium",
-      "expected_entities": [
-        "Naïssam Jalal",
-        "flute"
-      ],
-      "expected_categories": [
-        "Musique"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "85937616",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "65189825",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "25322273",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "Naïssam Jalal",
-          "flute"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q038",
-      "query": "Événements Arnaud Tsamère spectacles d'humour",
-      "language": "fr",
-      "query_type": "entity_specific",
-      "complexity": "medium",
-      "expected_entities": [
-        "Arnaud Tsamère",
-        "humour"
-      ],
-      "expected_categories": [
-        "Théâtre",
-        "Spectacle"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "24047696",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "45903430",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "99621951",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "Arnaud Tsamère",
-          "humour"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q039",
-      "query": "Indian music and cultural events Île-de-France",
-      "language": "en",
-      "query_type": "entity_specific",
-      "complexity": "medium",
-      "expected_entities": [
-        "Indian",
-        "India",
-        "music",
-        "cultural"
-      ],
-      "expected_categories": [
-        "Musique"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "65189825",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "85937616",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "8055929",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "India",
-          "Indian",
-          "music"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q040",
-      "query": "Carmen opera adaptations outdoor performances",
-      "language": "en",
-      "query_type": "entity_specific",
-      "complexity": "medium",
-      "expected_entities": [
-        "Carmen",
-        "opera",
-        "outdoor"
-      ],
-      "expected_categories": [
-        "Théâtre",
-        "Opéra"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "66383233",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "87845427",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "4919040",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "Carmen",
-          "opéra"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q041",
-      "query": "xyzabc123",
-      "language": "en",
-      "query_type": "edge_case",
-      "complexity": "low",
-      "expected_entities": [],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "84913647",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "122961",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "95548884",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": true,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q042",
-      "query": "événements événements événements",
-      "language": "fr",
-      "query_type": "edge_case",
-      "complexity": "low",
-      "expected_entities": [
-        "événements"
-      ],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "93072143",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "37622343",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "76439516",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
+        "must_contain_keywords": ["VR", "immersive", "digital"],
         "should_ask_clarification": true,
-        "should_refuse_gracefully": false,
+        "clarification_topics": ["date"],
+        "must_not_hallucinate": true,
+        "expected_language": "en"
+      }
+    },
+    {
+      "id": "SQ003",
+      "query": "Expositions de photographie contemporaine",
+      "language": "fr",
+      "query_type": "entity_specific",
+      "complexity": "medium",
+      "expected_filters": {
+        "category": "Art"
+      },
+      "generation_expectations": {
+        "must_contain_keywords": ["photographie", "contemporaine"],
+        "should_ask_clarification": true,
+        "clarification_topics": ["city", "date"],
+        "must_not_hallucinate": true,
         "expected_language": "fr"
       }
     },
     {
-      "id": "Q043",
-      "query": "Show me events from 1850",
+      "id": "SQ004",
+      "query": "Street art festivals in Paris in summer 2026",
       "language": "en",
-      "query_type": "edge_case",
-      "complexity": "low",
-      "expected_entities": [
-        "1850"
-      ],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "50061385",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "30349190",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "21376751",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": true,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q044",
-      "query": "Free youth events with no age restrictions in Paris",
-      "language": "en",
-      "query_type": "metadata_heavy",
-      "complexity": "high",
-      "expected_entities": [
-        "free",
-        "youth",
-        "no age restrictions",
-        "Paris"
-      ],
-      "expected_categories": [
-        "Jeunesse"
-      ],
-      "expected_filters": {
-        "city": "Paris",
-        "price": 0
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "66491477",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "97115808",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "62556423",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "free",
-          "Paris",
-          "youth"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q045",
-      "query": "Événements avec audiodescription et surtitres français",
-      "language": "fr",
-      "query_type": "metadata_heavy",
-      "complexity": "high",
-      "expected_entities": [
-        "audiodescription",
-        "surtitres",
-        "français"
-      ],
-      "expected_categories": [],
-      "expected_filters": {
-        "accessibility": [
-          "audio_description",
-          "subtitles"
-        ]
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "65720577",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "45903430",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "93869820",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "audiodescription",
-          "surtitres"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q046",
-      "query": "Theater events for adults only with evening performances",
-      "language": "en",
-      "query_type": "metadata_heavy",
-      "complexity": "high",
-      "expected_entities": [
-        "theater",
-        "adults",
-        "evening"
-      ],
-      "expected_categories": [
-        "Théâtre"
-      ],
-      "expected_filters": {
-        "age_min": 18
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "22539058",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "38801601",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "16801625",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "theater",
-          "adults"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q047",
-      "query": "Je cherche des concerts but tell me in English",
-      "language": "mixed",
-      "query_type": "language_mix",
-      "complexity": "medium",
-      "expected_entities": [
-        "concerts"
-      ],
-      "expected_categories": [
-        "Musique"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "7211387",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "25983681",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "11038811",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "concert"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q048",
-      "query": "What are the spectacles de théâtre available?",
-      "language": "mixed",
-      "query_type": "language_mix",
-      "complexity": "medium",
-      "expected_entities": [
-        "spectacles",
-        "théâtre"
-      ],
-      "expected_categories": [
-        "Théâtre"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "38801601",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "65720577",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "45903430",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "theater",
-          "spectacle"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q049",
-      "query": "Find me événements culturels in Paris with English descriptions",
-      "language": "mixed",
-      "query_type": "language_mix",
-      "complexity": "medium",
-      "expected_entities": [
-        "événements",
-        "culturels",
-        "Paris",
-        "English"
-      ],
-      "expected_categories": [],
-      "expected_filters": {
-        "city": "Paris"
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "8528233",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "1641036",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "1509701",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "Paris",
-          "cultural"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q050",
-      "query": "Montre-moi art exhibitions avec accessibility features",
-      "language": "mixed",
-      "query_type": "language_mix",
-      "complexity": "medium",
-      "expected_entities": [
-        "art",
-        "exhibitions",
-        "accessibility"
-      ],
-      "expected_categories": [
-        "Art"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "71656284",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "8528233",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "50721671",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "art",
-          "accessible"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "mixed"
-      }
-    },
-    {
-      "id": "Q051",
-      "query": "Expositions d'art contemporain gratuites et accessibles PMR à Paris en mars",
-      "language": "fr",
-      "query_type": "metadata_heavy",
-      "complexity": "high",
-      "expected_entities": [
-        "art",
-        "contemporain",
-        "exposition"
-      ],
-      "expected_categories": [
-        "Art"
-      ],
-      "expected_filters": {
-        "city": "Paris",
-        "month": 3,
-        "price": 0,
-        "accessibility": [
-          "wheelchair"
-        ]
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "80142793",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "3149383",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "5148482",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "exposition",
-          "art"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q052",
-      "query": "Concerts classiques pour enfants de 6-12 ans le week-end dans le 75",
-      "language": "fr",
-      "query_type": "metadata_heavy",
-      "complexity": "high",
-      "expected_entities": [
-        "concert",
-        "classique",
-        "enfants"
-      ],
-      "expected_categories": [
-        "Musique"
-      ],
-      "expected_filters": {
-        "city": "Paris",
-        "age_min": 6,
-        "age_max": 12
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "56495630",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "46071971",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "30063785",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "concert",
-          "enfants"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q053",
-      "query": "Quels événements culturels ont lieu le premier weekend de février 2026?",
-      "language": "fr",
       "query_type": "temporal_complex",
       "complexity": "high",
-      "expected_entities": [],
-      "expected_categories": [],
       "expected_filters": {
-        "month": 2,
+        "city": "Paris",
+        "category": "Art",
+        "season": "summer",
         "year": 2026
       },
-      "relevance_ground_truth": [
-        {
-          "event_id": "35767353",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "26655261",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "43599035",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
       "generation_expectations": {
-        "must_contain_keywords": [
-          "février"
-        ],
+        "must_contain_keywords": ["street art", "Paris", "summer", "2026"],
         "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q054",
-      "query": "Shows running from mid-January to end of February in Versailles",
-      "language": "en",
-      "query_type": "temporal_complex",
-      "complexity": "high",
-      "expected_entities": [
-        "shows"
-      ],
-      "expected_categories": [],
-      "expected_filters": {
-        "city": "Versailles",
-        "month": 1
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "92816716",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "53517737",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "39160511",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
         "expected_language": "en"
       }
     },
     {
-      "id": "Q055",
-      "query": "Événements nocturnes après 20h dans le Marais",
+      "id": "SQ005",
+      "query": "Concerts gratuits ce soir à Paris",
       "language": "fr",
       "query_type": "temporal_complex",
       "complexity": "medium",
-      "expected_entities": [
-        "nocturne",
-        "soir"
-      ],
-      "expected_categories": [],
       "expected_filters": {
-        "city": "Paris"
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "92527833",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "11643483",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "51903007",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "Marais"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q056",
-      "query": "Cultural events in suburbs near Gare du Nord accessible by metro",
-      "language": "en",
-      "query_type": "geographic_complex",
-      "complexity": "high",
-      "expected_entities": [
-        "cultural",
-        "events"
-      ],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "56495630",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "62556423",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "46071971",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q057",
-      "query": "Festivals en plein air dans les parcs de l'ouest parisien",
-      "language": "fr",
-      "query_type": "geographic_complex",
-      "complexity": "high",
-      "expected_entities": [
-        "festival",
-        "plein air",
-        "parc"
-      ],
-      "expected_categories": [],
-      "expected_filters": {
-        "city": "Paris"
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "40826490",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "8528233",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "49241558",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "festival",
-          "parc"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q058",
-      "query": "Museums and exhibitions within walking distance of Louvre",
-      "language": "en",
-      "query_type": "geographic_complex",
-      "complexity": "medium",
-      "expected_entities": [
-        "museum",
-        "exhibition",
-        "Louvre"
-      ],
-      "expected_categories": [
-        "Art"
-      ],
-      "expected_filters": {
-        "city": "Paris"
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "8528233",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "14187446",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "92527833",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "museum"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q059",
-      "query": "Spectacles bilingues français-anglais pour familles internationales",
-      "language": "fr",
-      "query_type": "language_mix",
-      "complexity": "high",
-      "expected_entities": [
-        "spectacle",
-        "bilingue"
-      ],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "41361525",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "65720577",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "72919849",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "bilingue"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q060",
-      "query": "Traditional Japanese cultural events or tea ceremonies in Paris",
-      "language": "en",
-      "query_type": "entity_specific",
-      "complexity": "medium",
-      "expected_entities": [
-        "Japanese",
-        "Japan",
-        "tea ceremony"
-      ],
-      "expected_categories": [
-        "Culture"
-      ],
-      "expected_filters": {
-        "city": "Paris"
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "11754934",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "76646775",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "75938036",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "Japan"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q061",
-      "query": "Concerts NOT jazz or classical, something modern and experimental",
-      "language": "en",
-      "query_type": "negation",
-      "complexity": "high",
-      "expected_entities": [
-        "concert",
-        "modern",
-        "experimental"
-      ],
-      "expected_categories": [
-        "Musique"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "5632919",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "66283096",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "23564712",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "concert"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q062",
-      "query": "Événements culturels sans réservation obligatoire, entrée libre",
-      "language": "fr",
-      "query_type": "metadata_heavy",
-      "complexity": "medium",
-      "expected_entities": [
-        "entrée libre",
-        "gratuit"
-      ],
-      "expected_categories": [],
-      "expected_filters": {
-        "price": 0
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "71002209",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "30088279",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "93072143",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "gratuit"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q063",
-      "query": "Top 5 most popular art exhibitions this month based on attendance",
-      "language": "en",
-      "query_type": "ranking",
-      "complexity": "high",
-      "expected_entities": [
-        "art",
-        "exhibition"
-      ],
-      "expected_categories": [
-        "Art"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "71656284",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "41058107",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "32151815",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "exhibition"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q064",
-      "query": "Comparez les théâtres dans le 9ème arrondissement: programmation, tarifs, accessibilité",
-      "language": "fr",
-      "query_type": "comparison",
-      "complexity": "high",
-      "expected_entities": [
-        "théâtre"
-      ],
-      "expected_categories": [
-        "Théâtre"
-      ],
-      "expected_filters": {
-        "city": "Paris"
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "69589274",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "59956692",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "80142793",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "théâtre"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q065",
-      "query": "If it rains this weekend, what indoor cultural activities are available in Paris?",
-      "language": "en",
-      "query_type": "conditional",
-      "complexity": "medium",
-      "expected_entities": [
-        "indoor",
-        "cultural"
-      ],
-      "expected_categories": [],
-      "expected_filters": {
-        "city": "Paris"
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "8528233",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "56495630",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "62556423",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "indoor"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q066",
-      "query": "Activités culturelles adaptées en cas de canicule (climatisé, frais)",
-      "language": "fr",
-      "query_type": "conditional",
-      "complexity": "medium",
-      "expected_entities": [
-        "climatisé",
-        "intérieur"
-      ],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "71750287",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "27269183",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "18864749",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q067",
-      "query": "Workshops or masterclasses by renowned artists visiting from abroad",
-      "language": "en",
-      "query_type": "entity_specific",
-      "complexity": "high",
-      "expected_entities": [
-        "workshop",
-        "masterclass",
-        "artist"
-      ],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "52706601",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "42044655",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "43026575",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "workshop"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q068",
-      "query": "Rencontres avec auteurs et dédicaces dans les librairies indépendantes",
-      "language": "fr",
-      "query_type": "entity_specific",
-      "complexity": "medium",
-      "expected_entities": [
-        "auteur",
-        "dédicace",
-        "librairie"
-      ],
-      "expected_categories": [
-        "Littérature"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "59956692",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "58234496",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "41361525",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "auteur"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q069",
-      "query": "Free or under 10€ cultural events suitable for students in February",
-      "language": "en",
-      "query_type": "metadata_heavy",
-      "complexity": "medium",
-      "expected_entities": [
-        "free",
-        "cheap",
-        "student"
-      ],
-      "expected_categories": [],
-      "expected_filters": {
-        "month": 2
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "26655261",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "3843433",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "5142333",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "free"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q070",
-      "query": "Tarif réduit pour demandeurs d'emploi dans les musées parisiens",
-      "language": "fr",
-      "query_type": "metadata_heavy",
-      "complexity": "medium",
-      "expected_entities": [
-        "tarif réduit",
-        "musée"
-      ],
-      "expected_categories": [
-        "Art"
-      ],
-      "expected_filters": {
-        "city": "Paris"
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "53055860",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "79925500",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "33062336",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "musée"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q071",
-      "query": "Tell me more about the first event you mentioned",
-      "language": "en",
-      "query_type": "follow_up",
-      "complexity": "high",
-      "expected_entities": [],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "41267861",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "85539135",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "10122892",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q072",
-      "query": "Donne-moi des alternatives si le concert est complet",
-      "language": "fr",
-      "query_type": "follow_up",
-      "complexity": "medium",
-      "expected_entities": [
-        "concert",
-        "alternative"
-      ],
-      "expected_categories": [
-        "Musique"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "30088279",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "66283096",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "25983681",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "concert"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q073",
-      "query": "Something interesting this weekend",
-      "language": "en",
-      "query_type": "vague",
-      "complexity": "high",
-      "expected_entities": [],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "95383264",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "23564712",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "96694524",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q074",
-      "query": "Ça existe des trucs culturels pour ce soir?",
-      "language": "fr",
-      "query_type": "vague",
-      "complexity": "medium",
-      "expected_entities": [
-        "culturel",
-        "soir"
-      ],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "80157006",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "70267414",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "23564712",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q075",
-      "query": "VR or immersive digital art experiences in Île-de-France",
-      "language": "en",
-      "query_type": "entity_specific",
-      "complexity": "medium",
-      "expected_entities": [
-        "VR",
-        "digital",
-        "immersive"
-      ],
-      "expected_categories": [
-        "Art"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "37499077",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "53242525",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "12451743",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "digital"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q076",
-      "query": "Projections cinéma en plein air ou sur rooftop cet été",
-      "language": "fr",
-      "query_type": "temporal_complex",
-      "complexity": "medium",
-      "expected_entities": [
-        "cinéma",
-        "plein air",
-        "rooftop"
-      ],
-      "expected_categories": [
-        "Cinéma"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "59703165",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "96034780",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "74430407",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "cinéma"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q077",
-      "query": "Events with sign language interpretation for deaf community",
-      "language": "en",
-      "query_type": "metadata_heavy",
-      "complexity": "high",
-      "expected_entities": [
-        "sign language",
-        "deaf",
-        "accessible"
-      ],
-      "expected_categories": [],
-      "expected_filters": {
-        "accessibility": [
-          "sign_language"
-        ]
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "48016033",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "18984483",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "85976355",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "sign"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q078",
-      "query": "Spectacles avec audiodescription pour personnes malvoyantes",
-      "language": "fr",
-      "query_type": "metadata_heavy",
-      "complexity": "high",
-      "expected_entities": [
-        "audiodescription",
-        "malvoyant"
-      ],
-      "expected_categories": [],
-      "expected_filters": {
-        "accessibility": [
-          "audio_description"
-        ]
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "93869820",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "6519744",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "65720577",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "audiodescription"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q079",
-      "query": "Senior-friendly cultural activities with seating and nearby parking",
-      "language": "en",
-      "query_type": "metadata_heavy",
-      "complexity": "medium",
-      "expected_entities": [
-        "senior",
-        "elderly"
-      ],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "71002209",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "11013830",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "1233101",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q080",
-      "query": "Activités pour adolescents 13-17 ans sans parents",
-      "language": "fr",
-      "query_type": "metadata_heavy",
-      "complexity": "medium",
-      "expected_entities": [
-        "adolescent",
-        "jeune"
-      ],
-      "expected_categories": [],
-      "expected_filters": {
-        "age_min": 13,
-        "age_max": 17
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "56495630",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "5149510",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "59890780",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "adolescent"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q081",
-      "query": "Electronic music festivals or techno clubs in Paris suburbs",
-      "language": "en",
-      "query_type": "simple_search",
-      "complexity": "medium",
-      "expected_entities": [
-        "electronic",
-        "techno",
-        "festival"
-      ],
-      "expected_categories": [
-        "Musique"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "45297701",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "40206365",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "70892066",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "electronic"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q082",
-      "query": "Concerts de musique du monde: africaine, latino, orientale",
-      "language": "fr",
-      "query_type": "simple_search",
-      "complexity": "medium",
-      "expected_entities": [
-        "musique du monde",
-        "africaine",
-        "latino"
-      ],
-      "expected_categories": [
-        "Musique"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "96366915",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "97352691",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "78145168",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "musique"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q083",
-      "query": "Impressionist or post-impressionist art exhibitions currently showing",
-      "language": "en",
-      "query_type": "entity_specific",
-      "complexity": "medium",
-      "expected_entities": [
-        "impressionist",
-        "art",
-        "exhibition"
-      ],
-      "expected_categories": [
-        "Art"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "71656284",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "32151815",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "1509701",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "impressionist"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q084",
-      "query": "Expositions d'art moderne et contemporain du XXe siècle",
-      "language": "fr",
-      "query_type": "entity_specific",
-      "complexity": "medium",
-      "expected_entities": [
-        "art moderne",
-        "contemporain",
-        "exposition"
-      ],
-      "expected_categories": [
-        "Art"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "71656284",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "41058107",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "10217237",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "art",
-          "exposition"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q085",
-      "query": "Street performances, buskers, or free outdoor shows in Montmartre",
-      "language": "en",
-      "query_type": "geographic_complex",
-      "complexity": "medium",
-      "expected_entities": [
-        "street",
-        "outdoor",
-        "Montmartre"
-      ],
-      "expected_categories": [],
-      "expected_filters": {
-        "city": "Paris"
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "70267414",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "9541644",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "99263760",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "Montmartre"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q086",
-      "query": "Spectacles de danse contemporaine ou ballet classique",
-      "language": "fr",
-      "query_type": "simple_search",
-      "complexity": "low",
-      "expected_entities": [
-        "danse",
-        "contemporaine",
-        "ballet"
-      ],
-      "expected_categories": [
-        "Danse"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "1509701",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "45903430",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "99718134",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "danse"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q087",
-      "query": "Photography workshops or courses for beginners in February",
-      "language": "en",
-      "query_type": "simple_search",
-      "complexity": "medium",
-      "expected_entities": [
-        "photography",
-        "workshop",
-        "course"
-      ],
-      "expected_categories": [],
-      "expected_filters": {
-        "month": 2
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "25319120",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "36823929",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "11107277",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "photography"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q088",
-      "query": "Ateliers d'écriture créative ou cours de théâtre amateur",
-      "language": "fr",
-      "query_type": "simple_search",
-      "complexity": "medium",
-      "expected_entities": [
-        "atelier",
-        "écriture",
-        "théâtre"
-      ],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "4036646",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "38801601",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "60556432",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "atelier"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q089",
-      "query": "Guided tours of historical monuments with English commentary",
-      "language": "en",
-      "query_type": "simple_search",
-      "complexity": "medium",
-      "expected_entities": [
-        "guided tour",
-        "historical",
-        "monument"
-      ],
-      "expected_categories": [
-        "Culture"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "48164145",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "79310593",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "43026575",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "tour"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q090",
-      "query": "Visites guidées patrimoine industriel ou architecture haussmannienne",
-      "language": "fr",
-      "query_type": "simple_search",
-      "complexity": "medium",
-      "expected_entities": [
-        "visite",
-        "patrimoine",
-        "architecture"
-      ],
-      "expected_categories": [
-        "Culture"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "48164145",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "55520144",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "90446086",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "visite"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q091",
-      "query": "Valentine's Day romantic events: candlelit concerts or couple activities",
-      "language": "en",
-      "query_type": "temporal_complex",
-      "complexity": "medium",
-      "expected_entities": [
-        "Valentine",
-        "romantic",
-        "concert"
-      ],
-      "expected_categories": [],
-      "expected_filters": {
-        "month": 2
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "89710664",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "23586252",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "38495749",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "Valentine"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q092",
-      "query": "Événements pour la Journée Internationale de la Femme (8 mars)",
-      "language": "fr",
-      "query_type": "temporal_complex",
-      "complexity": "medium",
-      "expected_entities": [
-        "Journée de la Femme",
-        "8 mars"
-      ],
-      "expected_categories": [],
-      "expected_filters": {
-        "month": 3
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "62609559",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "20137381",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "80142793",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "femme"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q093",
-      "query": "Cultural events with food tastings or wine pairings included",
-      "language": "en",
-      "query_type": "metadata_heavy",
-      "complexity": "medium",
-      "expected_entities": [
-        "food",
-        "tasting",
-        "wine"
-      ],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "25319120",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "83421647",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "32416950",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "food"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q094",
-      "query": "Festivals gastronomiques ou marchés culturels avec artisanat local",
-      "language": "fr",
-      "query_type": "simple_search",
-      "complexity": "medium",
-      "expected_entities": [
-        "gastronomique",
-        "festival",
-        "marché"
-      ],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "32929781",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "40826490",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "85194002",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "festival"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q095",
-      "query": "Nuit Blanche or other all-night cultural events in October",
-      "language": "en",
-      "query_type": "entity_specific",
-      "complexity": "medium",
-      "expected_entities": [
-        "Nuit Blanche",
-        "night",
-        "nocturne"
-      ],
-      "expected_categories": [],
-      "expected_filters": {
-        "month": 10
-      },
-      "relevance_ground_truth": [],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "night"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q096",
-      "query": "Soirées culturelles ou nocturnes des musées première semaine du mois",
-      "language": "fr",
-      "query_type": "temporal_complex",
-      "complexity": "high",
-      "expected_entities": [
-        "soirée",
-        "nocturne",
-        "musée"
-      ],
-      "expected_categories": [
-        "Art"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "79310593",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "18552687",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "8528233",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "musée"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q097",
-      "query": "Dog-friendly outdoor cultural events or exhibitions allowing pets",
-      "language": "en",
-      "query_type": "metadata_heavy",
-      "complexity": "medium",
-      "expected_entities": [
-        "dog",
-        "pet",
-        "outdoor"
-      ],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "11754934",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "53763830",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "73038729",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "dog"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q098",
-      "query": "Événements acceptant les animaux de compagnie en extérieur",
-      "language": "fr",
-      "query_type": "metadata_heavy",
-      "complexity": "medium",
-      "expected_entities": [
-        "animaux",
-        "extérieur"
-      ],
-      "expected_categories": [],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "53763830",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "31847297",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "11089511",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "animaux"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q099",
-      "query": "NFT exhibitions, crypto art, or blockchain cultural events",
-      "language": "en",
-      "query_type": "entity_specific",
-      "complexity": "high",
-      "expected_entities": [
-        "NFT",
-        "crypto",
-        "blockchain",
-        "digital art"
-      ],
-      "expected_categories": [
-        "Art"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "12451743",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "89396438",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "50721671",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "NFT"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "en"
-      }
-    },
-    {
-      "id": "Q100",
-      "query": "Intelligence artificielle et art: expositions sur l'art génératif ou IA créative",
-      "language": "fr",
-      "query_type": "entity_specific",
-      "complexity": "high",
-      "expected_entities": [
-        "intelligence artificielle",
-        "IA",
-        "art génératif"
-      ],
-      "expected_categories": [
-        "Art"
-      ],
-      "expected_filters": {},
-      "relevance_ground_truth": [
-        {
-          "event_id": "24497209",
-          "relevance_score": 1.0,
-          "reason": null
-        },
-        {
-          "event_id": "54470295",
-          "relevance_score": 0.9,
-          "reason": null
-        },
-        {
-          "event_id": "2256537",
-          "relevance_score": 0.8,
-          "reason": null
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [
-          "intelligence",
-          "artificielle"
-        ],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": "fr"
-      }
-    },
-    {
-      "id": "Q_FREE_001",
-      "query": "Événements culturels gratuits à Paris ce week-end",
-      "language": "fr",
-      "query_type": "price_filter",
-      "complexity": "medium",
-      "expected_entities": [],
-      "expected_categories": [],
-      "expected_filters": {
-        "price": "free",
         "city": "Paris",
-        "time": "weekend"
+        "category": "Musique",
+        "price": 0,
+        "date": "today"
       },
-      "relevance_ground_truth": [
-        {
-          "event_id": "63166587",
-          "relevance_score": 1.0,
-          "reason": "Strong match (score 5)"
-        },
-        {
-          "event_id": "5791113",
-          "relevance_score": 1.0,
-          "reason": "Strong match (score 5)"
-        },
-        {
-          "event_id": "91477811",
-          "relevance_score": 1.0,
-          "reason": "Strong match (score 5)"
-        }
-      ],
       "generation_expectations": {
-        "must_contain_keywords": [],
+        "must_contain_keywords": ["concert", "gratuit", "Paris", "soir"],
         "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": null
+        "expected_language": "fr"
       }
     },
     {
-      "id": "Q_FREE_002",
-      "query": "Free concerts in February",
+      "id": "SQ006",
+      "query": "Dance performances for children under 10",
       "language": "en",
-      "query_type": "price_filter",
+      "query_type": "metadata_heavy",
       "complexity": "medium",
-      "expected_entities": [],
-      "expected_categories": [],
       "expected_filters": {
-        "price": "free",
-        "category": "concerts",
-        "month": 2
+        "category": "Danse",
+        "age_max": 10
       },
-      "relevance_ground_truth": [
-        {
-          "event_id": "41058107",
-          "relevance_score": 1.0,
-          "reason": "Strong match (score 4)"
-        },
-        {
-          "event_id": "43599035",
-          "relevance_score": 1.0,
-          "reason": "Strong match (score 4)"
-        },
-        {
-          "event_id": "81363431",
-          "relevance_score": 1.0,
-          "reason": "Strong match (score 4)"
-        }
-      ],
       "generation_expectations": {
-        "must_contain_keywords": [],
+        "must_contain_keywords": ["dance", "children"],
+        "should_ask_clarification": true,
+        "clarification_topics": ["city", "date"],
         "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": null
+        "expected_language": "en"
       }
     },
     {
-      "id": "Q_ACCESS_001",
-      "query": "Spectacles accessibles en fauteuil roulant à Paris",
+      "id": "SQ007",
+      "query": "Spectacles de marionnettes pour enfants à Versailles",
       "language": "fr",
-      "query_type": "accessibility",
+      "query_type": "entity_specific",
       "complexity": "medium",
-      "expected_entities": [],
-      "expected_categories": [
-        "theater"
-      ],
-      "expected_filters": {
-        "accessibility": "wheelchair",
-        "city": "Paris"
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "18365539",
-          "relevance_score": 1.0,
-          "reason": "Strong match (score 5)"
-        },
-        {
-          "event_id": "72338086",
-          "relevance_score": 1.0,
-          "reason": "Strong match (score 3)"
-        },
-        {
-          "event_id": "16091978",
-          "relevance_score": 1.0,
-          "reason": "Strong match (score 3)"
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": null
-      }
-    },
-    {
-      "id": "Q_ACCESS_002",
-      "query": "Theater with subtitles or sign language interpretation",
-      "language": "en",
-      "query_type": "accessibility",
-      "complexity": "high",
-      "expected_entities": [],
-      "expected_categories": [
-        "theater"
-      ],
-      "expected_filters": {
-        "accessibility": "subtitles OR sign language"
-      },
-      "relevance_ground_truth": [],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": null
-      }
-    },
-    {
-      "id": "Q_GENRE_ELEC_001",
-      "query": "Concerts électroniques ou techno à Paris",
-      "language": "fr",
-      "query_type": "genre_search",
-      "complexity": "simple",
-      "expected_entities": [],
-      "expected_categories": [
-        "concerts"
-      ],
-      "expected_filters": {
-        "genre": "electronic OR techno",
-        "city": "Paris"
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "81027319",
-          "relevance_score": 1.0,
-          "reason": "Strong match (score 4)"
-        },
-        {
-          "event_id": "19640706",
-          "relevance_score": 1.0,
-          "reason": "Strong match (score 4)"
-        },
-        {
-          "event_id": "58784473",
-          "relevance_score": 1.0,
-          "reason": "Strong match (score 4)"
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": null
-      }
-    },
-    {
-      "id": "Q_GENRE_POP_001",
-      "query": "Pop or rock concerts in Île-de-France",
-      "language": "en",
-      "query_type": "genre_search",
-      "complexity": "simple",
-      "expected_entities": [],
-      "expected_categories": [
-        "concerts"
-      ],
-      "expected_filters": {
-        "genre": "pop OR rock"
-      },
-      "relevance_ground_truth": [
-        {
-          "event_id": "44536555",
-          "relevance_score": 0.5,
-          "reason": "Partial match (score 2)"
-        },
-        {
-          "event_id": "16091978",
-          "relevance_score": 0.5,
-          "reason": "Partial match (score 2)"
-        },
-        {
-          "event_id": "759170",
-          "relevance_score": 0.5,
-          "reason": "Partial match (score 2)"
-        }
-      ],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": null
-      }
-    },
-    {
-      "id": "Q_SUBURB_001",
-      "query": "Événements culturels à Versailles en novembre",
-      "language": "fr",
-      "query_type": "location_specific",
-      "complexity": "medium",
-      "expected_entities": [],
-      "expected_categories": [],
       "expected_filters": {
         "city": "Versailles",
-        "month": 11
+        "category": "Théâtre",
+        "audience": "children"
       },
-      "relevance_ground_truth": [],
       "generation_expectations": {
-        "must_contain_keywords": [],
+        "must_contain_keywords": ["marionnettes", "enfants", "Versailles"],
+        "should_ask_clarification": true,
+        "clarification_topics": ["date"],
         "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": null
+        "expected_language": "fr"
       }
     },
     {
-      "id": "Q_SUBURB_002",
-      "query": "Theater shows in suburbs (banlieue) of Paris",
+      "id": "SQ008",
+      "query": "Comedy shows in English in Paris",
       "language": "en",
-      "query_type": "location_specific",
+      "query_type": "language_filter",
       "complexity": "medium",
-      "expected_entities": [],
-      "expected_categories": [
-        "theater"
-      ],
       "expected_filters": {
-        "location": "suburbs"
+        "city": "Paris",
+        "category": "Théâtre",
+        "performance_language": "English"
       },
-      "relevance_ground_truth": [],
       "generation_expectations": {
-        "must_contain_keywords": [],
+        "must_contain_keywords": ["comedy", "English", "Paris"],
+        "should_ask_clarification": true,
+        "clarification_topics": ["date"],
         "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": null
+        "expected_language": "en"
       }
     },
     {
-      "id": "Q_LANG_001",
-      "query": "Events with English descriptions or in English",
+      "id": "SQ009",
+      "query": "Electronic music festivals in Île-de-France",
       "language": "en",
-      "query_type": "language",
-      "complexity": "high",
-      "expected_entities": [],
-      "expected_categories": [],
+      "query_type": "entity_specific",
+      "complexity": "medium",
       "expected_filters": {
-        "language": "English"
+        "region": "Île-de-France",
+        "category": "Musique",
+        "genre": "electronic"
       },
-      "relevance_ground_truth": [],
       "generation_expectations": {
-        "must_contain_keywords": [],
+        "must_contain_keywords": ["electronic", "music", "festival"],
+        "should_ask_clarification": true,
+        "clarification_topics": ["date"],
         "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": null
+        "expected_language": "en"
       }
     },
     {
-      "id": "Q_AGE_001",
-      "query": "Spectacles pour tout public (enfants et adultes)",
+      "id": "SQ010",
+      "query": "Événements pour les seniors à Paris",
       "language": "fr",
-      "query_type": "age_filter",
+      "query_type": "metadata_heavy",
       "complexity": "medium",
-      "expected_entities": [],
-      "expected_categories": [],
       "expected_filters": {
-        "age": "all ages"
+        "city": "Paris",
+        "audience": "seniors"
       },
-      "relevance_ground_truth": [],
       "generation_expectations": {
-        "must_contain_keywords": [],
+        "must_contain_keywords": ["seniors", "Paris"],
+        "should_ask_clarification": true,
+        "clarification_topics": ["category", "date"],
         "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": null
+        "expected_language": "fr"
       }
     },
     {
-      "id": "Q_AGE_002",
-      "query": "Adult-only comedy shows in Paris",
-      "language": "en",
-      "query_type": "age_filter",
-      "complexity": "high",
-      "expected_entities": [],
-      "expected_categories": [
-        "comedy"
-      ],
-      "expected_filters": {
-        "age": "adults only",
-        "city": "Paris"
+      "id": "SQ011",
+      "query": "bonjour",
+      "language": "fr",
+      "query_type": "greeting",
+      "complexity": "low",
+      "expected_behavior": {
+        "should_respond_with_greeting": true,
+        "should_offer_help": true
       },
-      "relevance_ground_truth": [],
       "generation_expectations": {
-        "must_contain_keywords": [],
+        "should_be_friendly": true,
+        "should_ask_how_to_help": true,
         "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": null
+        "expected_language": "fr"
       }
     },
     {
-      "id": "Q_COMPLEX_001",
-      "query": "Free accessible workshops for families on weekends",
+      "id": "SQ012",
+      "query": "hello",
       "language": "en",
-      "query_type": "multi_criteria",
-      "complexity": "high",
-      "expected_entities": [],
-      "expected_categories": [
-        "workshops"
-      ],
-      "expected_filters": {
-        "price": "free",
-        "accessibility": "yes",
-        "audience": "families",
-        "time": "weekends"
+      "query_type": "greeting",
+      "complexity": "low",
+      "expected_behavior": {
+        "should_respond_with_greeting": true,
+        "should_offer_help": true
       },
-      "relevance_ground_truth": [
-        {
-          "event_id": "72338086",
-          "relevance_score": 1.0,
-          "reason": "Strong match (score 3)"
-        },
-        {
-          "event_id": "38258900",
-          "relevance_score": 1.0,
-          "reason": "Strong match (score 3)"
-        },
-        {
-          "event_id": "16091978",
-          "relevance_score": 1.0,
-          "reason": "Strong match (score 3)"
-        }
-      ],
       "generation_expectations": {
-        "must_contain_keywords": [],
+        "should_be_friendly": true,
+        "should_ask_how_to_help": true,
         "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": null
+        "expected_language": "en"
       }
     },
     {
-      "id": "Q_COMPLEX_002",
-      "query": "Outdoor summer concerts in Paris suburbs with parking",
+      "id": "SQ013",
+      "query": "What's the weather like?",
       "language": "en",
-      "query_type": "multi_criteria",
-      "complexity": "high",
-      "expected_entities": [],
-      "expected_categories": [
-        "concerts"
-      ],
-      "expected_filters": {
-        "location": "outdoor",
-        "season": "summer",
-        "area": "suburbs",
-        "parking": "available"
+      "query_type": "off_topic",
+      "complexity": "low",
+      "expected_behavior": {
+        "should_redirect_to_cultural_events": true,
+        "should_not_answer_weather": true
       },
-      "relevance_ground_truth": [],
       "generation_expectations": {
-        "must_contain_keywords": [],
+        "should_politely_redirect": true,
+        "must_not_provide_weather_info": true,
         "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": null
+        "expected_language": "en"
       }
     },
     {
-      "id": "Q_NEG_001",
-      "query": "Classical music NOT opera",
+      "id": "SQ014",
+      "query": "Can you write me a poem?",
       "language": "en",
-      "query_type": "negative_filter",
-      "complexity": "medium",
-      "expected_entities": [],
-      "expected_categories": [
-        "classical"
-      ],
-      "expected_filters": {
-        "exclude": "opera"
+      "query_type": "off_topic",
+      "complexity": "low",
+      "expected_behavior": {
+        "should_redirect_to_cultural_events": true,
+        "should_not_write_poem": true
       },
-      "relevance_ground_truth": [],
       "generation_expectations": {
-        "must_contain_keywords": [],
+        "should_politely_redirect": true,
+        "must_not_write_creative_content": true,
         "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": null
+        "expected_language": "en"
       }
     },
     {
-      "id": "Q_TIME_001",
-      "query": "Evening concerts starting after 19:00",
+      "id": "SQ015",
+      "query": "What can you help me with?",
       "language": "en",
-      "query_type": "time_filter",
-      "complexity": "medium",
-      "expected_entities": [],
-      "expected_categories": [
-        "concerts"
-      ],
-      "expected_filters": {
-        "time": "evening",
-        "start_time": "after 19:00"
+      "query_type": "meta",
+      "complexity": "low",
+      "expected_behavior": {
+        "should_explain_capabilities": true
       },
-      "relevance_ground_truth": [],
       "generation_expectations": {
-        "must_contain_keywords": [],
+        "should_describe_cultural_events_focus": true,
+        "should_mention_ile_de_france": true,
         "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": null
-      }
-    },
-    {
-      "id": "Q_TIME_002",
-      "query": "Matinée performances on weekends",
-      "language": "en",
-      "query_type": "time_filter",
-      "complexity": "medium",
-      "expected_entities": [],
-      "expected_categories": [],
-      "expected_filters": {
-        "time": "matinée",
-        "day": "weekends"
-      },
-      "relevance_ground_truth": [],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": null
-      }
-    },
-    {
-      "id": "Q_VENUE_001",
-      "query": "Events at Théâtre du Châtelet",
-      "language": "en",
-      "query_type": "venue_specific",
-      "complexity": "simple",
-      "expected_entities": [],
-      "expected_categories": [],
-      "expected_filters": {
-        "venue": "Théâtre du Châtelet"
-      },
-      "relevance_ground_truth": [],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": null
-      }
-    },
-    {
-      "id": "Q_SERIES_001",
-      "query": "Nuit Blanche events in October",
-      "language": "en",
-      "query_type": "event_series",
-      "complexity": "simple",
-      "expected_entities": [],
-      "expected_categories": [],
-      "expected_filters": {
-        "event_series": "Nuit Blanche",
-        "month": 10
-      },
-      "relevance_ground_truth": [],
-      "generation_expectations": {
-        "must_contain_keywords": [],
-        "must_not_hallucinate": true,
-        "should_ask_clarification": false,
-        "should_refuse_gracefully": false,
-        "expected_language": null
+        "expected_language": "en"
       }
     }
-  ]
+  ],
+  "evaluation_guidelines": {
+    "context_retention_scoring": {
+      "description": "How to score context retention in multi-turn conversations",
+      "criteria": {
+        "perfect": "All relevant context from previous turns is correctly used",
+        "partial": "Some context is retained but key details are missed",
+        "failed": "Context is ignored or incorrectly applied"
+      }
+    },
+    "clarifying_question_scoring": {
+      "description": "How to score clarifying question behavior",
+      "criteria": {
+        "appropriate": "Asks relevant clarifying questions when query is ambiguous",
+        "over_clarifying": "Asks for clarification when not needed",
+        "under_clarifying": "Fails to ask when query is clearly ambiguous"
+      }
+    },
+    "topic_shift_scoring": {
+      "description": "How to score topic shift detection",
+      "criteria": {
+        "correct": "Correctly identifies when user shifts to new topic vs refines previous",
+        "false_positive": "Treats refinement as new topic (loses context unnecessarily)",
+        "false_negative": "Treats new topic as refinement (applies irrelevant context)"
+      }
+    }
+  }
 }

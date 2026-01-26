@@ -88,7 +88,7 @@ def test_event_to_text() -> None:
     assert "Description: Une exposition fascinante" in text
     assert "Catégorie: Art" in text
     assert "Ville: Paris" in text
-    assert "2026-03-20 19:00" in text
+    assert "20/03/2026 19:00" in text
     assert "Organisateur: Musée d'Art Moderne" in text
     assert "art, exposition" in text
 

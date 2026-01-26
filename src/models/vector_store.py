@@ -3,27 +3,31 @@
 import logging
 import pickle
 from pathlib import Path
-from typing import Any
+from typing import Any, List, Dict, Tuple
 
 import faiss
 import numpy as np
+from rank_bm25 import BM25Okapi
 
 from src.config import settings
 from src.data.models import Event
 from src.data.storage import EventStorage
 from src.models.embeddings import EventEmbedder
+from src.utils.geo import CityLocator, haversine_distance
+from src.utils.language import tokenize_for_bm25, LanguageCode
 
 logger = logging.getLogger(__name__)
 
 
 class EventVectorStore:
-    """FAISS-based vector store for event embeddings with metadata filtering."""
+    """Hybrid vector store (FAISS + BM25) for event retrieval."""
 
     def __init__(
         self,
         index_path: str | None = None,
         embedder: EventEmbedder | None = None,
         storage: EventStorage | None = None,
+        default_language: LanguageCode = "fr"
     ) -> None:
         """Initialize vector store.
 
@@ -31,19 +35,23 @@ class EventVectorStore:
             index_path: Path to FAISS index directory
             embedder: EventEmbedder instance (creates new if None)
             storage: EventStorage instance (creates new if None)
+            default_language: Default language for BM25 tokenization (default: "fr")
         """
         self.index_path = Path(index_path or settings.faiss_index_path)
         self.embedder = embedder or EventEmbedder()
         self.storage = storage or EventStorage()
+        self.city_locator = CityLocator()  # Initialize geospatial locator
+        self.default_language = default_language  # For language-aware BM25
 
         self.index: faiss.Index | None = None
+        self.bm25: BM25Okapi | None = None
         self.event_ids: list[str] = []
         self.dimension = settings.vector_dimension
 
         logger.info(f"Initialized EventVectorStore with index path: {self.index_path}")
 
     def build_index(self, events: list[Event] | None = None) -> dict[str, Any]:
-        """Build FAISS index from events.
+        """Build FAISS and BM25 indices from events.
 
         Args:
             events: List of events to index (fetches from storage if None)
@@ -54,7 +62,7 @@ class EventVectorStore:
         stats = {
             "events_indexed": 0,
             "dimension": self.dimension,
-            "index_type": "IndexFlatIP",  # Inner Product for cosine similarity
+            "index_type": "Hybrid (FAISS + BM25)",
         }
 
         # Get events from storage if not provided
@@ -67,42 +75,69 @@ class EventVectorStore:
             logger.warning("No events to index")
             return stats
 
-        # Generate embeddings
+        # --- FAISS Indexing ---
         logger.info(f"Generating embeddings for {len(events)} events...")
         embeddings = self.embedder.embed_events(events)
 
         # Convert to numpy array and normalize for cosine similarity
         embeddings_array = np.array(embeddings, dtype=np.float32)
-        faiss.normalize_L2(embeddings_array)  # Normalize for cosine similarity
+        faiss.normalize_L2(embeddings_array)
 
         # Update dimension if needed
         if embeddings_array.shape[1] != self.dimension:
-            logger.warning(
-                f"Embedding dimension mismatch: expected {self.dimension}, "
-                f"got {embeddings_array.shape[1]}"
-            )
             self.dimension = embeddings_array.shape[1]
             stats["dimension"] = self.dimension
 
-        # Create FAISS index (Inner Product for normalized vectors = cosine similarity)
+        # Create FAISS index
         self.index = faiss.IndexFlatIP(self.dimension)
         self.index.add(embeddings_array)
+
+        # --- BM25 Indexing ---
+        logger.info("Building BM25 index...")
+        tokenized_corpus = [self._tokenize_event(e) for e in events]
+        self.bm25 = BM25Okapi(tokenized_corpus)
 
         # Store event IDs for retrieval
         self.event_ids = [event.event_id for event in events]
 
         # Update storage with FAISS indices
-        logger.info("Updating storage with FAISS indices...")
         for idx, event in enumerate(events):
             self.storage.update_faiss_index(event.event_id, idx)
 
         stats["events_indexed"] = len(events)
-        logger.info(f"Built FAISS index with {len(events)} events")
+        logger.info(f"Built Hybrid Index with {len(events)} events")
 
         return stats
 
+    def _tokenize_event(self, event: Event, language: LanguageCode | None = None) -> list[str]:
+        """Create token list for BM25 from event fields with language-aware processing.
+
+        This method now uses language-aware tokenization including:
+        - Accent normalization (café → cafe)
+        - Stopword removal (le, la, the, a, etc.)
+        - Stemming (concerts → concert)
+
+        Args:
+            event: Event to tokenize
+            language: Language code ("fr" or "en"), uses default_language if None
+
+        Returns:
+            List of processed tokens
+        """
+        lang = language or self.default_language
+
+        # Combine event text fields
+        text = f"{event.title} {event.description or ''} {event.scraped_content or ''}"
+        if event.location and event.location.city:
+            text += f" {event.location.city}"
+        if event.tags:
+            text += f" {' '.join(event.tags)}"
+
+        # Use language-aware tokenization (normalize, stopword removal, stemming)
+        return tokenize_for_bm25(text, lang)
+
     def save_index(self) -> None:
-        """Save FAISS index and metadata to disk."""
+        """Save FAISS index, BM25 index, and metadata to disk."""
         if self.index is None:
             raise ValueError("No index to save. Build index first.")
 
@@ -111,19 +146,19 @@ class EventVectorStore:
         # Save FAISS index
         index_file = self.index_path / "index.faiss"
         faiss.write_index(self.index, str(index_file))
-        logger.info(f"Saved FAISS index to {index_file}")
-
-        # Save metadata (event IDs)
+        
+        # Save BM25 index and Metadata
         metadata_file = self.index_path / "metadata.pkl"
         with open(metadata_file, "wb") as f:
             pickle.dump(
                 {
                     "event_ids": self.event_ids,
                     "dimension": self.dimension,
+                    "bm25": self.bm25
                 },
                 f,
             )
-        logger.info(f"Saved metadata to {metadata_file}")
+        logger.info(f"Saved indices to {self.index_path}")
 
     def load_index(self) -> None:
         """Load FAISS index and metadata from disk."""
@@ -133,17 +168,102 @@ class EventVectorStore:
         if not index_file.exists():
             raise FileNotFoundError(f"Index file not found: {index_file}")
 
-        # Load FAISS index
         self.index = faiss.read_index(str(index_file))
-        logger.info(f"Loaded FAISS index from {index_file}")
-
-        # Load metadata
+        
         with open(metadata_file, "rb") as f:
             metadata = pickle.load(f)
             self.event_ids = metadata["event_ids"]
             self.dimension = metadata["dimension"]
+            self.bm25 = metadata.get("bm25") # Optional for backward compatibility
 
-        logger.info(f"Loaded metadata: {len(self.event_ids)} events, dim={self.dimension}")
+        logger.info(f"Loaded Hybrid Index: {len(self.event_ids)} events")
+
+    def search_raw(
+        self,
+        query: str,
+        k: int = 100,
+        language: LanguageCode | None = None
+    ) -> list[tuple[Event, float]]:
+        """Search and return RAW similarity results (no filtering, no sorting).
+
+        REFACTORED (Phase 2 & 4): This method makes the vector_store "dumb".
+        It ONLY does semantic search (vector + BM25 fusion + keyword boosting).
+        NO filtering, NO geo-sorting, NO post-processing.
+
+        ENHANCED (Phase 10): Now supports language-aware BM25 tokenization.
+
+        Filtering is now done in RetrievalOrchestrator using SearchFilters.matches().
+
+        Args:
+            query: Search query string
+            k: Number of raw candidates to return (default: 100)
+            language: Language code for BM25 tokenization (default: self.default_language)
+
+        Returns:
+            List of (Event, score) tuples, sorted by similarity
+        """
+        lang = language or self.default_language
+        if self.index is None:
+            raise ValueError("No index loaded.")
+
+        # 1. Vector Search
+        query_embedding = self.embedder.embed_query(query)
+        query_array = np.array([query_embedding], dtype=np.float32)
+        faiss.normalize_L2(query_array)
+
+        search_k = k * 2  # Fetch extra for deduplication
+        v_distances, v_indices = self.index.search(query_array, search_k)
+
+        vector_results = {}
+        for idx, dist in zip(v_indices[0], v_distances[0]):
+            if idx != -1:
+                vector_results[self.event_ids[idx]] = float(dist)
+
+        # 2. BM25 Search (with language-aware tokenization)
+        bm25_results = {}
+        if self.bm25:
+            # Use same language-aware tokenization as indexing
+            tokenized_query = tokenize_for_bm25(query, lang)
+            doc_scores = self.bm25.get_scores(tokenized_query)
+            top_n = np.argsort(doc_scores)[::-1][:search_k]
+            for idx in top_n:
+                if doc_scores[idx] > 0:
+                    bm25_results[self.event_ids[idx]] = doc_scores[idx]
+
+        # 3. Keyword Boosting (BEFORE fusion)
+        boost_keywords = self._extract_significant_keywords(query)
+        if boost_keywords:
+            logger.debug(f"Applying keyword boosting for: {boost_keywords}")
+            vector_results = self._apply_keyword_boost(vector_results, boost_keywords)
+            bm25_results = self._apply_keyword_boost(bm25_results, boost_keywords)
+
+        # 4. RRF Fusion
+        fused_scores_list = self._reciprocal_rank_fusion(vector_results, bm25_results)
+
+        # 5. Fetch Events (NO filtering, just deduplication)
+        results = []
+        seen_event_keys = set()
+
+        for event_id, score in fused_scores_list:
+            event = self.storage.get_event(event_id)
+            if not event:
+                continue
+
+            # Deduplicate by Title + City + Date
+            event_date = event.start_date.date() if event.start_date else "no-date"
+            event_key = f"{event.title}|{event.location.city if event.location else ''}|{event_date}".lower()
+
+            if event_key in seen_event_keys:
+                continue
+
+            seen_event_keys.add(event_key)
+            results.append((event, score))
+
+            if len(results) >= k:
+                break
+
+        logger.debug(f"search_raw returning {len(results)} unique events")
+        return results
 
     def search(
         self,
@@ -151,257 +271,349 @@ class EventVectorStore:
         k: int = 5,
         metadata_filter: dict[str, Any] | None = None,
         enable_hybrid: bool = True,
+        candidate_pool: int | None = None
     ) -> list[tuple[Event, float]]:
-        """Search for similar events using semantic similarity with optional hybrid boosting.
+        """Search using Hybrid Fusion (Vector + BM25) + Geo Priority.
+
+        LEGACY METHOD: This method is kept for backward compatibility.
+        New code should use search_raw() + RetrievalOrchestrator instead.
 
         Args:
-            query: Search query text
-            k: Number of results to return
-            metadata_filter: Optional metadata filters (e.g., {"city": "Paris"})
-            enable_hybrid: Enable genre keyword boosting (default: True)
+            query: Search query
+            k: Number of results
+            metadata_filter: Filters to apply (legacy)
+            enable_hybrid: Enable hybrid search (unused, always True)
+            candidate_pool: Size of candidate pool
 
         Returns:
-            List of (Event, similarity_score) tuples sorted by score (descending)
+            List of (Event, score) tuples
         """
         if self.index is None:
-            raise ValueError("No index loaded. Build or load index first.")
+            raise ValueError("No index loaded.")
 
-        # Generate query embedding
+        # 1. Vector Search
         query_embedding = self.embedder.embed_query(query)
         query_array = np.array([query_embedding], dtype=np.float32)
         faiss.normalize_L2(query_array)
+        
+        # Retrieve more candidates for filtering/fusion
+        # Default to a safe large number if not specified
+        search_k = candidate_pool or (k * 200)
+        v_distances, v_indices = self.index.search(query_array, search_k)
+        
+        vector_results = {}
+        for idx, dist in zip(v_indices[0], v_distances[0]):
+            if idx != -1:
+                vector_results[self.event_ids[idx]] = float(dist)
 
-        # Search FAISS index (get more results for filtering/reranking)
-        search_k = k * 20 if (metadata_filter or enable_hybrid) else k
-        distances, indices = self.index.search(query_array, search_k)
+        # 2. BM25 Search (if available)
+        bm25_results = {}
+        if self.bm25:
+            tokenized_query = query.lower().split()
+            # Get raw scores
+            doc_scores = self.bm25.get_scores(tokenized_query)
+            # Get top N indices
+            top_n = np.argsort(doc_scores)[::-1][:search_k]
+            for idx in top_n:
+                if doc_scores[idx] > 0:
+                    bm25_results[self.event_ids[idx]] = doc_scores[idx]
 
-        # Retrieve events from storage
-        candidates: list[tuple[Event, float]] = []
-        for idx, distance in zip(indices[0], distances[0]):
-            if idx == -1:  # FAISS returns -1 for no result
-                continue
+        # 2.5 KEYWORD BOOSTING (BEFORE fusion) - REFACTORED
+        # Boost vector and BM25 scores separately BEFORE combining them
+        # This preserves the RRF score distribution
+        boost_keywords = self._extract_significant_keywords(query)
+        if boost_keywords:
+            logger.debug(f"Applying keyword boosting for: {boost_keywords}")
+            vector_results = self._apply_keyword_boost(vector_results, boost_keywords)
+            bm25_results = self._apply_keyword_boost(bm25_results, boost_keywords)
 
-            event_id = self.event_ids[idx]
+        # 3. Fusion (RRF) - operates on boosted scores
+        fused_scores_list = self._reciprocal_rank_fusion(vector_results, bm25_results)
+        # No need to sort here, RRF already returns sorted list
+
+        # 4. Fetch Events & Filter
+        candidates = []
+        seen_event_keys = set()
+        
+        for event_id, score in fused_scores_list:
             event = self.storage.get_event(event_id)
-
-            if event is None:
-                logger.warning(f"Event not found in storage: {event_id}")
+            if not event: continue
+            
+            # Apply Filters
+            if metadata_filter and not self._matches_filter(event, metadata_filter):
                 continue
-
-            # Apply metadata filtering
-            if metadata_filter:
-                if not self._matches_filter(event, metadata_filter):
-                    continue
-
-            candidates.append((event, float(distance)))
-
-        # Apply hybrid boosting if enabled
-        if enable_hybrid:
-            candidates = self._apply_genre_boosting(query, candidates)
-
-        # Take top k and return
-        results = candidates[:k]
-        logger.info(f"Found {len(results)} results for query: {query[:50]}")
-        return results
-
-    def _apply_genre_boosting(
-        self,
-        query: str,
-        candidates: list[tuple[Event, float]],
-        boost_factor: float = 0.30
-    ) -> list[tuple[Event, float]]:
-        """Apply keyword boosting for genre terms to rerank candidates.
-
-        Args:
-            query: Original search query
-            candidates: List of (Event, score) candidates from semantic search
-            boost_factor: Score boost to apply for keyword matches (default: 0.30)
-
-        Returns:
-            Reranked list of (Event, score) tuples
-        """
-        # Define genre keywords (organized by category for better matching)
-        genre_keywords = {
-            # Classical music
-            'classical': ['classique', 'classical', 'orchestre', 'orchestra', 'symphony', 'symphonie',
-                         'philharmonic', 'philharmonique', 'concert classique', 'classical concert',
-                         'mozart', 'beethoven', 'bach', 'vivaldi', 'haydn', 'schubert', 'chopin',
-                         'quatuor', 'quartet', 'concerto', 'sonate', 'sonata', 'opéra', 'opera'],
-
-            # Jazz
-            'jazz': ['jazz', 'swing', 'bebop', 'blues', 'improvisation'],
-
-            # Rock/Pop
-            'rock': ['rock', 'pop', 'metal', 'punk', 'indie', 'alternative'],
-
-            # Electronic
-            'electronic': ['électronique', 'electronic', 'electro', 'techno', 'house', 'edm', 'dj'],
-
-            # Hip-hop
-            'hip-hop': ['hip-hop', 'hiphop', 'rap', 'r&b', 'rnb'],
-
-            # World music
-            'world': ['musique du monde', 'world music', 'folk', 'traditionnel', 'traditional',
-                     'african', 'africain', 'asian', 'asiatique', 'latin'],
-
-            # Theater/Performance
-            'theater': ['théâtre', 'theater', 'spectacle', 'performance', 'danse', 'dance',
-                       'ballet', 'contemporain', 'contemporary'],
-
-            # Other genres
-            'other': ['reggae', 'ska', 'funk', 'soul', 'gospel', 'country']
-        }
-
-        # Flatten genre keywords for easier searching
-        all_genre_keywords = []
-        for keywords in genre_keywords.values():
-            all_genre_keywords.extend(keywords)
-
-        # Extract genre keywords from query
-        query_lower = query.lower()
-        query_genres = [kw for kw in all_genre_keywords if kw in query_lower]
-
-        if not query_genres:
-            # No genre keywords in query, return as-is
-            return candidates
-
-        logger.info(f"Genre keywords detected in query: {query_genres}")
-
-        # Determine if query has exclusive genre intent (e.g., "classique" NOT "jazz")
-        # Define genre conflicts
-        genre_conflicts = {
-            'classical': ['jazz'],  # Classical excludes jazz
-            'jazz': ['classical', 'classique'],  # Jazz excludes classical
-            'rock': ['classical', 'classique', 'jazz'],
-            'electronic': ['classical', 'classique', 'jazz'],
-        }
-
-        # Check which genre category the query belongs to
-        query_genre_category = None
-        for category, keywords in genre_keywords.items():
-            if any(kw in query_lower for kw in keywords):
-                query_genre_category = category
+            
+            # Deduplicate by Title + City + Date
+            # Use date only (not time) for broader deduplication
+            event_date = event.start_date.date() if event.start_date else "no-date"
+            event_key = f"{event.title}|{event.location.city if event.location else ''}|{event_date}".lower()
+            
+            if event_key in seen_event_keys:
+                continue
+                
+            seen_event_keys.add(event_key)
+            candidates.append((event, score))
+            
+            # Stop if we have enough unique candidates (fetch extra for reranking if needed)
+            # We want at least k unique ones, but fetch more for broad listings
+            if len(candidates) >= 100: 
                 break
 
-        # Get conflicting keywords to filter out
-        conflicting_keywords = []
-        if query_genre_category and query_genre_category in genre_conflicts:
-            conflicting_keywords = genre_conflicts[query_genre_category]
+        # 5. Apply Geo Priority Logic (if city filter exists)
+        if metadata_filter and "city" in metadata_filter:
+            return self._apply_geo_priority(candidates, metadata_filter["city"], k)
 
-        # Boost candidates that match genre keywords, filter out conflicting genres
-        boosted_results = []
-        for event, score in candidates:
-            # Create searchable text from event
-            event_text = f"{event.title} {event.description or ''} {event.scraped_content or ''}"
-            event_text += f" {' '.join(event.tags or [])}"  # Include tags
-            event_text = event_text.lower()
+        # Return top k unique results
+        return candidates[:k]
 
-            # Check for genre keyword matches
-            matched_keywords = [kw for kw in query_genres if kw in event_text]
+    def _extract_significant_keywords(self, query: str) -> List[str]:
+        """Extract significant keywords from query for boosting.
 
-            # Check for conflicting genre keywords (negative filtering)
-            has_conflict = any(conflict in event_text for conflict in conflicting_keywords)
-
-            # If event has conflicting genre AND doesn't match the query genre, skip it
-            if has_conflict and not matched_keywords:
-                logger.debug(f"Filtering out '{event.title}' due to genre conflict (has: {conflicting_keywords}, query: {query_genres})")
-                continue
-
-            # Apply boost if matches found
-            if matched_keywords:
-                boosted_score = score + (boost_factor * len(matched_keywords))
-                logger.debug(f"Boosting '{event.title}' from {score:.3f} to {boosted_score:.3f} (matched: {matched_keywords})")
-                boosted_results.append((event, boosted_score))
-            else:
-                boosted_results.append((event, score))
-
-        # Re-sort by boosted scores (descending)
-        boosted_results.sort(key=lambda x: x[1], reverse=True)
-
-        logger.info(f"After genre filtering: {len(boosted_results)}/{len(candidates)} candidates remaining")
-        return boosted_results
-
-    def _matches_filter(self, event: Event, filters: dict[str, Any]) -> bool:
-        """Check if event matches metadata filters.
-
-        Args:
-            event: Event to check
-            filters: Metadata filters
+        Filters out:
+        - Very short words (<4 chars)
+        - Common French stop words
+        - Generic words
 
         Returns:
-            True if event matches all filters
+            List of significant keywords
         """
-        for key, value in filters.items():
-            if value is None:
-                continue
+        # French stop words to exclude
+        stop_words = {
+            "dans", "pour", "avec", "sans", "sous", "vers", "chez", "plus",
+            "cette", "cela", "tous", "tout", "vous", "nous", "leur", "sont",
+            "mais", "elle", "leur", "même", "peut", "fait", "très", "bien",
+            "the", "and", "for", "with", "from", "that", "this", "have",
+            "events", "événements", "event", "événement"  # Too generic
+        }
 
-            if key == "city" and event.location and event.location.city:
-                # Case-insensitive partial match
-                if value.lower() not in event.location.city.lower():
-                    return False
+        words = query.lower().split()
+        keywords = [
+            w for w in words
+            if len(w) >= 4 and w not in stop_words
+        ]
+        return keywords
+
+    def _apply_keyword_boost(
+        self,
+        results: Dict[str, float],
+        keywords: List[str],
+        boost_factor: float = 1.5
+    ) -> Dict[str, float]:
+        """Apply keyword boost to search results.
+
+        Args:
+            results: Dict of event_id -> score
+            keywords: List of keywords to check
+            boost_factor: Multiplier for matching docs (default: 1.5x)
+
+        Returns:
+            Dict with boosted scores
+        """
+        boosted = {}
+        for event_id, score in results.items():
+            event = self.storage.get_event(event_id)
+            if event:
+                text = f"{event.title} {event.description or ''}".lower()
+                # Check if ANY keyword matches
+                if any(kw in text for kw in keywords):
+                    boosted[event_id] = score * boost_factor
+                else:
+                    boosted[event_id] = score
+            else:
+                boosted[event_id] = score
+        return boosted
+
+    def _reciprocal_rank_fusion(
+        self,
+        vector_results: Dict[str, float],
+        bm25_results: Dict[str, float],
+        k: int = 60
+    ) -> List[Tuple[str, float]]:
+        """Combine results using Reciprocal Rank Fusion.
+
+        REFACTORED: Now operates on pre-boosted scores.
+
+        Args:
+            vector_results: Vector search results (possibly boosted)
+            bm25_results: BM25 search results (possibly boosted)
+            k: RRF parameter (default: 60)
+
+        Returns:
+            Sorted list of (event_id, fused_score) tuples
+        """
+        fusion_scores = {}
+
+        # Rank Vector Results
+        sorted_vector = sorted(vector_results.items(), key=lambda x: x[1], reverse=True)
+        for rank, (doc_id, _) in enumerate(sorted_vector):
+            if doc_id not in fusion_scores:
+                fusion_scores[doc_id] = 0
+            fusion_scores[doc_id] += 1 / (k + rank + 1)
+
+        # Rank BM25 Results
+        if bm25_results:
+            sorted_bm25 = sorted(bm25_results.items(), key=lambda x: x[1], reverse=True)
+            for rank, (doc_id, _) in enumerate(sorted_bm25):
+                if doc_id not in fusion_scores:
+                    fusion_scores[doc_id] = 0
+                fusion_scores[doc_id] += 1 / (k + rank + 1)
+
+        # Sort by fused score
+        return sorted(fusion_scores.items(), key=lambda x: x[1], reverse=True)
+
+    def _apply_geo_priority(self, candidates: List[Tuple[Event, float]], target_city: str, k: int):
+        """Prioritize exact city matches, then nearby events sorted by distance."""
+        # Skip prioritization if it's a broad regional term
+        if target_city.lower().strip() in ["ile de france", "ile-de-france", "idf", "paris region"]:
+            return candidates[:k]
+
+        target_coords = self.city_locator.get_coords(target_city)
+        if not target_coords:
+            return candidates[:k] # Fallback
+
+        exact_matches = []
+        nearby_matches = []
+
+        for event, score in candidates:
+            if event.location and event.location.city and target_city.lower() in event.location.city.lower():
+                exact_matches.append((event, score))
+            else:
+                dist = float('inf')
+                if event.location and event.location.coordinates:
+                    # Handle coordinates as dict (Pydantic model)
+                    lat = event.location.coordinates.get("lat")
+                    lon = event.location.coordinates.get("lon")
+                    if lat is not None and lon is not None:
+                        dist = haversine_distance(
+                            target_coords[0], target_coords[1],
+                            lat, lon
+                        )
+                nearby_matches.append((event, score, dist))
+
+        # Sort nearby by distance first
+        nearby_matches.sort(key=lambda x: x[2])
+        
+        # Combine
+        final_results = exact_matches + [(e, s) for e, s, d in nearby_matches]
+        return final_results[:k]
+
+    def _matches_filter(self, event: Event, filters: dict[str, Any]) -> bool:
+        """Check if event matches metadata filters."""
+        for key, value in filters.items():
+            if value is None: continue
+
+            if key == "city":
+                # Geo-spatial filtering
+                target_city = value.lower().strip()
+                logger.debug(f"Filtering by city: {target_city}")
+                
+                # Skip filtering if it's a broad regional term rather than a specific city
+                if target_city in ["ile de france", "ile-de-france", "idf", "paris region"]:
+                    logger.debug("Skipping city filter for regional term")
+                    continue
+                    
+                target_coords = self.city_locator.get_coords(target_city)
+                logger.debug(f"Target coords for {target_city}: {target_coords}")
+                
+                if target_coords:
+                    # Radius search (Expanded to 50km for neighbor fallback)
+                    # Check for coordinates in event.location
+                    if not event.location or not event.location.coordinates:
+                        # Fallback to string match if no coords
+                        if not event.location or not event.location.city: return False
+                        if value.lower() not in event.location.city.lower(): return False
+                    else:
+                        # Check distance
+                        lat = event.location.coordinates.get("lat")
+                        lon = event.location.coordinates.get("lon")
+                        
+                        if lat is None or lon is None:
+                             return False
+
+                        dist = haversine_distance(
+                            target_coords[0], target_coords[1],
+                            lat, lon
+                        )
+                        if dist > 50.0: return False # 50km radius
+                else:
+                    if not event.location or not event.location.city: return False
+                    if value.lower() not in event.location.city.lower(): return False
+
+            elif key == "is_free" and value is True:
+                if not event.conditions or "gratuit" not in event.conditions.lower(): return False
+
+            elif key == "age" and isinstance(value, (int, float)):
+                if event.age_min is not None and event.age_min > value: return False
+                if event.age_max is not None and event.age_max < value: return False
+
             elif key == "category" and event.category:
-                if value.lower() not in event.category.lower():
+                if value.lower() not in event.category.lower() and event.category.lower() not in value.lower(): 
                     return False
             elif key == "year" and event.start_date:
-                if event.start_date.year != value:
-                    return False
+                if isinstance(value, list):
+                    if event.start_date.year not in value: return False
+                elif event.start_date.year != value: return False
             elif key == "month" and event.start_date:
-                if event.start_date.month != value:
-                    return False
-            # Add more filter types as needed
+                if isinstance(value, list):
+                    if event.start_date.month not in value: return False
+                elif event.start_date.month != value: return False
+            elif key == "day" and event.start_date:
+                if isinstance(value, list):
+                    if event.start_date.day not in value: return False
+                elif event.start_date.day != value: return False
+
+            # Date Range Filtering
+            elif key == "date_min" and event.start_date:
+                # Value should be a datetime.date object or string ISO format
+                if isinstance(value, str):
+                    from datetime import date
+                    try:
+                        value = date.fromisoformat(value)
+                    except ValueError:
+                        continue
+                
+                # Ensure value is a date or datetime object before comparing
+                from datetime import date, datetime
+                if not isinstance(value, (date, datetime)):
+                    continue
+
+                # Handle comparison between datetime and date
+                event_date = event.start_date.date() if hasattr(event.start_date, 'date') else event.start_date
+                if event_date < value: return False
+
+            elif key == "date_max" and event.start_date:
+                if isinstance(value, str):
+                    from datetime import date
+                    try:
+                        value = date.fromisoformat(value)
+                    except ValueError:
+                        continue
+                
+                # Ensure value is a date or datetime object before comparing
+                from datetime import date, datetime
+                if not isinstance(value, (date, datetime)):
+                    continue
+
+                # Handle comparison between datetime and date
+                event_date = event.start_date.date() if hasattr(event.start_date, 'date') else event.start_date
+                if event_date > value: return False
 
         return True
 
     def close(self) -> None:
-        """Close storage connection."""
         self.storage.close()
 
     def __enter__(self) -> "EventVectorStore":
-        """Context manager entry."""
         return self
 
     def __exit__(self, *args: Any) -> None:
-        """Context manager exit."""
         self.close()
 
-
 def main() -> None:
-    """CLI entry point for building FAISS index."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
-
-    logger.info("Building FAISS index from stored events...")
-
+    logging.basicConfig(level=logging.INFO)
     with EventVectorStore() as vector_store:
-        # Build index from all events in storage
-        stats = vector_store.build_index()
-
-        logger.info("=" * 80)
-        logger.info("Index Building Summary:")
-        logger.info(f"  Events indexed: {stats['events_indexed']}")
-        logger.info(f"  Vector dimension: {stats['dimension']}")
-        logger.info(f"  Index type: {stats['index_type']}")
-        logger.info("=" * 80)
-
-        # Save index
+        vector_store.build_index()
         vector_store.save_index()
-        logger.info("Index saved successfully")
-
-        # Test search
-        logger.info("\nTesting search...")
-        query = "concert de musique classique"
-        results = vector_store.search(query, k=3)
-
-        logger.info(f"\nTop 3 results for '{query}':")
-        for i, (event, score) in enumerate(results, 1):
-            logger.info(f"{i}. {event.title} (score: {score:.4f})")
-            if event.location and event.location.city:
-                logger.info(f"   Location: {event.location.city}")
-            if event.start_date:
-                logger.info(f"   Date: {event.start_date.strftime('%Y-%m-%d')}")
-
 
 if __name__ == "__main__":
     main()

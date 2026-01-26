@@ -1,16 +1,24 @@
 """FastAPI endpoints for the Intelligent Assistant."""
 
 import logging
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends, Request, Security
 from fastapi.security import APIKeyHeader
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from src.api.schemas import ChatRequest, ChatResponse, FeedbackRequest
 from src.retrieval.chain import RAGChain
 from src.config import settings
 from src.security.guardrails import check_safety, SecurityException
+from src.security.sanitization import scan_for_pii
+from src.utils.tracing import generate_trace_id, get_trace_id, clear_trace_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# Rate limiter instance
+limiter = Limiter(key_func=get_remote_address)
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
@@ -29,32 +37,62 @@ def get_rag_chain(request: Request) -> RAGChain:
     return chain
 
 @router.get("/health")
-async def health_check():
+async def health_check(request: Request):
     """Health check endpoint."""
-    return {"status": "ok", "service": "Intelligent Assistant API"}
+    rag_initialized = hasattr(request.app.state, "rag_chain") and request.app.state.rag_chain is not None
+    return {
+        "status": "ok" if rag_initialized else "error",
+        "rag_system": "initialized" if rag_initialized else "not_initialized",
+        "service": "Intelligent Assistant API"
+    }
 
 @router.post("/chat", response_model=ChatResponse, dependencies=[Depends(verify_api_key)])
-def chat(request: ChatRequest, chain: RAGChain = Depends(get_rag_chain)):
+@limiter.limit("20/minute")  # 20 requests per minute per IP for chat endpoint
+def chat(request: Request, chat_request: ChatRequest, chain: RAGChain = Depends(get_rag_chain)):
     """
     Process a user question about cultural events and return a response with sources.
-    
+
+    Rate limited to 20 requests per minute per IP address.
     Executed synchronously in a thread pool to avoid blocking the asyncio event loop
     with heavy model inference calls.
     """
+    # Generate trace ID for this request
+    trace_id = generate_trace_id()
+
     try:
         # 1. Security Check
-        check_safety(request.question)
-        
-        logger.info(f"Received chat request: {request.question}")
-        
+        check_safety(chat_request.question)
+
+        logger.info(f"Received chat request: {chat_request.question} (session: {chat_request.session_id})")
+
         # 2. RAG Generation
-        result = chain.query_with_metadata(request.question)
-        
-        return ChatResponse(
-            answer=result["answer"],
+        # Pass language parameter to enable bilingual support (Phase 10)
+        result = chain.query_with_metadata(
+            chat_request.question,
+            session_id=chat_request.session_id,
+            language=chat_request.language  # Auto-detected if None
+        )
+
+        # 3. PII Scanning and Sanitization
+        answer_text = result["answer"]
+        pii_result = scan_for_pii(answer_text, redact=True)
+        sanitized_answer = pii_result["sanitized_text"]
+        had_pii = pii_result["has_pii"]
+
+        if had_pii:
+            logger.warning(f"PII detected and redacted from response")
+
+        # 4. Build response with trace ID
+        response = ChatResponse(
+            answer=sanitized_answer,
             sources=result["sources"],
+            structured_events=result.get("structured_events", []),
             message_id=result.get("message_id")
         )
+
+        logger.info(f"Chat request completed successfully")
+        return response
+
     except SecurityException as se:
         logger.warning(f"Security guardrail triggered: {se}")
         raise HTTPException(status_code=400, detail=str(se))
@@ -63,6 +101,9 @@ def chat(request: ChatRequest, chain: RAGChain = Depends(get_rag_chain)):
     except Exception as e:
         logger.error(f"Error processing chat request: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        # Clear trace ID after request
+        clear_trace_id()
 
 @router.post("/feedback", dependencies=[Depends(verify_api_key)])
 def post_feedback(request: FeedbackRequest, chain: RAGChain = Depends(get_rag_chain)):
@@ -86,11 +127,11 @@ def chat_stream(request: ChatRequest, chain: RAGChain = Depends(get_rag_chain)):
     Stream the response token by token.
     """
     try:
-        check_safety(request.question)
-        logger.info(f"Received stream request: {request.question}")
-        
+        check_safety(chat_request.question)
+        logger.info(f"Received stream request: {chat_request.question} (session: {chat_request.session_id})")
+
         return StreamingResponse(
-            chain.stream_query(request.question), 
+            chain.stream_query(chat_request.question, session_id=chat_request.session_id),
             media_type="text/plain"
         )
     except SecurityException as se:
@@ -101,3 +142,32 @@ def chat_stream(request: ChatRequest, chain: RAGChain = Depends(get_rag_chain)):
     except Exception as e:
         logger.error(f"Error streaming chat request: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/metrics")
+async def get_metrics():
+    """
+    Get system metrics including circuit breaker state.
+
+    Returns health information about the LLM circuit breaker and other
+    system components for monitoring and alerting.
+    """
+    from src.generation.llm import llm_breaker
+
+    # Get circuit breaker state
+    breaker_state = {
+        "name": llm_breaker.name,
+        "state": str(llm_breaker.current_state),
+        "failure_count": llm_breaker.fail_counter,
+        "failure_threshold": llm_breaker.fail_max,
+        "timeout_duration": llm_breaker.timeout_duration,
+    }
+
+    # Add last failure time if available
+    if hasattr(llm_breaker, '_last_failure'):
+        breaker_state["last_failure_time"] = str(llm_breaker._last_failure)
+
+    return {
+        "status": "ok",
+        "circuit_breaker": breaker_state,
+        "timestamp": datetime.now().isoformat()
+    }

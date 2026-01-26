@@ -1,456 +1,517 @@
-"""RAG orchestration chain for cultural events with history."""
+"RAG orchestration chain for cultural events with history."
 
 import logging
-from typing import Any, Dict
+import re
+from typing import Any, Dict, List, Optional, Tuple
+from datetime import date, timedelta
 
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda, RunnableBranch
-from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
-from langchain_core.chat_history import BaseChatMessageHistory
-
-# Removing langchain.chains imports to rely on core LCEL
-# from langchain.chains import create_history_aware_retriever, create_retrieval_chain
-# from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, BaseMessage
 
 from src.models.vector_store import EventVectorStore
 from src.generation.llm import MistralLLM
 from src.generation.prompts import get_rag_prompt, get_contextualize_q_prompt, get_metadata_extraction_prompt, get_query_refinement_prompt
 from src.retrieval.retriever import EventRetriever
 from src.retrieval.cache import QueryCache
+from src.retrieval.manager import RetrievalManager
 from src.data.chat_history import SQLiteChatMessageHistory
 from src.data.storage import EventStorage
 from src.data.chat_storage import ChatStorage
 from src.security.guardrails import check_safety
+from src.utils.dates import parse_natural_date
+from src.config import settings
 
 logger = logging.getLogger(__name__)
 
-def get_session_history(session_id: str, storage: ChatStorage | None = None) -> BaseChatMessageHistory:
-    """Get persistent chat history for a session."""
-    return SQLiteChatMessageHistory(session_id=session_id, storage=storage)
+# ========================================
+# SPECIAL QUERY HANDLERS
+# ========================================
+# These handle greetings, off-topic queries, and capability questions
+# BEFORE the RAG chain is invoked.
 
+# Greeting patterns (French and English)
+GREETING_PATTERNS = [
+    r"^(bonjour|bonsoir|salut|coucou|hello|hi|hey|good\s*(morning|afternoon|evening))[\s\!\.\?]*$",
+    r"^(bonjour|bonsoir|salut|coucou|hello|hi|hey)[\s\!\.\?]*$",
+]
+
+# Capability/meta question patterns
+CAPABILITY_PATTERNS = [
+    r"(what|que|qu'est-ce que)\s*(can|peux|pouvez|tu peux)\s*(you|tu)\s*(do|faire|help|aider)",
+    r"(what|que|quelles)\s*(are|sont)\s*(your|tes|vos)\s*(capabilities|capacit|fonctions)",
+    r"(tell me|dis-moi|parle-moi)\s*(about|de)\s*(yourself|toi)",
+    r"(who|qui)\s*(are|es)\s*(you|tu)",
+    r"(help|aide|comment).*\?$",
+    r"^(help|aide)[\s\!\.\?]*$",
+]
+
+# Off-topic patterns (things Lumi cannot help with)
+OFF_TOPIC_PATTERNS = [
+    r"(weather|meteo|m\u00e9t\u00e9o|temperature|temp\u00e9rature)",
+    r"(write|ecris|\u00e9cris).*(poem|poeme|po\u00e8me|story|histoire|essay)",
+    r"(translate|traduis|traduire)",
+    r"(recipe|recette|cook|cuisine|cuisiner)",
+    r"(math|calcul|equation|\u00e9quation|calculate|calculer)",
+    r"(code|program|programme|python|javascript)",
+    r"(news|actualit|politique|politics)",
+    r"(medical|m\u00e9dical|health|sant\u00e9|doctor|m\u00e9decin)",
+    r"(legal|juridique|lawyer|avocat)",
+    r"(stock|bourse|invest|finance)",
+]
+
+# Greeting responses (bilingual) - Uses centralized config for chatbot name
+GREETING_RESPONSES = {
+    "fr": f"""Bonjour ! Je suis **{settings.chatbot_name}**, {settings.chatbot_tagline_fr}.
+
+Je peux vous aider a decouvrir des evenements culturels : concerts, expositions, theatre, festivals et plus encore !
+
+**Essayez de me demander :**
+- "Concerts de jazz a Paris ce week-end"
+- "Expositions gratuites en fevrier"
+- "Evenements pour enfants a Versailles"
+
+Qu'est-ce qui vous ferait plaisir aujourd'hui ?""",
+
+    "en": f"""Hello! I'm **{settings.chatbot_name}**, {settings.chatbot_tagline_en}.
+
+I can help you discover cultural events: concerts, exhibitions, theater, festivals and more!
+
+**Try asking me:**
+- "Jazz concerts in Paris this weekend"
+- "Free exhibitions in February"
+- "Family events in Versailles"
+
+What would you like to explore today?"""
+}
+
+# Capability responses (bilingual) - Uses centralized config for chatbot name
+CAPABILITY_RESPONSES = {
+    "fr": f"""Je suis **{settings.chatbot_name}**, {settings.chatbot_tagline_fr} !
+
+**Ce que je peux faire :**
+- Trouver des evenements culturels (concerts, theatre, expositions, festivals)
+- Filtrer par ville, date, categorie, prix (gratuit/payant)
+- Suggerer des alternatives si rien ne correspond exactement
+- Repondre en francais ou en anglais
+
+**Ce que je ne peux PAS faire :**
+- Donner la meteo, ecrire des poemes, ou traduire
+- Reserver des billets ou faire des achats
+- Repondre a des questions hors du domaine culturel
+
+**Exemples de questions :**
+- "Concerts de jazz a Paris en fevrier"
+- "Expositions gratuites ce week-end"
+- "Evenements pour enfants a Versailles"
+
+Comment puis-je vous aider ?""",
+
+    "en": f"""I'm **{settings.chatbot_name}**, {settings.chatbot_tagline_en}!
+
+**What I can do:**
+- Find cultural events (concerts, theater, exhibitions, festivals)
+- Filter by city, date, category, price (free/paid)
+- Suggest alternatives if nothing matches exactly
+- Answer in French or English
+
+**What I canNOT do:**
+- Give weather forecasts, write poems, or translate
+- Book tickets or make purchases
+- Answer questions outside the cultural domain
+
+**Example questions:**
+- "Jazz concerts in Paris in February"
+- "Free exhibitions this weekend"
+- "Family events in Versailles"
+
+How can I help you?"""
+}
+
+# Off-topic responses (bilingual)
+OFF_TOPIC_RESPONSES = {
+    "fr": """Je suis desole, mais je suis specialisee dans les evenements culturels de l'Ile-de-France.
+
+Je ne peux pas vous aider avec cette demande, mais je serais ravie de vous aider a trouver :
+- Des concerts, spectacles ou festivals
+- Des expositions d'art ou des musees
+- Des pieces de theatre ou des spectacles de danse
+- Des evenements pour enfants ou en famille
+
+Y a-t-il un evenement culturel que vous aimeriez decouvrir ?""",
+
+    "en": """I'm sorry, but I specialize in cultural events in Ile-de-France.
+
+I can't help with that request, but I'd be happy to help you find:
+- Concerts, shows, or festivals
+- Art exhibitions or museums
+- Theater plays or dance performances
+- Family or children's events
+
+Is there a cultural event you'd like to discover?"""
+}
+
+
+def detect_language_from_query(query: str) -> str:
+    """Detect language from query (simple heuristic)."""
+    french_indicators = ["bonjour", "salut", "coucou", "merci", "s'il", "qu'est", "evenement", "cherche", "trouve", "veux", "peux"]
+    query_lower = query.lower()
+    french_count = sum(1 for word in french_indicators if word in query_lower)
+    return "fr" if french_count >= 1 else "en"
+
+
+def sanitize_text_for_encoding(text: str) -> str:
+    """Remove emojis and problematic Unicode characters to prevent encoding errors.
+
+    This function strips emojis and other special Unicode characters that can cause
+    'charmap' codec errors on Windows systems.
+    """
+    if not text:
+        return text
+
+    # Remove emojis and other special Unicode characters
+    # Keep only basic Latin, Latin Extended, and common punctuation
+    sanitized = []
+    for char in text:
+        code_point = ord(char)
+        # Keep ASCII, Latin-1, Latin Extended, and common symbols
+        if code_point < 0x2000 or (0x2000 <= code_point < 0x2100):  # General punctuation
+            sanitized.append(char)
+        elif code_point in (0x2014, 0x2013, 0x2018, 0x2019, 0x201C, 0x201D):  # Smart quotes/dashes
+            # Replace with ASCII equivalents
+            replacements = {0x2014: '-', 0x2013: '-', 0x2018: "'", 0x2019: "'", 0x201C: '"', 0x201D: '"'}
+            sanitized.append(replacements.get(code_point, char))
+        elif code_point >= 0x1F000:  # Emoji ranges
+            continue  # Skip emojis
+        else:
+            sanitized.append(char)
+
+    return ''.join(sanitized)
+
+
+def check_special_query(query: str, language: Optional[str] = None) -> Optional[Tuple[str, str]]:
+    """Check if query is a special case (greeting, capability, off-topic).
+
+    Args:
+        query: The user query
+        language: Optional language code ("fr" or "en")
+
+    Returns:
+        Tuple of (response_text, query_type) if special query detected, None otherwise
+    """
+    query_clean = query.strip().lower()
+
+    # Auto-detect language if not provided
+    if language is None:
+        language = detect_language_from_query(query)
+
+    # Check greetings (exact match for short queries)
+    for pattern in GREETING_PATTERNS:
+        if re.match(pattern, query_clean, re.IGNORECASE):
+            return (GREETING_RESPONSES[language], "greeting")
+
+    # Check capability questions
+    for pattern in CAPABILITY_PATTERNS:
+        if re.search(pattern, query_clean, re.IGNORECASE):
+            return (CAPABILITY_RESPONSES[language], "capability")
+
+    # Check off-topic queries
+    for pattern in OFF_TOPIC_PATTERNS:
+        if re.search(pattern, query_clean, re.IGNORECASE):
+            return (OFF_TOPIC_RESPONSES[language], "off_topic")
+
+    return None
+
+class SimpleSummaryBufferMemory:
+    """Custom implementation of Summary Buffer Memory with actual LLM summarization."""
+    
+    def __init__(self, llm, chat_memory, max_token_limit=1000, memory_key="chat_history"):
+        self.llm = llm
+        self.chat_memory = chat_memory
+        self.max_token_limit = max_token_limit
+        self.memory_key = memory_key
+        self.summary_key = "history_summary"
+        
+    def load_memory_variables(self, inputs: Dict[str, Any]) -> Dict[str, List[BaseMessage]]:
+        """Load history, summarizing older messages if the list is too long."""
+        all_messages = self.chat_memory.messages
+        
+        if len(all_messages) > 10:
+            to_summarize = all_messages[:-10]
+            to_keep = all_messages[-10:]
+            history_str = "\n".join([f"{m.type}: {m.content}" for m in to_summarize])
+            
+            try:
+                summary_prompt = f"Summarize the key facts and user preferences from this cultural events chat history in 2-3 sentences:\n\n{history_str}"
+                summary = self.llm.invoke(summary_prompt).content
+                context_message = SystemMessage(content=f"Summary of previous conversation: {summary}")
+                return {self.memory_key: [context_message] + to_keep}
+            except Exception as e:
+                logger.warning(f"Summarization failed: {e}")
+                return {self.memory_key: all_messages[-20:]}
+            
+        return {self.memory_key: all_messages}
+
+    def save_context(self, inputs: Dict[str, Any], outputs: Dict[str, str]) -> None:
+        pass
 
 class RAGChain:
-    """Orchestrator for the Cultural Events RAG system with History."""
+    """Orchestrator for the Cultural Events RAG system with Summary Buffer Memory."""
 
     def __init__(
         self,
         vector_store: EventVectorStore | None = None,
         llm: MistralLLM | None = None,
-        k: int = 5,
-        chain: Any | None = None,
-        history_factory: Any | None = None,
+        k: int = 8,
         chat_storage: ChatStorage | None = None,
         enable_cache: bool = True,
         cache_ttl_minutes: int = 60,
+        enable_reranking: bool = True,
     ) -> None:
-        """Initialize the RAG chain.
-
-        Args:
-            vector_store: EventVectorStore instance
-            llm: MistralLLM instance
-            k: Number of events to retrieve
-            chain: Optional pre-configured conversational chain (for testing)
-            history_factory: Optional factory for chat history (for testing)
-            chat_storage: Optional ChatStorage instance
-            enable_cache: Enable query result caching (default: True)
-            cache_ttl_minutes: Cache time-to-live in minutes (default: 60)
-        """
+        """Initialize the RAG chain."""
         self.vector_store = vector_store or EventVectorStore()
         try:
             self.vector_store.load_index()
         except Exception as e:
-            logger.warning(f"Could not load FAISS index: {e}. Build it first if needed.")
+            logger.warning(f"Could not load FAISS index: {e}.")
 
         self.llm = llm or MistralLLM()
         self.chat_storage = chat_storage or ChatStorage()
+        self.k = k
+        self.enable_reranking = enable_reranking
 
-        # Initialize cache if enabled
+        # Initialize deterministic retrieval manager
+        self.retrieval_manager = RetrievalManager(self.vector_store, k=k)
+
         self.cache = QueryCache(ttl_minutes=cache_ttl_minutes) if enable_cache else None
-        if self.cache:
-            logger.info(f"Query caching ENABLED (TTL: {cache_ttl_minutes}min)")
+
+        self.reranker = None
+        if enable_reranking:
+            from src.retrieval.reranker import get_reranker
+            self.reranker = get_reranker()
         
-        # Metadata Extraction Chain
-        extraction_prompt = get_metadata_extraction_prompt()
-        self.extraction_chain = extraction_prompt | self.llm.llm | JsonOutputParser()
-
-        # Query Refinement Chain
-        refinement_prompt = get_query_refinement_prompt()
-        self.refinement_chain = refinement_prompt | self.llm.llm | StrOutputParser()
-
-        # Use provided history factory or default
-        session_history_factory = history_factory or (lambda sid: get_session_history(sid, self.chat_storage))
-        
-        if chain:
-            # If a chain is provided (mock), wrap it with history
-            self.conversational_chain = RunnableWithMessageHistory(
-                chain,
-                session_history_factory,
-                input_messages_key="input",
-                history_messages_key="chat_history",
-                output_messages_key="answer", 
-            )
-            logger.info("RAGChain initialized with injected chain.")
-            return
-
+        # Chains
+        self.extraction_chain = get_metadata_extraction_prompt() | self.llm.llm.bind(response_format={"type": "json_object"}) | JsonOutputParser()
+        self.refinement_chain = get_query_refinement_prompt() | self.llm.llm | StrOutputParser()
         self.retriever = EventRetriever(vector_store=self.vector_store, k=k)
         
-        # --- Pure LCEL Implementation ---
-
-        # 1. History-Aware Question Reformulation
-        # Optimize: If history is empty, pass input directly. Else, reformulate.
-        contextualize_q_prompt = get_contextualize_q_prompt()
-        
-        reformulation_chain = (
-            contextualize_q_prompt
-            | self.llm.llm
-            | StrOutputParser()
-        )
-        
-        history_aware_retriever = RunnableBranch(
-            (
-                lambda x: not x.get("chat_history", []),
-                RunnableLambda(lambda x: x["input"])
-            ),
-            reformulation_chain
-        )
-
-        # 2. Hybrid Retrieval Branch (Semantic + Filters)
-        # We define a custom function to handle extraction + search
-        def retrieve_docs_hybrid(input_query: str):
-            try:
-                # Refine query (typos/expansion)
-                refined_query = self.refinement_chain.invoke({"question": input_query})
-                logger.info(f"Refined query: '{input_query}' -> '{refined_query}'")
-
-                # Extract filters (using the refined query)
-                filters = self.extraction_chain.invoke({"question": refined_query})
-                logger.info(f"Extracted filters: {filters}")
-                
-                # Clean filters (remove nulls)
-                clean_filters = {k: v for k, v in filters.items() if v}
-                
-                # Perform search with refined query
-                results = self.vector_store.search(refined_query, k=k, metadata_filter=clean_filters)
-                
-                # Fallback Logic: If no results and city filter exists, try removing city (regional search)
-                fallback_triggered = False
-                original_city = clean_filters.get("city")
-                
-                if not results and original_city:
-                    logger.info(f"No results for {original_city}, attempting fallback to regional search.")
-                    fallback_filters = clean_filters.copy()
-                    del fallback_filters["city"]
-                    results = self.vector_store.search(refined_query, k=k, metadata_filter=fallback_filters)
-                    if results:
-                        fallback_triggered = True
-
-                # Convert to documents (manually, since we bypassed retriever)
-                docs = []
-                from langchain_core.documents import Document
-
-                # NOTE: Removed SYSTEM_NOTE injection - it was causing confusing answers
-                # The retrieval system finds relevant events, and the LLM can present them naturally
-                # without disclaimers about fallback searches
-
-                for event, score in results:
-                    # We reuse the logic from EventRetriever or reimplement it briefly
-                    content = event.to_text()
-                    meta = event.get_metadata()
-                    meta["score"] = score
-                    # Add lat/lon from schema requirements
-                    if event.location and event.location.coordinates:
-                        meta["latitude"] = event.location.coordinates.get("lat")
-                        meta["longitude"] = event.location.coordinates.get("lon")
-                    
-                    docs.append(Document(page_content=content, metadata=meta))
-                
-                return docs
-            except Exception as e:
-                logger.error(f"Hybrid retrieval failed: {e}")
-                # Fallback to simple retrieval
-                return self.retriever.invoke(input_query)
-
-        # 3. QA Chain
-        qa_prompt = get_rag_prompt()
-        
-        # Pre-fetch global stats
         try:
-            total_events = self.vector_store.storage.count_events()
+            total_events_val = self.vector_store.storage.count_events()
             min_date, max_date = self.vector_store.storage.get_date_range()
-            date_range_str = f"{min_date.strftime('%Y-%m-%d') if min_date else '?'} to {max_date.strftime('%Y-%m-%d') if max_date else '?'}"
-        except Exception as e:
-            logger.warning(f"Could not fetch global stats: {e}")
-            total_events = "Unknown"
-            date_range_str = "Unknown"
+            date_range_val = f"{min_date.strftime('%Y-%m-%d') if min_date else '?'} to {max_date.strftime('%Y-%m-%d') if max_date else '?'}"
+        except:
+            total_events_val = "Unknown"
+            date_range_val = "Unknown"
 
-        def format_docs(docs):
-            """Format documents with source attribution and metadata for citation."""
-            seen_event_ids = set()
-            formatted_docs = []
-            source_num = 1  # Track actual source numbering after deduplication
+        current_date_val = "2026-01-24" # Reference date
 
+        # 1. Prepare Inputs
+        def prepare_inputs(inputs):
+            history = inputs.get("chat_history", [])
+            q = inputs["input"]
+            if not history or len(history) < 2:
+                return {"q": q, "raw_q": q, "history": []}
+            try:
+                reformulation_chain = get_contextualize_q_prompt() | self.llm.llm | StrOutputParser()
+                new_q = reformulation_chain.invoke({"input": q, "chat_history": history})
+                return {"q": new_q, "raw_q": q, "history": history}
+            except:
+                return {"q": q, "raw_q": q, "history": history}
+
+        # 2. Refined Hybrid Retrieval
+        def retrieve_docs_hybrid(inputs):
+            input_query = inputs["q"]
+            raw_query = inputs["raw_q"]
+            history = inputs["history"]
+            
+            try:
+                # 1. Refine Query (Typos)
+                refined_query = self.refinement_chain.invoke({"question": input_query})
+                
+                # 2. Extract Intent (Filters)
+                raw_filters = self.extraction_chain.invoke({"question": refined_query, "chat_history": history})
+                intent = self.retrieval_manager.parse_intent(raw_filters)
+                
+                # 3. Execute Multi-Stage Search
+                result = self.retrieval_manager.execute_search(refined_query, intent)
+                
+                return {
+                    "docs": result["docs"],
+                    "filters": raw_filters,
+                    "actual_k": result["total_count"],
+                    "total_in_database": result.get("total_in_database", result["total_count"]),
+                    "filters_applied": result.get("filters_applied", {})
+                }
+            except Exception as e:
+                logger.error(f"Manager retrieval failed: {e}", exc_info=True)
+                return {"docs": [], "filters": {}, "actual_k": 0}
+
+        def format_docs(docs, filters):
+            if not docs:
+                return "NO RELEVANT EVENTS FOUND.", 0
+            
+            formatted = []
+            system_notes = []
+            source_num = 1
             for doc in docs:
-                # Extract metadata
                 meta = doc.metadata
-                event_id = meta.get("event_id", "unknown")
-
-                # Deduplicate by event_id to avoid showing same event multiple times
-                if event_id != "unknown" and event_id in seen_event_ids:
-                    continue
-
-                seen_event_ids.add(event_id)
-                relevance_score = meta.get("score", 0.0)
-
-                # Add source header for LLM citation
-                source_header = f"=== SOURCE {source_num} (Event ID: {event_id}, Relevance: {relevance_score:.2f}) ==="
-
-                formatted_docs.append(f"{source_header}\n{doc.page_content}")
+                if "nearby_date_note" in meta:
+                    system_notes.append(meta["nearby_date_note"])
+                if meta.get("match_type") == "System": continue
+                
+                header = f"=== SOURCE {source_num} (Title: {meta.get('title')}, City: {meta.get('city')}, Date: {meta.get('start_date')}, Match: {meta.get('match_type')}, Distance: {meta.get('distance_km', 0):.1f}km) ==="
+                formatted.append(f"{header}\n{doc.page_content}")
                 source_num += 1
+            
+            final_text = ""
+            if system_notes:
+                final_text += "SYSTEM NOTES:\n" + "\n".join(set(system_notes)) + "\n\n"
+            final_text += "\n\n".join(formatted)
+            return final_text, len(formatted)
 
-            if formatted_docs:
-                return "\n\n" + "\n\n".join(formatted_docs) + "\n\n"
-            return ""
-
-        # Main Chain logic:
-        
-        context_retrieval_chain = (
-            history_aware_retriever | retrieve_docs_hybrid
-        )
+        # 3. Chain Construction
+        def select_prompt(x):
+            """Select language-specific prompt based on input language parameter."""
+            lang = x.get("language", "fr")  # Default to French
+            return get_rag_prompt(language=lang)
 
         self.rag_chain = (
             RunnablePassthrough.assign(
-                context=context_retrieval_chain,
-                total_events=lambda _: str(total_events),
-                date_range=lambda _: date_range_str,
-                k=lambda _: str(k)
+                retrieved_data=RunnableLambda(prepare_inputs) | retrieve_docs_hybrid,
+                total_events=lambda _: str(total_events_val),
+                date_range=lambda _: date_range_val,
+                current_date=lambda _: current_date_val
+            )
+            .assign(
+                formatting_results=lambda x: format_docs(x["retrieved_data"]["docs"], x["retrieved_data"]["filters"])
             )
             .assign(
                 answer=(
                     RunnablePassthrough.assign(
-                        context=lambda x: format_docs(x["context"])
+                        context=lambda x: x["formatting_results"][0],
+                        k=lambda x: str(x["formatting_results"][1]),
+                        today=lambda x: x["current_date"],
+                        total_matching=lambda x: str(x["retrieved_data"].get("total_in_database", x["formatting_results"][1])),
+                        filters_applied=lambda x: str(x["retrieved_data"].get("filters_applied", {}))
                     )
-                    | qa_prompt
-                    | self.llm.llm
-                    | StrOutputParser()
-                )
+                    | RunnableLambda(select_prompt)
+                    | self.llm.llm.bind(response_format={"type": "json_object"})
+                    | JsonOutputParser()
+                ),
+                context=lambda x: x["retrieved_data"]["docs"]
             )
         )
-        
-        # 4. Wrap with Message History
-        # Use lambda to pass shared storage instance to avoid creating new connections
-        self.conversational_chain = RunnableWithMessageHistory(
-            self.rag_chain,
-            lambda sid: get_session_history(sid, self.chat_storage),
-            input_messages_key="input",
-            history_messages_key="chat_history",
-            output_messages_key="answer",
-        )
-        
-        logger.info("RAGChain with history initialized successfully")
+
+    def _get_memory(self, session_id: str) -> SimpleSummaryBufferMemory:
+        chat_memory = SQLiteChatMessageHistory(session_id=session_id, storage=self.chat_storage)
+        return SimpleSummaryBufferMemory(llm=self.llm.llm, chat_memory=chat_memory)
 
     def query(self, question: str, session_id: str = "default_session") -> str:
-        """Process a user question with history.
-
-        Args:
-            question: User's natural language question
-            session_id: Session identifier for chat history
-
-        Returns:
-            Generated response string
-        """
-        logger.info(f"Processing query: {question} (session: {session_id})")
-        check_safety(question)
-        
-        result = self.conversational_chain.invoke(
-            {"input": question},
-            config={"configurable": {"session_id": session_id}},
-        )
+        result = self.query_with_metadata(question, session_id)
         return result["answer"]
 
-    def stream_query(self, question: str, session_id: str = "default_session"):
-        """Stream the response chunk by chunk.
-
-        Args:
-            question: User question
-            session_id: Session identifier
-
-        Yields:
-            Response chunks
-        """
-        logger.info(f"Streaming query: {question} (session: {session_id})")
-        check_safety(question)
-        
-        # We need to stream the 'answer' key.
-        # RunnableWithMessageHistory.stream yields dicts usually if output_keys are involved,
-        # or we might need to pick_stream.
-        
-        # Simple approach: iterate over the stream
-        for chunk in self.conversational_chain.stream(
-            {"input": question},
-            config={"configurable": {"session_id": session_id}},
-        ):
-            # chunk is likely a dict {'answer': 'chunk'} or just 'chunk' depending on configuration
-            if isinstance(chunk, dict) and "answer" in chunk:
-                yield chunk["answer"]
-            elif isinstance(chunk, str):
-                yield chunk
-            # If using LCEL with dict output, it might stream dict updates.
-
     def _is_statistical_query(self, question: str) -> bool:
-        """Detect if query is asking for database statistics/aggregations."""
-        question_lower = question.lower()
+        q = question.lower()
+        stat_kw = ['how many', 'combien', 'number of', 'count', 'total']
+        entity_kw = ['events', 'événements']
+        return any(k in q for k in stat_kw) and any(k in q for k in entity_kw)
 
-        # Statistical keywords
-        stat_keywords = [
-            'how many', 'combien', 'nombre', 'number of', 'count',
-            'distribution', 'répartition', 'breakdown',
-            'total', 'sum', 'average', 'moyenne',
-            'which city has the most', 'quelle ville a le plus',
-            'monthly', 'mensuel', 'par mois', 'by month',
-            'statistics', 'statistiques', 'overview', 'aperçu'
-        ]
-
-        # Entity keywords (asking about counts/stats)
-        entity_keywords = ['events', 'événements', 'cities', 'villes']
-
-        # Check if it's asking for statistics
-        has_stat_keyword = any(kw in question_lower for kw in stat_keywords)
-        has_entity = any(kw in question_lower for kw in entity_keywords)
-
-        return has_stat_keyword and has_entity
-
-    def query_with_metadata(self, question: str, session_id: str = "default_session") -> Dict[str, Any]:
-        """Process query and return response with source documents.
-
-        Args:
-            question: User's natural language question
-            session_id: Session identifier
-
-        Returns:
-            Dictionary with 'answer', 'sources', and 'message_id'
-        """
-        logger.info(f"Processing query with metadata: {question} (session: {session_id})")
+    def query_with_metadata(self, question: str, session_id: str = "default_session", language: str = None) -> Dict[str, Any]:
+        logger.info(f"Query: {question}")
         check_safety(question)
 
-        # Detect and reject statistical queries
-        if self._is_statistical_query(question):
-            logger.info("Detected statistical query - providing refusal response")
+        # Default to French if language not specified, or auto-detect
+        if language is None:
+            language = detect_language_from_query(question)
 
-            # Provide helpful context about data coverage without exact counts
-            coverage_note = (
-                "\n\nNote: My database covers cultural events across Île-de-France (Paris and surrounding region), "
-                "including theaters, concerts, exhibitions, and festivals. I can help you find events matching your interests!"
-            )
-
-            refusal_msg = (
-                "I'm designed to help you find specific cultural events rather than provide database statistics. "
-                "Could you tell me what kind of events you're looking for? For example:\n"
-                "- 'Jazz concerts in Paris in February'\n"
-                "- 'Free family events this weekend'\n"
-                "- 'Contemporary art exhibitions in Versailles'"
-                + coverage_note
-            )
-            if any(fr in question.lower() for fr in ['combien', 'répartition', 'nombre']):
-                coverage_note_fr = (
-                    "\n\nNote : Ma base de données couvre les événements culturels dans toute l'Île-de-France (Paris et sa région), "
-                    "incluant théâtres, concerts, expositions et festivals. Je peux vous aider à trouver des événements correspondant à vos intérêts !"
-                )
-                refusal_msg = (
-                    "Je suis conçu pour vous aider à trouver des événements culturels spécifiques plutôt que de fournir des statistiques. "
-                    "Quel type d'événements recherchez-vous ? Par exemple :\n"
-                    "- 'Concerts de jazz à Paris en février'\n"
-                    "- 'Événements gratuits pour familles ce week-end'\n"
-                    "- 'Expositions d'art contemporain à Versailles'"
-                    + coverage_note_fr
-                )
-
+        # Check for special queries (greetings, capabilities, off-topic)
+        special_result = check_special_query(question, language)
+        if special_result:
+            response_text, query_type = special_result
+            logger.info(f"Special query detected: {query_type}")
+            # Save to chat history (LangChain memory)
+            memory = self._get_memory(session_id)
+            memory.chat_memory.add_message(HumanMessage(content=question))
+            memory.chat_memory.add_message(AIMessage(content=response_text))
+            # Save to persistent storage and get message_id
+            self.chat_storage.add_chat_message(session_id, "user", question)
+            message_id = self.chat_storage.add_chat_message(session_id, "assistant", response_text)
             return {
-                "answer": refusal_msg,
+                "answer": response_text,
                 "sources": [],
-                "message_id": None
+                "structured_events": [],
+                "message_id": message_id,
+                "query_type": query_type
             }
 
-        # Detect follow-up queries (references to previous context)
-        follow_up_keywords = ['first', 'second', 'third', 'last', 'previous', 'that one', 'this one',
-                              'tell me more', 'more about', 'more info', 'premier', 'deuxi', 'troisi',
-                              'dernier', 'celui', 'cette', 'plus sur', 'davantage']
-        is_follow_up = any(keyword in question.lower() for keyword in follow_up_keywords)
+        if self._is_statistical_query(question):
+            stat_response = "I am designed to find events, not provide statistics."
+            self.chat_storage.add_chat_message(session_id, "user", question)
+            message_id = self.chat_storage.add_chat_message(session_id, "assistant", stat_response)
+            return {"answer": stat_response, "sources": [], "structured_events": [], "message_id": message_id}
 
-        # Check cache (skip for follow-up queries that reference previous context)
-        if self.cache and not is_follow_up:
-            cached_result = self.cache.get(question, session_id)
-            if cached_result:
-                logger.info("Returning cached result")
-                return cached_result
+        # Cache check
+        if self.cache:
+            cached = self.cache.get(question, session_id)
+            if cached: return cached
 
-        # Process query (cache miss or cache disabled)
-        result = self.conversational_chain.invoke(
-            {"input": question},
-            config={"configurable": {"session_id": session_id}},
-        )
+        memory = self._get_memory(session_id)
+        chat_history = memory.load_memory_variables({})["chat_history"]
 
-        answer = result["answer"]
-        docs = result.get("context", [])
-
-        # Retrieve the ID of the assistant's message we just saved
-        message_id = None
         try:
-            with self.chat_storage.SessionLocal() as session:
-                from src.data.chat_storage import ConversationRecord
-                from sqlalchemy import select
-                stmt = select(ConversationRecord.id).where(
-                    ConversationRecord.session_id == session_id,
-                    ConversationRecord.role == "assistant"
-                ).order_by(ConversationRecord.timestamp.desc()).limit(1)
-                message_id = session.execute(stmt).scalar()
+            result = self.rag_chain.invoke({
+                "input": question,
+                "chat_history": chat_history,
+                "language": language
+            })
+            if isinstance(result["answer"], dict):
+                answer_text = result["answer"].get("answer_text", "")
+                structured_events = result["answer"].get("events", [])
+            else:
+                answer_text = str(result["answer"])
+                structured_events = []
+
+            # Sanitize answer to prevent Unicode encoding errors
+            answer_text = sanitize_text_for_encoding(answer_text)
         except Exception as e:
-            logger.error(f"Failed to retrieve message_id for feedback: {e}")
+            logger.error(f"Chain failed: {e}", exc_info=True)
+            answer_text = "I encountered an error."
+            structured_events = []
+            result = {"context": []}
 
-        # Build result
-        result_dict = {
-            "answer": answer,
+        memory.chat_memory.add_message(HumanMessage(content=question))
+        memory.chat_memory.add_message(AIMessage(content=answer_text))
+
+        # Save to persistent storage and get message_id
+        self.chat_storage.add_chat_message(session_id, "user", question)
+        message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_text)
+
+        # Extract complete source metadata
+        sources = []
+        for d in result.get("context", []):
+            meta = d.metadata
+            sources.append({
+                "event_id": meta.get("event_id"),
+                "title": meta.get("title"),
+                "city": meta.get("city"),
+                "category": meta.get("category"),
+                "date": meta.get("start_date"),
+                "score": meta.get("score", 0.0),
+                "match_type": meta.get("match_type", "Unknown")
+            })
+
+        # Add retrieval stats
+        retrieval_stats = result.get("retrieved_data", {})
+
+        res = {
+            "answer": answer_text,
+            "structured_events": structured_events,
             "message_id": message_id,
-            "sources": [
-                {
-                    "title": d.metadata.get("title"),
-                    "city": d.metadata.get("city"),
-                    "date": d.metadata.get("start_date"),
-                    "url": d.metadata.get("url"),
-                    "score": d.metadata.get("score"),
-                    "latitude": d.metadata.get("latitude"),
-                    "longitude": d.metadata.get("longitude"),
-                    "full_text": d.page_content  # Add full event details for faithfulness evaluation
-                }
-                for d in docs
-            ]
+            "sources": sources,
+            "retrieval_stats": {
+                "total_count": retrieval_stats.get("actual_k", len(sources)),
+                "exact_count": sum(1 for s in sources if s.get("match_type") == "Exact Match")
+            }
         }
-
-        # Cache result (skip follow-up queries that reference previous context)
-        if self.cache and not is_follow_up:
-            self.cache.set(question, session_id, result_dict)
-
-        return result_dict
-
-
-def main() -> None:
-    """CLI entry point for testing the RAG system with history."""
-    logging.basicConfig(level=logging.INFO)
-    
-    chain = RAGChain()
-    session_id = "test_user_1"
-    
-    print("\n--- Interaction 1 ---")
-    q1 = "Are there any jazz concerts in Paris?"
-    print(f"User: {q1}")
-    result1 = chain.query_with_metadata(q1, session_id)
-    print(f"AI: {result1['answer']}")
-    
-    print("\n--- Interaction 2 (Follow-up) ---")
-    q2 = "What is the address of the first one?"
-    print(f"User: {q2}")
-    result2 = chain.query_with_metadata(q2, session_id)
-    print(f"AI: {result2['answer']}")
-
-
-if __name__ == "__main__":
-    main()
+        if self.cache: self.cache.set(question, session_id, res)
+        return res

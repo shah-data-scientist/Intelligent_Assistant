@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from src.config import settings
@@ -69,31 +69,33 @@ class DataIngestionPipeline:
             logger.warning("No records fetched from API with IDF filter")
             return []
 
-        # 2. Process records into Event objects
+        # 2. Process records into granular, deduplicated Event objects
+        # The processor now handles parsing timings and cross-record deduplication
         all_events = self.processor.process_records(raw_records)
-        logger.info(f"Processed {len(all_events)} valid events")
+        logger.info(f"Processed into {len(all_events)} granular, unique event instances")
 
         # 3. Filter for Île-de-France
         idf_events = self.processor.filter_ile_de_france_events(all_events)
         
-        # 4. Select top N events
-        selected_events = idf_events[:self.min_events]
+        # 4. Redistribute dates seasonally
+        # We do this BEFORE selection so we select from the correct target timeframe
+        transformed_events = self.processor.redistribute_events_seasonally(
+            idf_events,
+            start_date=datetime.now(timezone.utc)
+        )
+
+        # 5. Select top N events
+        selected_events = transformed_events[:self.min_events]
         
         if len(selected_events) < self.min_events:
             logger.warning(
-                f"Only found {len(selected_events)} IDF events "
+                f"Only found {len(selected_events)} unique instances "
                 f"(target: {self.min_events}). Using all available."
             )
         else:
-            logger.info(f"Selected top {len(selected_events)} IDF events")
+            logger.info(f"Selected top {len(selected_events)} unique event instances")
 
-        # 5. Redistribute dates seasonally
-        transformed_events = self.processor.redistribute_events_seasonally(
-            selected_events,
-            start_date=datetime.now()
-        )
-        
-        return transformed_events
+        return selected_events
 
     async def ingest(self, force_refresh: bool = False) -> dict[str, Any]:
         """Run full ingestion pipeline.
@@ -137,21 +139,28 @@ class DataIngestionPipeline:
 
             # Store events
             # We filter for only NEW events to avoid re-scraping existing ones
+            # Note: event_id is now base_id + _index, ensuring granular instances are unique
             existing_ids = self.storage.get_existing_event_ids()
             new_events = [e for e in transformed_events if e.event_id not in existing_ids]
             
             if new_events:
-                logger.info(f"Scraping {len(new_events)} new events...")
+                logger.info(f"Adding {len(new_events)} granular event instances...")
                 # Scrape in batches
                 BATCH_SIZE = 10
                 for i in range(0, len(new_events), BATCH_SIZE):
                     batch = new_events[i:i+BATCH_SIZE]
-                    tasks = [self.scraper.scrape_url(e.url) for e in batch]
-                    results = await asyncio.gather(*tasks)
-                    for event, content in zip(batch, results):
-                        if content:
-                            event.scraped_content = content
-                            stats["scraped_count"] += 1
+                    # Only scrape if URL exists and is not already scraped
+                    tasks = [self.scraper.scrape_url(e.url) for e in batch if e.url]
+                    if tasks:
+                        results = await asyncio.gather(*tasks)
+                        # Map results back to events that have URLs
+                        urls_in_batch = [e.url for e in batch if e.url]
+                        url_to_content = dict(zip(urls_in_batch, results))
+                        
+                        for event in batch:
+                            if event.url in url_to_content and url_to_content[event.url]:
+                                event.scraped_content = url_to_content[event.url]
+                                stats["scraped_count"] += 1
                 
                 # Add to DB
                 new_count = self.storage.add_events_bulk(new_events)

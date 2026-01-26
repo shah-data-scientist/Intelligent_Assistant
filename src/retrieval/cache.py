@@ -37,9 +37,8 @@ class QueryCache:
         # Normalize query (lowercase, strip whitespace)
         normalized_query = query.lower().strip()
 
-        # Create key from query only (session-independent for broader caching)
-        # If you want session-specific caching, include session_id in the hash
-        key_string = normalized_query
+        # Create key from query AND session_id to ensure private caches
+        key_string = f"{session_id}:{normalized_query}"
 
         # Generate MD5 hash
         return hashlib.md5(key_string.encode()).hexdigest()

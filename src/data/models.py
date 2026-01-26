@@ -40,15 +40,27 @@ class Event(BaseModel):
     accessibility: str | None = Field(None, description="Accessibility info")
     conditions: str | None = Field(None, description="Pricing or entry conditions")
 
-    def to_text(self) -> str:
+    def to_text(self, include_metadata_prefix: bool = True) -> str:
         """Convert event to text representation for embedding.
 
         URLs and critical information are placed first to help prevent hallucination.
+
+        Args:
+            include_metadata_prefix: Whether to include explicit metadata prefix for better retrieval
 
         Returns:
             Text representation of the event
         """
         parts = []
+
+        # Add explicit metadata prefix for better semantic matching
+        if include_metadata_prefix and self.location and self.location.city and self.category:
+            metadata_prefix = f"[Ville: {self.location.city}] [Catégorie: {self.category}]"
+            if self.start_date:
+                month_year = self.start_date.strftime('%B %Y')
+                metadata_prefix += f" [Date: {month_year}]"
+            parts.append(metadata_prefix)
+            parts.append("")  # Blank line separator
 
         # Title and URL first (most important for preventing URL hallucination)
         parts.append(f"Titre: {self.title}")
@@ -91,6 +103,81 @@ class Event(BaseModel):
             parts.append(f"Accessibilité: {self.accessibility}")
 
         return "\n".join(parts)
+
+    def to_chunks(self, max_tokens: int = 400, overlap_tokens: int = 50) -> list[str]:
+        """Split event into overlapping chunks for better embedding quality.
+
+        For events with long descriptions, splitting into smaller chunks improves
+        semantic search precision by avoiding diluted embeddings.
+
+        Args:
+            max_tokens: Maximum tokens per chunk (default: 400)
+            overlap_tokens: Tokens to overlap between chunks (default: 50)
+
+        Returns:
+            List of text chunks. If event is short, returns single chunk.
+        """
+        full_text = self.to_text(include_metadata_prefix=True)
+
+        # Rough token estimation: 1 token ≈ 4 characters
+        estimated_tokens = len(full_text) // 4
+
+        # If short enough, return as single chunk
+        if estimated_tokens <= max_tokens:
+            return [full_text]
+
+        # Split into sentences (simple approach)
+        import re
+        sentences = re.split(r'(?<=[.!?])\s+', full_text)
+
+        chunks = []
+        current_chunk = []
+        current_tokens = 0
+
+        # Build metadata header that appears in every chunk
+        metadata_header = ""
+        if self.location and self.location.city:
+            metadata_header = f"[Ville: {self.location.city}]"
+        if self.category:
+            metadata_header += f" [Catégorie: {self.category}]"
+        if self.title:
+            metadata_header += f"\nTitre: {self.title}"
+        if self.url:
+            metadata_header += f"\n🔗 Lien: {self.url}"
+
+        metadata_tokens = len(metadata_header) // 4
+        effective_max = max_tokens - metadata_tokens
+
+        for sentence in sentences:
+            sentence_tokens = len(sentence) // 4
+
+            # If adding this sentence would exceed limit and we have content, create chunk
+            if current_tokens + sentence_tokens > effective_max and current_chunk:
+                chunk_text = metadata_header + "\n" + ' '.join(current_chunk)
+                chunks.append(chunk_text)
+
+                # Keep last sentences for overlap (approximate 50 tokens)
+                overlap_size = 0
+                overlap_sentences = []
+                for sent in reversed(current_chunk):
+                    sent_tokens = len(sent) // 4
+                    if overlap_size + sent_tokens > overlap_tokens:
+                        break
+                    overlap_sentences.insert(0, sent)
+                    overlap_size += sent_tokens
+
+                current_chunk = overlap_sentences
+                current_tokens = overlap_size
+
+            current_chunk.append(sentence)
+            current_tokens += sentence_tokens
+
+        # Add remaining content as final chunk
+        if current_chunk:
+            chunk_text = metadata_header + "\n" + ' '.join(current_chunk)
+            chunks.append(chunk_text)
+
+        return chunks if chunks else [full_text]
 
     def get_metadata(self) -> dict[str, Any]:
         """Get metadata for vector store filtering.

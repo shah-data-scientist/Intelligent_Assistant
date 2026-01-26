@@ -27,7 +27,8 @@ class EventProcessor:
         r"les acceptez-vous", r"accepter", r"refuser", r"matomo",
         r"tous les événements", r"partager / exporter", r"outils d'inscription",
         r"s'inscrire / réserver", r"information additionnelle", r"aucune saisie",
-        r"suggérer une modification"
+        r"suggérer une modification", r"Catalogues départementaux", r"Catalogue national",
+        r"structures d’accueil", r"hébergement", r"Plan du site", r"Mentions légales"
     ]
 
     # Target category set for forced classification
@@ -141,25 +142,74 @@ class EventProcessor:
         
         return best_cat
 
-    def process_record(self, record: dict[str, Any]) -> Event | None:
-        """Process a raw record using the strict production pipeline."""
+    def parse_date(self, date_str: str | None) -> datetime | None:
+        """Parse ISO 8601 date string."""
+        if not date_str:
+            return None
+        try:
+            # Clean potential debris
+            clean_str = str(date_str).strip()
+            # Handle Z suffix
+            if clean_str.endswith("Z"):
+                clean_str = clean_str[:-1] + "+00:00"
+            return datetime.fromisoformat(clean_str)
+        except Exception:
+            return None
+
+    def extract_location(self, fields: dict[str, Any]) -> EventLocation | None:
+        """Extract location from record fields."""
+        if not fields:
+            return None
+            
+        # Coordinates
+        lat = fields.get("latitude") or fields.get("lat")
+        lon = fields.get("longitude") or fields.get("lon")
+        
+        # Opendatasoft geom structure
+        geo = fields.get("geometry") or fields.get("location_coordinates")
+        if geo and isinstance(geo, dict) and "coordinates" in geo:
+            try:
+                lon, lat = geo["coordinates"]
+            except (ValueError, TypeError):
+                pass
+            
+        coords = None
+        if lat and lon:
+            try:
+                coords = {"lat": float(lat), "lon": float(lon)}
+            except (ValueError, TypeError):
+                pass
+        
+        return EventLocation(
+            city=fields.get("location_city") or fields.get("city"),
+            postal_code=fields.get("location_postalcode") or fields.get("postal_code"),
+            address=fields.get("location_address") or fields.get("address"),
+            coordinates=coords
+        )
+
+    def extract_tags(self, fields: dict[str, Any]) -> list[str]:
+        """Extract keywords/tags."""
+        tags = fields.get("keywords_fr") or fields.get("tags") or []
+        if isinstance(tags, str):
+            tags = tags.split(",")
+        return [str(t).strip() for t in tags if str(t).strip()]
+
+    def process_record(self, record: dict[str, Any]) -> list[Event]:
+        """Process a raw record into one or more granular Event objects (one per timing)."""
         try:
             fields = record if ("title_fr" in record or "uid" in record) else record.get("fields", {})
             
             # 1. Extraction with Basic Normalization
-            event_id = record.get("uid") or record.get("slug") or record.get("recordid")
-            if not event_id: return None
+            base_event_id = record.get("uid") or record.get("slug") or record.get("recordid")
+            if not base_event_id: return []
 
             title = self.clean_title(fields.get("title_fr") or fields.get("title") or "Sans titre")
             
-            # 2. Description Handling (Merge API and Scraper if needed)
+            # 2. Description Handling
             api_desc = self.safe_normalize(fields.get("longdescription_fr") or fields.get("description_fr") or fields.get("description"))
             api_desc = self.remove_boilerplate(api_desc)
             if not api_desc:
                 api_desc = None
-            
-            # Scraped content will be handled in separate enrichment step, 
-            # but we define placeholders for the model here.
             
             # 3. Metadata Extraction
             age_min = fields.get("age_min")
@@ -171,95 +221,108 @@ class EventProcessor:
             cond = self.safe_normalize(fields.get("conditions_fr") or fields.get("conditions"))
             cond = self.remove_boilerplate(cond)
 
-            # 4. Location & Dates
+            # 4. Location
             location = self.clean_location(self.extract_location(fields))
             
-            # Standard Date Parsing (unchanged from legacy logic)
-            start_date = self.parse_date(fields.get("firstdate_begin") or fields.get("start_date"))
-            end_date = self.parse_date(fields.get("lastdate_end") or fields.get("firstdate_end") or fields.get("end_date"))
-
             # 5. Keywords
             tags = [self.safe_normalize(t).capitalize() for t in self.extract_tags(fields) if len(t) > 1]
             tags = list(set(tags))
 
-            # Create Event Object
-            event = Event(
-                event_id=str(event_id),
-                title=title,
-                description=api_desc,
-                category=self.safe_normalize(fields.get("category")),
-                location=location,
-                start_date=start_date,
-                end_date=end_date,
-                organizer=self.clean_organizer(fields.get("organizer") or fields.get("organisateur")),
-                url=fields.get("canonicalurl") or fields.get("url") or fields.get("link"),
-                image_url=fields.get("image") or fields.get("photo") or fields.get("image_url") ,
-                tags=tags,
-                raw_data=record,
-                age_min=age_min,
-                age_max=age_max,
-                accessibility=acc or None,
-                conditions=cond or None
-            )
+            # 6. Parse Timings
+            import json
+            raw_timings = fields.get("timings")
+            parsed_timings = []
+            if isinstance(raw_timings, str):
+                try:
+                    parsed_timings = json.loads(raw_timings)
+                except Exception:
+                    pass
+            elif isinstance(raw_timings, list):
+                parsed_timings = raw_timings
 
-            # 6. Forced Classification
-            event.category = self.classify_category(event)
-            
-            # 7. Final Polish of semantic fields
-            if event.description:
-                event.description = self.deduplicate_sentences(event.description)
+            # If no timings found, use firstdate_begin/lastdate_end as fallback
+            if not parsed_timings:
+                start_date = self.parse_date(fields.get("firstdate_begin") or fields.get("start_date"))
+                end_date = self.parse_date(fields.get("lastdate_end") or fields.get("firstdate_end") or fields.get("end_date"))
+                parsed_timings = [{"begin": start_date.isoformat() if start_date else None, 
+                                   "end": end_date.isoformat() if end_date else None}]
 
-            return event
+            # 7. Create Granular Event Objects
+            granular_events = []
+            for idx, timing in enumerate(parsed_timings):
+                start_dt = self.parse_date(timing.get("begin"))
+                end_dt = self.parse_date(timing.get("end"))
+                
+                # Skip if no start date
+                if not start_dt:
+                    continue
+
+                # Augment event_id for uniqueness
+                granular_id = f"{base_event_id}_{idx}"
+                
+                event = Event(
+                    event_id=granular_id,
+                    title=title,
+                    description=api_desc,
+                    category=self.safe_normalize(fields.get("category")),
+                    location=location,
+                    start_date=start_dt,
+                    end_date=end_dt,
+                    organizer=self.clean_organizer(fields.get("organizer") or fields.get("organisateur")),
+                    url=fields.get("canonicalurl") or fields.get("url") or fields.get("link"),
+                    image_url=fields.get("image") or fields.get("photo") or fields.get("image_url") ,
+                    tags=tags,
+                    raw_data=record,
+                    age_min=age_min,
+                    age_max=age_max,
+                    accessibility=acc or None,
+                    conditions=cond or None
+                )
+
+                # Forced Classification
+                event.category = self.classify_category(event)
+                
+                # Final Polish
+                if event.description:
+                    event.description = self.deduplicate_sentences(event.description)
+                
+                granular_events.append(event)
+
+            return granular_events
 
         except Exception as e:
             logger.error(f"Error processing record {record.get('uid')}: {e}")
-            return None
+            return []
 
-    # Helper methods (legacy compatibility or internal use)
-    @staticmethod
-    def parse_date(date_str: str | None) -> datetime | None:
-        if not date_str: return None
-        date_str_clean = date_str.split("+")[0].replace("Z", "") if ("+" in date_str or "Z" in date_str) else date_str
-        formats = ["%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"]
-        for fmt in formats:
-            try: return datetime.strptime(date_str_clean, fmt)
-            except ValueError: continue
-        return None
-
-    @staticmethod
-    def extract_location(fields: dict[str, Any]) -> EventLocation | None:
-        location_data = {}
-        if addr := (fields.get("location_address") or fields.get("address") or fields.get("address_fr") ): location_data["address"] = addr
-        if city := (fields.get("location_city") or fields.get("city") or fields.get("ville") or fields.get("ville_fr") ): location_data["city"] = city
-        if pc := (fields.get("location_postalcode") or fields.get("postal_code") or fields.get("code_postal") ): location_data["postal_code"] = pc
+    def deduplicate_events(self, events: list[Event]) -> list[Event]:
+        """Deduplicate events based on (title, city, precise_start_datetime)."""
+        seen = set()
+        unique_events = []
         
-        coords = fields.get("location_coordinates") or fields.get("coordinates") or fields.get("geo_point_2d")
-        if coords:
-            if isinstance(coords, dict) and "lat" in coords and "lon" in coords:
-                location_data["coordinates"] = {"lat": coords["lat"], "lon": coords["lon"]}
-            elif isinstance(coords, list) and len(coords) >= 2:
-                # Some APIs use [lat, lon], some [lon, lat]. Standardize here.
-                # Assuming [lat, lon] if not specified, but check test expectations.
-                # test_extract_location uses {"lat": 48.8656, "lon": 2.3212}
-                location_data["coordinates"] = {"lat": coords[0], "lon": coords[1]}
-                
-        if not location_data: return None
-        return EventLocation(**location_data)
-
-    @staticmethod
-    def extract_tags(fields: dict[str, Any]) -> list[str]:
-        tags = []
-        for field in ["keywords_fr", "keywords", "tags", "mots_cles"]:
-            if value := fields.get(field):
-                if isinstance(value, list): tags.extend(str(tag) for tag in value)
-                elif isinstance(value, str): tags.extend(tag.strip() for tag in value.split(","))
-        return list(set(tags))
+        for event in events:
+            city = event.location.city if event.location else "Unknown"
+            start_str = event.start_date.isoformat() if event.start_date else "NoDate"
+            # Normalize title for robust comparison
+            norm_title = "".join(filter(str.isalnum, event.title)).lower()
+            
+            key = (norm_title, city, start_str)
+            
+            if key not in seen:
+                seen.add(key)
+                unique_events.append(event)
+        
+        logger.info(f"Deduplication: {len(events)} -> {len(unique_events)} events")
+        return unique_events
 
     def process_records(self, records: list[dict[str, Any]]) -> list[Event]:
-        events = []
+        """Process multiple records and return a deduplicated list of granular Event objects."""
+        all_granular_events = []
         for record in records:
-            if event := self.process_record(record): events.append(event)
-        return events
+            granular_events = self.process_record(record)
+            all_granular_events.extend(granular_events)
+        
+        # Apply final deduplication across all records
+        return self.deduplicate_events(all_granular_events)
 
     def filter_paris_events(self, events: list[Event]) -> list[Event]:
         """Filter events that take place in Paris."""

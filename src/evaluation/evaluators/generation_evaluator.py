@@ -53,11 +53,19 @@ class GenerationEvaluator:
         start_time = time.time()
 
         try:
-            # Generate answer
-            result = self.rag_chain.query_with_metadata(
-                question=query.query,
-                session_id=session_id
-            )
+            # Generate answer with simple retry for rate limits
+            try:
+                result = self.rag_chain.query_with_metadata(
+                    question=query.query,
+                    session_id=session_id
+                )
+            except Exception as e:
+                logger.warning(f"Initial query failed: {e}. Retrying in 5s...")
+                time.sleep(5)
+                result = self.rag_chain.query_with_metadata(
+                    question=query.query,
+                    session_id=session_id
+                )
 
             latency_ms = (time.time() - start_time) * 1000
 
@@ -166,6 +174,9 @@ class GenerationEvaluator:
                 quality_scores.append(result["quality_score"])
                 if result["language_consistent"]:
                     language_consistent_count += 1
+            
+            # Pace the evaluation to respect API limits
+            time.sleep(5) 
 
         # Calculate aggregated metrics
         num_successful = len([r for r in per_query_results if "error" not in r])
