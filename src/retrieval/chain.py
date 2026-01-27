@@ -576,130 +576,6 @@ class SimpleSummaryBufferMemory:
     def save_context(self, inputs: Dict[str, Any], outputs: Dict[str, str]) -> None:
         pass
 
-def _enrich_events_from_metadata(structured_events: list, source_data: list) -> list:
-    """Enrich structured events with price_label and age_label from source metadata.
-
-    This is necessary because the LLM JSON schema doesn't include these fields,
-    but the data exists in the database. This post-processing step adds the
-    missing information.
-
-    Args:
-        structured_events: List of event dicts from LLM
-        source_data: List of either LangChain Document objects or dicts with metadata
-
-    Returns:
-        The same list with enriched price_label and age_label fields
-    """
-    if not structured_events:
-        return structured_events
-
-    # Build lookup from source document titles
-    # Handle both Document objects and plain dicts (for cached results)
-    source_lookup = {}
-    # Build lookup by title for price/age metadata
-    # Also build times lookup by (title, city, date) for consolidation
-    times_lookup = {}  # (title, city, date) -> [times]
-
-    for item in source_data:
-        if hasattr(item, 'metadata'):
-            # LangChain Document object
-            meta = item.metadata
-        else:
-            # Plain dict (from cached sources)
-            meta = item
-
-        title = meta.get("title", "").lower().strip()
-        city = meta.get("city", "").lower().strip()
-        # Sources may use "date" or "start_date" depending on context
-        start_date = meta.get("date") or meta.get("start_date", "")
-
-        # Debug: log first few items
-        if len(times_lookup) < 3:
-            logger.info(f"[ENRICH-DEBUG] Source item: title={title[:30]}, city={city}, date={start_date}, keys={list(meta.keys())[:10]}")
-
-        # Extract date and time from source
-        if start_date:
-            if "T" in str(start_date):
-                date_only = str(start_date).split("T")[0]
-                time_part = str(start_date).split("T")[1][:5]  # HH:MM
-            else:
-                date_only = str(start_date)[:10]
-                time_part = None
-
-            # Collect times by (title, city, date) key
-            if title and city and date_only:
-                times_key = (title, city, date_only)
-                if times_key not in times_lookup:
-                    times_lookup[times_key] = set()
-                if time_part:
-                    times_lookup[times_key].add(time_part)
-
-        if title:
-            source_lookup[title] = {
-                "conditions": meta.get("conditions"),
-                "age_min": meta.get("age_min"),
-                "age_max": meta.get("age_max"),
-            }
-
-    logger.info(f"[ENRICH] Built lookup with {len(source_lookup)} source titles, {len(times_lookup)} time groups")
-    # Debug: Log sample times_lookup entries
-    if times_lookup:
-        sample_keys = list(times_lookup.keys())[:3]
-        for k in sample_keys:
-            logger.info(f"[ENRICH] times_lookup key: {k} -> times: {times_lookup[k]}")
-
-    for event in structured_events:
-        event_title = event.get("title", "").lower().strip()
-        event_city = event.get("city", "").lower().strip()
-        event_date = event.get("date", "")
-
-        # Normalize date to just YYYY-MM-DD
-        if "T" in str(event_date):
-            event_date_only = str(event_date).split("T")[0]
-        else:
-            event_date_only = str(event_date)[:10]
-
-        source_meta = source_lookup.get(event_title, {})
-
-        # Price label from conditions
-        conditions = source_meta.get("conditions")
-        if conditions:
-            cond_lower = conditions.lower()
-            if "gratuit" in cond_lower or "free" in cond_lower:
-                event["price_label"] = "Gratuit"
-            elif "€" in conditions or "euro" in cond_lower:
-                event["price_label"] = conditions[:50]
-            else:
-                event["price_label"] = conditions[:50]
-        else:
-            event["price_label"] = "Non spécifié"
-
-        # Age label from age_min/age_max
-        age_min = source_meta.get("age_min")
-        age_max = source_meta.get("age_max")
-        if age_min is not None and age_max is not None:
-            if age_min == 0 and age_max >= 99:
-                event["age_label"] = "Tout public"
-            else:
-                event["age_label"] = f"{age_min}-{age_max} ans"
-        elif age_min is not None:
-            event["age_label"] = f"Dès {age_min} ans"
-        elif age_max is not None:
-            event["age_label"] = f"Jusqu'à {age_max} ans"
-        else:
-            event["age_label"] = "Tout public"
-
-        # Collect times from source documents for this event
-        times_key = (event_title, event_city, event_date_only)
-        logger.debug(f"[ENRICH] Looking for times_key: {times_key}")
-        if times_key in times_lookup:
-            times_list = sorted(times_lookup[times_key])
-            if times_list:
-                event["times"] = times_list
-                event["times_display"] = ", ".join(times_list)
-
-    return structured_events
-
 
 class RAGChain:
     """Orchestrator for the Cultural Events RAG system with Summary Buffer Memory."""
@@ -893,16 +769,11 @@ class RAGChain:
                 "query_type": query_type
             }
 
-        # Cache check - re-enrich events to handle stale cache entries
+        # Cache check - labels are now pre-computed in database, no enrichment needed
         if self.cache:
             cached = self.cache.get(question, session_id)
             if cached:
-                # Re-enrich structured_events in case cache has stale "Unknown" values
-                structured_events = cached.get("structured_events", [])
-                sources = cached.get("sources", [])
-                if structured_events and sources:
-                    _enrich_events_from_metadata(structured_events, sources)
-                    logger.debug(f"[CACHE] Re-enriched {len(structured_events)} cached events")
+                logger.debug(f"[CACHE] Returning cached response")
                 return cached
 
         memory = self._get_memory(session_id)
@@ -951,53 +822,13 @@ class RAGChain:
                 answer_text = result["answer"].get("answer_text", "")
                 structured_events = result["answer"].get("events", [])
 
-                # Enrich structured_events with price_label and age_label from source metadata
-                source_docs = result.get("context", [])
-                logger.info(f"[ENRICH] Starting enrichment: {len(structured_events)} events, {len(source_docs)} source docs")
-                _enrich_events_from_metadata(structured_events, source_docs)
-                logger.info(f"[ENRICH] Enrichment complete. Sample event: {structured_events[0] if structured_events else 'none'}")
+                # POST-PROCESSING: Enforce k limit only
+                # NOTE: Enrichment and deduplication removed - handled at database level
+                # price_label, age_label, timings are pre-computed in database (Phase 14)
+                if len(structured_events) > self.k:
+                    logger.info(f"[LIMIT] Truncating {len(structured_events)} events to {self.k}")
+                    structured_events = structured_events[:self.k]
 
-                # POST-PROCESSING: Consolidate duplicates by (title, city, date) and enforce k limit
-                # SINGLE SOURCE OF TRUTH: This Python code handles all consolidation.
-                # LLM prompts no longer include consolidation instructions (removed for simplicity).
-                # Times are already collected from source docs in _enrich_events_from_metadata
-                seen_events = {}
-                for event in structured_events:
-                    # Extract just the date part (YYYY-MM-DD) without time
-                    event_date = str(event.get("date", ""))
-                    if "T" in event_date:
-                        date_only = event_date.split("T")[0]
-                    else:
-                        date_only = event_date[:10] if len(event_date) >= 10 else event_date
-
-                    key = (
-                        event.get("title", "").lower().strip(),
-                        event.get("city", "").lower().strip(),
-                        date_only  # Group by date, not time
-                    )
-
-                    if key not in seen_events:
-                        # First occurrence - normalize date to just YYYY-MM-DD
-                        event["date"] = date_only
-                        seen_events[key] = event
-                    else:
-                        # Duplicate event - merge times if both have times arrays
-                        existing = seen_events[key]
-                        existing_times = set(existing.get("times", []))
-                        new_times = set(event.get("times", []))
-                        merged_times = sorted(existing_times | new_times)
-                        if merged_times:
-                            existing["times"] = merged_times
-                            existing["times_display"] = ", ".join(merged_times)
-
-                consolidated = list(seen_events.values())
-
-                # Enforce strict limit of k events
-                if len(consolidated) > self.k:
-                    logger.info(f"[LIMIT] Truncating {len(consolidated)} events to {self.k}")
-                    consolidated = consolidated[:self.k]
-
-                structured_events = consolidated
                 logger.info(f"[POST-PROCESS] Final event count: {len(structured_events)}")
 
                 # CRITICAL FIX: Extract and USE clarification fields

@@ -63,6 +63,10 @@ class EventRecord(Base):
     accessibility = Column(String(500), nullable=True)
     conditions = Column(Text, nullable=True)
 
+    # Pre-computed display labels (eliminates runtime enrichment)
+    price_label = Column(String(100), nullable=True, default="Non spécifié")
+    age_label = Column(String(100), nullable=True, default="Tout public")
+
     # Multi-showtime fields (for deduplicated events)
     timings_json = Column(Text, nullable=True)  # JSON array: ["10:00", "14:00"]
     periods_json = Column(Text, nullable=True)  # JSON array: ["matin", "après-midi"]
@@ -138,6 +142,8 @@ class EventStorage:
                     "age_max": "INTEGER",
                     "accessibility": "VARCHAR(500)",
                     "conditions": "TEXT",
+                    "price_label": "VARCHAR(100)",
+                    "age_label": "VARCHAR(100)",
                     "timings_json": "TEXT",
                     "periods_json": "TEXT",
                     "is_full_day": "INTEGER",
@@ -195,6 +201,8 @@ class EventStorage:
             age_max=event.age_max,
             accessibility=event.accessibility,
             conditions=event.conditions,
+            price_label=event.price_label,
+            age_label=event.age_label,
             timings_json=json.dumps(event.timings) if event.timings else None,
             periods_json=json.dumps(event.periods) if event.periods else None,
             is_full_day=1 if event.is_full_day else None,
@@ -289,6 +297,8 @@ class EventStorage:
             age_max=record.age_max,
             accessibility=record.accessibility,
             conditions=record.conditions,
+            price_label=record.price_label or "Non spécifié",
+            age_label=record.age_label or "Tout public",
             timings=timings,
             periods=periods,
             is_full_day=bool(record.is_full_day) if record.is_full_day else False,
@@ -466,6 +476,8 @@ class EventStorage:
             record.age_max = event.age_max
             record.accessibility = event.accessibility
             record.conditions = event.conditions
+            record.price_label = event.price_label
+            record.age_label = event.age_label
             record.timings_json = json.dumps(event.timings) if event.timings else None
             record.periods_json = json.dumps(event.periods) if event.periods else None
             record.is_full_day = 1 if event.is_full_day else None

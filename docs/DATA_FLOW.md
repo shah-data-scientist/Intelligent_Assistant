@@ -17,6 +17,8 @@ This document describes the complete data flow from user query to response, incl
 - **Database-backed keyword detection** (333 event keywords, 78 date keywords with fuzzy matching)
 - **Lazy FAISS index loading** (delay load until first query)
 - **Eliminated redundant function calls** (is_broad_query, language detection reuse)
+- **Pre-computed display labels** (`price_label`, `age_label` in database - no runtime enrichment)
+- **Database deduplication** (no runtime consolidation needed)
 
 ---
 
@@ -270,25 +272,18 @@ context + question + chat_history → RAG prompt → LLM
 
 ## 5. Post-Processing
 
-### Step 5.1: Metadata Enrichment
-**File:** `src/retrieval/chain.py` → `_enrich_events_from_metadata()`
-
-**Adds:**
-- `price_label`: "Gratuit" | "€XX" | "Non spécifié"
-- `age_label`: "Tout public" | "Dès X ans"
-- `times`, `times_display`
-
-### Step 5.2: Deduplication & Consolidation
-Group by (title, city, date), merge times.
-
-### Step 5.3: Event Limit Enforcement
+### Step 5.1: Event Limit Enforcement
 Truncate to `self.k` (default: 8)
 
-### Step 5.4: Backup Broad Query Detection
+### Step 5.2: Backup Broad Query Detection
 If LLM missed broad query → Reuse early check result (no recalculation - OPTIMIZATION B).
 
-### Step 5.5: Response Sanitization
+### Step 5.3: Response Sanitization
 Remove emojis and problematic Unicode characters.
+
+**REMOVED (Phase 15):**
+- ~~Metadata Enrichment~~ → Pre-computed in database (`price_label`, `age_label`)
+- ~~Deduplication~~ → Database already deduplicated (Phase 14)
 
 ---
 
@@ -520,4 +515,4 @@ message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_
 ---
 
 *Last updated: January 27, 2026*
-*Version: 6.1 (lazy FAISS loading, redundant call elimination, language pass-through)*
+*Version: 7.0 (pre-computed labels, removed enrichment/deduplication, database optimizations)*

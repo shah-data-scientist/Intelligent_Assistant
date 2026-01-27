@@ -40,6 +40,10 @@ class Event(BaseModel):
     accessibility: str | None = Field(None, description="Accessibility info")
     conditions: str | None = Field(None, description="Pricing or entry conditions")
 
+    # Derived display labels (pre-computed, no runtime enrichment needed)
+    price_label: str = Field("Non spécifié", description="Display-ready price label")
+    age_label: str = Field("Tout public", description="Display-ready age label")
+
     # Multi-showtime fields (for deduplicated events)
     timings: list[str] = Field(default_factory=list, description="List of show times (e.g., ['10:00', '14:00'])")
     periods: list[str] = Field(default_factory=list, description="Periods of day (e.g., ['matin', 'après-midi'])")
@@ -220,13 +224,9 @@ class Event(BaseModel):
         if self.url:
             metadata["url"] = self.url
 
-        # Price and age metadata for event card enrichment
-        if self.conditions:
-            metadata["conditions"] = self.conditions
-        if self.age_min is not None:
-            metadata["age_min"] = self.age_min
-        if self.age_max is not None:
-            metadata["age_max"] = self.age_max
+        # Price and age labels (pre-computed in database)
+        metadata["price_label"] = self.price_label
+        metadata["age_label"] = self.age_label
 
         # Multi-showtime metadata
         if self.timings:
