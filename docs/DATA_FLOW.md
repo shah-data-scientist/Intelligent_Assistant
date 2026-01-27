@@ -43,7 +43,7 @@ User Query (ChatRequest)
 
 ## 2. RAG Chain Entry: `query_with_metadata()`
 
-**File:** `src/retrieval/chain.py` → `RAGChain.query_with_metadata()` (line 908)
+**File:** `src/retrieval/chain.py` → `RAGChain.query_with_metadata()` (line 710)
 
 ### Step 2.1: Safety Check
 ```
@@ -70,7 +70,7 @@ question → check_safety(question)
 ```
 language → detect_language_from_query(question)
 ```
-**File:** `src/retrieval/chain.py` (line 234)
+**File:** `src/retrieval/chain.py` (line 213)
 
 **Logic:**
 - Checks for French indicator words
@@ -82,7 +82,7 @@ language → detect_language_from_query(question)
 ```
 question + language → check_special_query()
 ```
-**File:** `src/retrieval/chain.py` (line 573)
+**File:** `src/retrieval/chain.py` (line 431)
 
 **OPTIMIZATIONS MERGED HERE:**
 1. **Statistical query detection** - Previously separate, now integrated
@@ -119,13 +119,13 @@ question + language → check_special_query()
 
 ## 3. EARLY BROAD QUERY CHECK (OPTIMIZATION - BEFORE LLM)
 
-**File:** `src/retrieval/chain.py` (line 957-986)
+**File:** `src/retrieval/chain.py` (line 758)
 
 ```python
 # OPTIMIZATION: EARLY BROAD QUERY CHECK
 # Check if query is missing required criteria BEFORE calling LLM
 # This saves ~5-8s and API costs for vague queries
-is_broad, broad_reason = is_broad_query(question, chat_history)
+is_broad, broad_reason = is_broad_query(question, chat_history)  # line 334
 if is_broad:
     # Return clarification immediately - NO LLM CALL
     return clarification_response
@@ -185,7 +185,7 @@ if is_broad:
 
 ## 4. RAG Chain Invocation (Only if query is complete)
 
-**File:** `src/retrieval/chain.py` → `self.rag_chain.invoke()` (line 988)
+**File:** `src/retrieval/chain.py` → `self.rag_chain.invoke()` (line 785)
 
 ### Step 4.1: Unified Query Understanding (1 LLM Call)
 
@@ -406,12 +406,14 @@ message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ 9. POST-PROCESSING                                                          │
-│    ├── Enrich metadata (price, age, times)                                  │
-│    ├── Deduplicate & consolidate                                            │
-│    ├── Enforce event limit (max 8)                                          │
-│    ├── Backup broad query check (if LLM missed)                             │
-│    └── Response sanitization                                                │
+│ 9. POST-PROCESSING (Minimal - Phase 15/16/17)                               │
+│    └── Type safety only (ensure structured_events is list)                  │
+│        NOTE: All other steps REMOVED:                                       │
+│        - Enrichment → pre-computed in database                              │
+│        - Deduplication → database deduplicated (Phase 14)                   │
+│        - Event limit → enforced in manager.py                               │
+│        - Backup broad check → removed (early check handles)                 │
+│        - Sanitization → removed (modern systems handle Unicode)             │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
@@ -453,16 +455,16 @@ message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_
 | Optimization | Status | Impact | Location |
 |--------------|--------|--------|----------|
 | Pre-compiled regex | ACTIVE | ~10% faster matching | guardrails.py, chain.py |
-| Early broad query check | ACTIVE | Saves ~5-8s for vague queries | chain.py:957 |
-| **Early city validation + fuzzy** | ACTIVE | Fast rejection OR correction | chain.py:573 |
-| **Statistical query merged** | ACTIVE | No separate check needed | chain.py:573 |
-| Async DB writes | ACTIVE | ~50ms latency reduction | chain.py:37 |
-| Unified query understanding | ACTIVE | 3 LLM calls → 1 | chain.py:764 |
-| Fuzzy city matching | ACTIVE | Better typo tolerance | geo.py:113 |
-| Enhanced skip_words | ACTIVE | Fewer false city detections | chain.py:270 |
+| Early broad query check | ACTIVE | Saves ~5-8s for vague queries | chain.py:758 |
+| **Early city validation + fuzzy** | ACTIVE | Fast rejection OR correction | chain.py:431 |
+| **Statistical query merged** | ACTIVE | No separate check needed | chain.py:431 |
+| Async DB writes | ACTIVE | ~50ms latency reduction | chain.py:43 |
+| Unified query understanding | ACTIVE | 3 LLM calls → 1 | chain.py:785 |
+| Fuzzy city matching | ACTIVE | Better typo tolerance | geo.py:79 |
+| Enhanced skip_words | ACTIVE | Fewer false city detections | chain.py:255 |
 | **Database-backed keywords** | ACTIVE | 333 event + 78 date keywords with fuzzy | keywords.py |
-| **Lazy FAISS loading** | ACTIVE | Faster chain init, load on first query | chain.py:717, 848 |
-| **Redundant call elimination** | ACTIVE | is_broad_query called once, result reused | chain.py:905, 1005 |
+| **Lazy FAISS loading** | ACTIVE | Faster chain init, load on first query | chain.py:695, 712 |
+| **Redundant call elimination** | ACTIVE | is_broad_query called once, result reused | chain.py:758 |
 
 ---
 
@@ -478,7 +480,7 @@ message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_
 | Special | Out-of-scope city | Coverage message | **NO** |
 | Cache | Previous response | Return cached | **NO** |
 | **Early Broad** | **3-criteria check** | **Clarification** | **NO** |
-| Post-proc | Backup broad check | Clarification | After LLM |
+| Post-proc | Type safety only | N/A | After LLM |
 
 ---
 
@@ -512,4 +514,4 @@ message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_
 ---
 
 *Last updated: January 27, 2026*
-*Version: 7.2 (removed post-LLM clarification check and sanitization)*
+*Version: 7.3 (deep check: fixed all line numbers, corrected stale flow diagram)*
