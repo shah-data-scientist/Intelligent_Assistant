@@ -208,27 +208,7 @@ question + chat_history → unified_understanding_chain.invoke()
 
 ---
 
-### Step 4.2: City Validation (with Fuzzy Matching - Post-LLM)
-```
-raw_filters.city → validate_city_filter()
-```
-**File:** `src/retrieval/chain.py` (line 342)
-
-**Note:** This is a secondary validation for cities extracted by LLM.
-Primary validation happens earlier in `check_special_query()`.
-
-**Matching Strategies (in order):**
-1. **Exact match** - city in city_cache
-2. **Prefix match** - "Paris 15" → "Paris"
-3. **Fuzzy match** - Levenshtein distance (threshold 0.75)
-   - "Possy" → "Poissy", "Versaille" → "Versailles"
-
-**Fuzzy Matching:**
-**File:** `src/utils/geo.py` (line 113) - `find_closest_city()`
-
----
-
-### Step 4.3: Intent Parsing
+### Step 4.2: Intent Parsing
 ```
 raw_filters → retrieval_manager.parse_intent()
 ```
@@ -238,7 +218,7 @@ raw_filters → retrieval_manager.parse_intent()
 
 ---
 
-### Step 4.4: Multi-Stage Retrieval
+### Step 4.3: Multi-Stage Retrieval
 ```
 refined_query + intent → retrieval_manager.execute_search()
 ```
@@ -268,7 +248,7 @@ Add SYSTEM_NOTE to inform user of alternatives
 
 ---
 
-### Step 4.5: LLM Response Generation (1 LLM Call)
+### Step 4.4: LLM Response Generation (1 LLM Call)
 ```
 context + question + chat_history → RAG prompt → LLM
 ```
@@ -288,10 +268,7 @@ context + question + chat_history → RAG prompt → LLM
 
 ## 5. Post-Processing
 
-### Step 5.1: Invalid City Check
-If LLM extracted invalid city → Return out-of-scope response.
-
-### Step 5.2: Metadata Enrichment
+### Step 5.1: Metadata Enrichment
 **File:** `src/retrieval/chain.py` → `_enrich_events_from_metadata()`
 
 **Adds:**
@@ -299,16 +276,16 @@ If LLM extracted invalid city → Return out-of-scope response.
 - `age_label`: "Tout public" | "Dès X ans"
 - `times`, `times_display`
 
-### Step 5.3: Deduplication & Consolidation
+### Step 5.2: Deduplication & Consolidation
 Group by (title, city, date), merge times.
 
-### Step 5.4: Event Limit Enforcement
+### Step 5.3: Event Limit Enforcement
 Truncate to `self.k` (default: 8)
 
-### Step 5.5: Backup Broad Query Detection
+### Step 5.4: Backup Broad Query Detection
 If LLM missed broad query → Use Python backup check with centralized templates.
 
-### Step 5.6: Response Sanitization
+### Step 5.5: Response Sanitization
 Remove emojis and problematic Unicode characters.
 
 ---
@@ -419,15 +396,7 @@ message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ 7. CITY VALIDATION (Secondary - Post-LLM)                                   │
-│    ├── Exact match                                                          │
-│    ├── Prefix match                                                         │
-│    └── Levenshtein fuzzy match (threshold 0.75)                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ 8. MULTI-STAGE RETRIEVAL                                                    │
+│ 7. MULTI-STAGE RETRIEVAL                                                    │
 │    ├── Stage 1: Exact match (FAISS + BM25 + RRF + period filter)            │
 │    ├── Stage 2: Nearby location fallback (keep date, remove city)           │
 │    └── Stage 3: Alternative dates check (metadata only, ±7 days)            │
@@ -435,7 +404,7 @@ message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ 9. RESPONSE GENERATION (1 LLM Call)                                         │
+│ 8. RESPONSE GENERATION (1 LLM Call)                                         │
 │    ├── Language-aware prompt selection                                      │
 │    ├── Generate answer_text                                                 │
 │    └── Structure events list                                                │
@@ -443,7 +412,7 @@ message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ 10. POST-PROCESSING                                                         │
+│ 9. POST-PROCESSING                                                          │
 │    ├── Enrich metadata (price, age, times)                                  │
 │    ├── Deduplicate & consolidate                                            │
 │    ├── Enforce event limit (max 8)                                          │
@@ -453,7 +422,7 @@ message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ 11. PERSISTENCE [OPTIMIZED - Async Writes]                                  │
+│ 10. PERSISTENCE [OPTIMIZED - Async Writes]                                  │
 │    ├── User message → ASYNC (fire-and-forget, ~50ms saved)                  │
 │    └── Assistant message → Sync (need message_id)                           │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -513,7 +482,6 @@ message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_
 | Special | Out-of-scope city | Coverage message | **NO** |
 | Cache | Previous response | Return cached | **NO** |
 | **Early Broad** | **3-criteria check** | **Clarification** | **NO** |
-| City Validation | LLM-extracted city | Coverage message | After LLM |
 | Post-proc | Backup broad check | Clarification | After LLM |
 
 ---

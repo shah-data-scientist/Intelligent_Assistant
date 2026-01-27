@@ -2,6 +2,7 @@
 
 import logging
 import re
+import threading
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import date, timedelta
 
@@ -11,54 +12,62 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, Base
 
 from src.models.vector_store import EventVectorStore
 from src.generation.llm import MistralLLM
-from src.generation.prompts import get_rag_prompt, get_contextualize_q_prompt, get_metadata_extraction_prompt, get_query_refinement_prompt
-from src.retrieval.retriever import EventRetriever
+from src.generation.prompts import get_rag_prompt, get_query_understanding_prompt
 from src.retrieval.cache import QueryCache
 from src.retrieval.manager import RetrievalManager
 from src.data.chat_history import SQLiteChatMessageHistory
 from src.data.storage import EventStorage
 from src.data.chat_storage import ChatStorage
 from src.security.guardrails import check_safety
-from src.utils.dates import parse_natural_date
+from src.utils.geo import CityLocator
+from src.utils.keywords import get_keyword_locator
 from src.config import settings
 
+# Global city locator for scope validation
+_city_locator = None
+
+def get_city_locator() -> CityLocator:
+    """Get or create the global CityLocator instance."""
+    global _city_locator
+    if _city_locator is None:
+        _city_locator = CityLocator()
+    return _city_locator
+
 logger = logging.getLogger(__name__)
+
+# ========================================
+# ASYNC DATABASE WRITE HELPER
+# ========================================
+# Fire-and-forget database writes to reduce response latency
+
+def _async_db_write(func, *args, **kwargs):
+    """Execute a database write in a background thread (fire-and-forget).
+
+    This reduces perceived latency by not waiting for database writes.
+    Errors are logged but don't block the response.
+
+    Args:
+        func: The function to call (e.g., chat_storage.add_chat_message)
+        *args: Positional arguments for the function
+        **kwargs: Keyword arguments for the function
+    """
+    def _worker():
+        try:
+            func(*args, **kwargs)
+        except Exception as e:
+            logger.error(f"[ASYNC-DB] Background write failed: {e}")
+
+    thread = threading.Thread(target=_worker, daemon=True)
+    thread.start()
 
 # ========================================
 # SPECIAL QUERY HANDLERS
 # ========================================
 # These handle greetings, off-topic queries, and capability questions
 # BEFORE the RAG chain is invoked.
-
-# Greeting patterns (French and English)
-GREETING_PATTERNS = [
-    r"^(bonjour|bonsoir|salut|coucou|hello|hi|hey|good\s*(morning|afternoon|evening))[\s\!\.\?]*$",
-    r"^(bonjour|bonsoir|salut|coucou|hello|hi|hey)[\s\!\.\?]*$",
-]
-
-# Capability/meta question patterns
-CAPABILITY_PATTERNS = [
-    r"(what|que|qu'est-ce que)\s*(can|peux|pouvez|tu peux)\s*(you|tu)\s*(do|faire|help|aider)",
-    r"(what|que|quelles)\s*(are|sont)\s*(your|tes|vos)\s*(capabilities|capacit|fonctions)",
-    r"(tell me|dis-moi|parle-moi)\s*(about|de)\s*(yourself|toi)",
-    r"(who|qui)\s*(are|es)\s*(you|tu)",
-    r"(help|aide|comment).*\?$",
-    r"^(help|aide)[\s\!\.\?]*$",
-]
-
-# Off-topic patterns (things Lumi cannot help with)
-OFF_TOPIC_PATTERNS = [
-    r"(weather|meteo|m\u00e9t\u00e9o|temperature|temp\u00e9rature)",
-    r"(write|ecris|\u00e9cris).*(poem|poeme|po\u00e8me|story|histoire|essay)",
-    r"(translate|traduis|traduire)",
-    r"(recipe|recette|cook|cuisine|cuisiner)",
-    r"(math|calcul|equation|\u00e9quation|calculate|calculer)",
-    r"(code|program|programme|python|javascript)",
-    r"(news|actualit|politique|politics)",
-    r"(medical|m\u00e9dical|health|sant\u00e9|doctor|m\u00e9decin)",
-    r"(legal|juridique|lawyer|avocat)",
-    r"(stock|bourse|invest|finance)",
-]
+#
+# OPTIMIZATION: All special query detection uses KeywordLocator (database-backed)
+# with fuzzy matching for typo detection. No regex patterns needed.
 
 # Greeting responses (bilingual) - Uses centralized config for chatbot name
 GREETING_RESPONSES = {
@@ -151,6 +160,55 @@ I can't help with that request, but I'd be happy to help you find:
 Is there a cultural event you'd like to discover?"""
 }
 
+# Out-of-scope city responses (bilingual)
+OUT_OF_SCOPE_CITY_RESPONSES = {
+    "fr": """Je suis desole, mais **{city}** est en dehors de ma zone de couverture.
+
+Je suis specialisee dans les evenements culturels de la region **Ile-de-France** (Paris et ses environs).
+
+Voulez-vous que je cherche des evenements dans une ville d'Ile-de-France ? Par exemple :
+- Paris, Versailles, Saint-Denis
+- Boulogne-Billancourt, Montreuil, Nanterre
+- Fontainebleau, Meaux, Pontoise""",
+
+    "en": """I'm sorry, but **{city}** is outside my coverage area.
+
+I specialize in cultural events in the **Ile-de-France** region (Paris and its surroundings).
+
+Would you like me to search for events in an Ile-de-France city? For example:
+- Paris, Versailles, Saint-Denis
+- Boulogne-Billancourt, Montreuil, Nanterre
+- Fontainebleau, Meaux, Pontoise"""
+}
+
+# Statistical query responses (bilingual)
+STATISTICAL_RESPONSES = {
+    "fr": """Je suis conçue pour vous aider à **trouver des événements culturels**, pas pour fournir des statistiques.
+
+**Je peux vous aider à :**
+- Trouver des concerts, expositions ou spectacles
+- Rechercher par ville, date ou catégorie
+- Suggérer des événements selon vos préférences
+
+**Exemple :** "Quels concerts de jazz y a-t-il à Paris ce week-end ?"
+
+Que souhaitez-vous découvrir ?""",
+
+    "en": """I'm designed to help you **find cultural events**, not provide statistics.
+
+**I can help you:**
+- Find concerts, exhibitions, or shows
+- Search by city, date, or category
+- Suggest events based on your preferences
+
+**Example:** "What jazz concerts are there in Paris this weekend?"
+
+What would you like to discover?"""
+}
+
+# No hardcoded out-of-scope list needed - we use the database as the source of truth.
+# If a city is in our database, it's in scope. Everything else is out of scope.
+
 
 def detect_language_from_query(query: str) -> str:
     """Detect language from query (simple heuristic)."""
@@ -158,6 +216,216 @@ def detect_language_from_query(query: str) -> str:
     query_lower = query.lower()
     french_count = sum(1 for word in french_indicators if word in query_lower)
     return "fr" if french_count >= 1 else "en"
+
+
+def detect_out_of_scope_city(query: str) -> tuple[Optional[str], Optional[str]]:
+    """Detect if query mentions a city outside Ile-de-France scope.
+
+    Uses the database as the source of truth: if a city is in our database,
+    it's in scope. Everything else is out of scope.
+
+    OPTIMIZATION: Now includes fuzzy matching (Levenshtein) to suggest corrections
+    for typos like "Possy" → "Poissy" before marking as out-of-scope.
+
+    Args:
+        query: The user query
+
+    Returns:
+        Tuple of (out_of_scope_city, suggested_city):
+        - (None, None): City is in scope OR no city detected
+        - ("Delhi", None): City is out of scope with no suggestion
+        - ("Possy", "Poissy"): Typo detected, suggestion available
+    """
+    city_locator = get_city_locator()
+    known_cities = set(city_locator.city_cache.keys())
+
+    # Check for explicit "in <city>" or "a <city>" patterns
+    location_patterns = [
+        r"\bin\s+([A-Za-zÀ-ÿ\-]+)",  # "in Montreal"
+        r"\ba\s+([A-Za-zÀ-ÿ\-]+)",   # "a Montreal" (French)
+        r"\bà\s+([A-Za-zÀ-ÿ\-]+)",   # "à Montreal"
+        r"\bat\s+([A-Za-zÀ-ÿ\-]+)",  # "at Montreal"
+    ]
+
+    for pattern in location_patterns:
+        match = re.search(pattern, query, re.IGNORECASE)
+        if match:
+            potential_city = match.group(1).lower().strip()
+            # Skip common words that aren't cities
+            skip_words = {
+                # Articles and determiners (English)
+                "the", "a", "an", "this", "that", "my", "your", "some", "any",
+                # Articles and determiners (French)
+                "le", "la", "les", "un", "une", "des", "ce", "cette", "mon", "ma",
+                # Common event-related adjectives/nouns that appear after "a/in"
+                "cultural", "culturel", "culturelle", "music", "musical", "musicale",
+                "art", "artistic", "artistique", "jazz", "rock", "pop", "classical",
+                "classique", "traditional", "traditionnel", "traditionnelle",
+                "contemporary", "contemporain", "contemporaine", "modern", "moderne",
+                "free", "gratuit", "gratuite", "public", "publique", "private", "prive",
+                "local", "locale", "national", "nationale", "international", "internationale",
+                "live", "outdoor", "indoor", "virtual", "virtuel", "virtuelle",
+                "family", "familial", "familiale", "kid", "kids", "children", "enfant", "enfants",
+                "few", "many", "much", "little", "lot", "bit", "moment", "while",
+                "new", "nouveau", "nouvelle", "old", "ancien", "ancienne",
+                "great", "good", "nice", "beautiful", "beau", "belle",
+                "special", "spécial", "speciale", "unique", "rare",
+                # Event types that shouldn't be cities
+                "concert", "concerts", "exposition", "expositions", "expo", "expos",
+                "festival", "festivals", "spectacle", "spectacles", "show", "shows",
+                "theatre", "theater", "théâtre", "opera", "opéra", "ballet", "dance", "danse",
+                "exhibition", "exhibitions", "performance", "performances",
+                "workshop", "workshops", "atelier", "ateliers",
+            }
+
+            # Skip date-related words (months, days, time indicators)
+            # These are often falsely detected as cities in queries like "events in April"
+            date_words = {
+                # Months (English)
+                "january", "february", "march", "april", "may", "june",
+                "july", "august", "september", "october", "november", "december",
+                # Months (French)
+                "janvier", "février", "fevrier", "mars", "avril", "mai", "juin",
+                "juillet", "août", "aout", "septembre", "octobre", "novembre", "décembre", "decembre",
+                # Days (English)
+                "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+                # Days (French)
+                "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche",
+                # Time indicators
+                "today", "tomorrow", "yesterday", "morning", "afternoon", "evening", "night",
+                "aujourd'hui", "demain", "hier", "matin", "après-midi", "soir", "nuit",
+                # Relative time
+                "week", "weekend", "week-end", "month", "year", "semaine", "mois", "année", "annee"
+            }
+
+            if potential_city in skip_words or potential_city in date_words:
+                continue
+            # If it looks like a city name but is NOT in our database, check further
+            if len(potential_city) > 2 and potential_city not in known_cities:
+                # Check partial matches - but be strict to avoid false positives
+                # Only match if the known city is a PREFIX of the query term (e.g., "paris 15" → "paris")
+                # Or if the query term exactly equals a known city
+                is_partial_match = False
+                for kc in known_cities:
+                    # Only allow: "paris" matches "paris 15" (kc is prefix of potential_city)
+                    if potential_city.startswith(kc) and len(potential_city) <= len(kc) + 5:
+                        is_partial_match = True
+                        break
+                    # Also allow: query is Paris and we check "paris 15eme" → match
+                    if kc.startswith(potential_city) and len(kc) <= len(potential_city) + 10:
+                        is_partial_match = True
+                        break
+
+                if not is_partial_match:
+                    # OPTIMIZATION: Try fuzzy matching BEFORE marking as out-of-scope
+                    # This catches typos like "Possy" → "Poissy", "Versaille" → "Versailles"
+                    fuzzy_match = city_locator.find_closest_city(potential_city, threshold=0.75)
+                    if fuzzy_match:
+                        logger.info(f"[EARLY-FUZZY] Typo detected: '{potential_city}' → suggested: '{fuzzy_match}'")
+                        return (potential_city.title(), fuzzy_match.title())
+
+                    # No fuzzy match found - truly out of scope
+                    logger.debug(f"Detected out-of-scope city: {potential_city}")
+                    return (potential_city.title(), None)
+
+    return (None, None)
+
+
+def is_broad_query(query: str, chat_history: Optional[List[Any]] = None) -> Tuple[bool, str]:
+    """Detect if a query is too broad and needs clarification.
+
+    STRICT 3-CRITERIA REQUIREMENT:
+    A query must have ALL THREE of:
+    - City (e.g., "Paris", "Versailles")
+    - Event type (e.g., "concerts", "expositions", "jazz")
+    - Date/timeframe (e.g., "ce week-end", "en février", "today")
+
+    If ANY criterion is missing (from query + chat history context),
+    the query is considered broad and needs clarification.
+
+    EXCEPTION: Explicit "all/everything" intent bypasses this check.
+
+    Args:
+        query: The user query
+        chat_history: Optional list of previous chat messages (HumanMessage/AIMessage)
+
+    Returns:
+        Tuple of (is_broad, reason) where reason describes what's missing
+    """
+    query_lower = query.lower().strip()
+    words = query_lower.split()
+
+    # Skip very short queries (greetings handled elsewhere)
+    if len(words) < 1:
+        return (False, "")
+
+    # EXCEPTION: Explicit "all/everything" intent - user wants broad search
+    broad_intent_words = {
+        "all", "everything", "anything", "tous", "tout", "toutes",
+        "n'importe", "nimporte", "whatever", "any"
+    }
+    if any(word in query_lower for word in broad_intent_words):
+        logger.debug(f"Explicit broad intent detected in query: '{query}'")
+        return (False, "")
+
+    # Known IDF cities (check against city locator cache)
+    city_locator = get_city_locator()
+    known_cities = set(city_locator.city_cache.keys())
+
+    # Also accept "île-de-france", "idf", "region" as valid city context
+    region_words = {"île-de-france", "ile-de-france", "idf", "région", "region", "paris region"}
+
+    # OPTIMIZATION: Use database-backed KeywordLocator for event types and dates
+    # This provides fuzzy matching, typo detection, and comprehensive keyword coverage
+    # (327 event descriptors, 78 date keywords with variants)
+    keyword_locator = get_keyword_locator()
+
+    # Check what the current query contains
+    has_city = any(city in query_lower for city in known_cities) or any(r in query_lower for r in region_words)
+    # KeywordLocator provides fuzzy matching for typos like "wekend" -> "weekend"
+    has_event_type = keyword_locator.has_event_indicator(query)
+    has_date = keyword_locator.has_date_indicator(query)
+
+    # IMPORTANT: Check chat history context (last 5 messages only for relevance)
+    # If history mentions city/event_type/date, treat it as present
+    if chat_history:
+        # Only check recent history (last 5 messages) to avoid stale context
+        recent_history = chat_history[-5:] if len(chat_history) > 5 else chat_history
+
+        history_text = ""
+        for msg in recent_history:
+            if hasattr(msg, "content"):
+                history_text += " " + msg.content.lower()
+
+        # Check if history contains the missing criteria
+        if not has_city:
+            has_city = any(city in history_text for city in known_cities) or any(r in history_text for r in region_words)
+        if not has_event_type:
+            # Use KeywordLocator for fuzzy matching in history context
+            has_event_type = keyword_locator.has_event_indicator(history_text)
+        if not has_date:
+            # Use KeywordLocator for date detection (including specific date formats)
+            has_date = keyword_locator.has_date_indicator(history_text)
+
+        if has_city or has_event_type or has_date:
+            logger.debug(f"Context from history: city={has_city}, event_type={has_event_type}, date={has_date}")
+
+    # STRICT 3-CRITERIA: Build list of missing criteria
+    missing = []
+    if not has_city:
+        missing.append("city")
+    if not has_event_type:
+        missing.append("event_type")
+    if not has_date:
+        missing.append("date")
+
+    # If ANY criterion is missing, query is broad
+    if missing:
+        reason = "missing_" + "+".join(missing)
+        logger.debug(f"Broad query detected. Missing: {missing}. Query: '{query}'")
+        return (True, reason)
+
+    return (False, "")
 
 
 def sanitize_text_for_encoding(text: str) -> str:
@@ -190,7 +458,17 @@ def sanitize_text_for_encoding(text: str) -> str:
 
 
 def check_special_query(query: str, language: Optional[str] = None) -> Optional[Tuple[str, str]]:
-    """Check if query is a special case (greeting, capability, off-topic).
+    """Check if query is a special case (greeting, capability, off-topic, out-of-scope city, statistical).
+
+    Uses database-backed KeywordLocator as the SINGLE SOURCE OF TRUTH for all special query detection.
+    Provides fuzzy matching for typo detection: "helo" -> "hello", "bonour" -> "bonjour", "wether" -> "weather".
+
+    Detection order (priority):
+    1. Greetings (bonjour, hello, salut) - checked first for fast response
+    2. Capability questions (help, what can you do)
+    3. Statistical queries (how many events, combien)
+    4. Off-topic queries (weather, recipe, translate)
+    5. Out-of-scope cities (Delhi, London) - with fuzzy city correction
 
     Args:
         query: The user query
@@ -199,26 +477,69 @@ def check_special_query(query: str, language: Optional[str] = None) -> Optional[
     Returns:
         Tuple of (response_text, query_type) if special query detected, None otherwise
     """
-    query_clean = query.strip().lower()
-
-    # Auto-detect language if not provided
+    # Defensive: Auto-detect language if not provided
     if language is None:
         language = detect_language_from_query(query)
 
-    # Check greetings (exact match for short queries)
-    for pattern in GREETING_PATTERNS:
-        if re.match(pattern, query_clean, re.IGNORECASE):
-            return (GREETING_RESPONSES[language], "greeting")
+    # Get KeywordLocator for fuzzy matching (single source of truth)
+    keyword_locator = get_keyword_locator()
 
-    # Check capability questions
-    for pattern in CAPABILITY_PATTERNS:
-        if re.search(pattern, query_clean, re.IGNORECASE):
-            return (CAPABILITY_RESPONSES[language], "capability")
+    # ========================================
+    # 1. GREETING CHECK
+    # ========================================
+    greeting_match = keyword_locator.detect_greeting(query)
+    if greeting_match:
+        logger.info(f"[SPECIAL-QUERY] Greeting detected: '{greeting_match.original}' -> '{greeting_match.matched}' ({greeting_match.match_type})")
+        return (GREETING_RESPONSES[language], "greeting")
 
-    # Check off-topic queries
-    for pattern in OFF_TOPIC_PATTERNS:
-        if re.search(pattern, query_clean, re.IGNORECASE):
-            return (OFF_TOPIC_RESPONSES[language], "off_topic")
+    # ========================================
+    # 2. CAPABILITY CHECK
+    # ========================================
+    capability_match = keyword_locator.detect_capability(query)
+    if capability_match:
+        logger.info(f"[SPECIAL-QUERY] Capability detected: '{capability_match.original}' -> '{capability_match.matched}' ({capability_match.match_type})")
+        return (CAPABILITY_RESPONSES[language], "capability")
+
+    # ========================================
+    # 3. STATISTICAL CHECK
+    # ========================================
+    statistical_match = keyword_locator.detect_statistical(query)
+    if statistical_match:
+        logger.info(f"[SPECIAL-QUERY] Statistical detected: '{statistical_match.original}' -> '{statistical_match.matched}' ({statistical_match.match_type})")
+        return (STATISTICAL_RESPONSES[language], "statistical")
+
+    # ========================================
+    # 4. OFF-TOPIC CHECK
+    # ========================================
+    off_topic_match = keyword_locator.detect_off_topic(query)
+    if off_topic_match:
+        logger.info(f"[SPECIAL-QUERY] Off-topic detected: '{off_topic_match.original}' -> '{off_topic_match.matched}' ({off_topic_match.match_type}, subcategory: {off_topic_match.implied_category})")
+        return (OFF_TOPIC_RESPONSES[language], "off_topic")
+
+    # ========================================
+    # 5. OUT-OF-SCOPE CITY CHECK
+    # ========================================
+    out_of_scope_city, suggested_city = detect_out_of_scope_city(query)
+    if out_of_scope_city:
+        if suggested_city:
+            # Typo detected with fuzzy match - offer correction
+            if language == "fr":
+                response = f"""Je n'ai pas trouve **{out_of_scope_city}**, mais vouliez-vous dire **{suggested_city}** ?
+
+Si oui, reformulez votre demande avec "{suggested_city}" et je serai ravie de vous aider !
+
+Sinon, je couvre uniquement la region **Ile-de-France** (Paris et environs)."""
+            else:
+                response = f"""I couldn't find **{out_of_scope_city}**, but did you mean **{suggested_city}**?
+
+If so, rephrase your request with "{suggested_city}" and I'll be happy to help!
+
+Otherwise, I only cover the **Ile-de-France** region (Paris and surroundings)."""
+            return (response, "city_typo_suggestion")
+        else:
+            # Truly out of scope, no fuzzy match
+            response = OUT_OF_SCOPE_CITY_RESPONSES[language].format(city=out_of_scope_city)
+            return (response, "out_of_scope_city")
 
     return None
 
@@ -255,6 +576,131 @@ class SimpleSummaryBufferMemory:
     def save_context(self, inputs: Dict[str, Any], outputs: Dict[str, str]) -> None:
         pass
 
+def _enrich_events_from_metadata(structured_events: list, source_data: list) -> list:
+    """Enrich structured events with price_label and age_label from source metadata.
+
+    This is necessary because the LLM JSON schema doesn't include these fields,
+    but the data exists in the database. This post-processing step adds the
+    missing information.
+
+    Args:
+        structured_events: List of event dicts from LLM
+        source_data: List of either LangChain Document objects or dicts with metadata
+
+    Returns:
+        The same list with enriched price_label and age_label fields
+    """
+    if not structured_events:
+        return structured_events
+
+    # Build lookup from source document titles
+    # Handle both Document objects and plain dicts (for cached results)
+    source_lookup = {}
+    # Build lookup by title for price/age metadata
+    # Also build times lookup by (title, city, date) for consolidation
+    times_lookup = {}  # (title, city, date) -> [times]
+
+    for item in source_data:
+        if hasattr(item, 'metadata'):
+            # LangChain Document object
+            meta = item.metadata
+        else:
+            # Plain dict (from cached sources)
+            meta = item
+
+        title = meta.get("title", "").lower().strip()
+        city = meta.get("city", "").lower().strip()
+        # Sources may use "date" or "start_date" depending on context
+        start_date = meta.get("date") or meta.get("start_date", "")
+
+        # Debug: log first few items
+        if len(times_lookup) < 3:
+            logger.info(f"[ENRICH-DEBUG] Source item: title={title[:30]}, city={city}, date={start_date}, keys={list(meta.keys())[:10]}")
+
+        # Extract date and time from source
+        if start_date:
+            if "T" in str(start_date):
+                date_only = str(start_date).split("T")[0]
+                time_part = str(start_date).split("T")[1][:5]  # HH:MM
+            else:
+                date_only = str(start_date)[:10]
+                time_part = None
+
+            # Collect times by (title, city, date) key
+            if title and city and date_only:
+                times_key = (title, city, date_only)
+                if times_key not in times_lookup:
+                    times_lookup[times_key] = set()
+                if time_part:
+                    times_lookup[times_key].add(time_part)
+
+        if title:
+            source_lookup[title] = {
+                "conditions": meta.get("conditions"),
+                "age_min": meta.get("age_min"),
+                "age_max": meta.get("age_max"),
+            }
+
+    logger.info(f"[ENRICH] Built lookup with {len(source_lookup)} source titles, {len(times_lookup)} time groups")
+    # Debug: Log sample times_lookup entries
+    if times_lookup:
+        sample_keys = list(times_lookup.keys())[:3]
+        for k in sample_keys:
+            logger.info(f"[ENRICH] times_lookup key: {k} -> times: {times_lookup[k]}")
+
+    for event in structured_events:
+        event_title = event.get("title", "").lower().strip()
+        event_city = event.get("city", "").lower().strip()
+        event_date = event.get("date", "")
+
+        # Normalize date to just YYYY-MM-DD
+        if "T" in str(event_date):
+            event_date_only = str(event_date).split("T")[0]
+        else:
+            event_date_only = str(event_date)[:10]
+
+        source_meta = source_lookup.get(event_title, {})
+
+        # Price label from conditions
+        conditions = source_meta.get("conditions")
+        if conditions:
+            cond_lower = conditions.lower()
+            if "gratuit" in cond_lower or "free" in cond_lower:
+                event["price_label"] = "Gratuit"
+            elif "€" in conditions or "euro" in cond_lower:
+                event["price_label"] = conditions[:50]
+            else:
+                event["price_label"] = conditions[:50]
+        else:
+            event["price_label"] = "Non spécifié"
+
+        # Age label from age_min/age_max
+        age_min = source_meta.get("age_min")
+        age_max = source_meta.get("age_max")
+        if age_min is not None and age_max is not None:
+            if age_min == 0 and age_max >= 99:
+                event["age_label"] = "Tout public"
+            else:
+                event["age_label"] = f"{age_min}-{age_max} ans"
+        elif age_min is not None:
+            event["age_label"] = f"Dès {age_min} ans"
+        elif age_max is not None:
+            event["age_label"] = f"Jusqu'à {age_max} ans"
+        else:
+            event["age_label"] = "Tout public"
+
+        # Collect times from source documents for this event
+        times_key = (event_title, event_city, event_date_only)
+        logger.debug(f"[ENRICH] Looking for times_key: {times_key}")
+        if times_key in times_lookup:
+            times_list = sorted(times_lookup[times_key])
+            if times_list:
+                event["times"] = times_list
+                event["times_display"] = ", ".join(times_list)
+
+    return structured_events
+
+
 class RAGChain:
     """Orchestrator for the Cultural Events RAG system with Summary Buffer Memory."""
 
@@ -266,7 +712,6 @@ class RAGChain:
         chat_storage: ChatStorage | None = None,
         enable_cache: bool = True,
         cache_ttl_minutes: int = 60,
-        enable_reranking: bool = True,
     ) -> None:
         """Initialize the RAG chain."""
         self.vector_store = vector_store or EventVectorStore()
@@ -278,23 +723,17 @@ class RAGChain:
         self.llm = llm or MistralLLM()
         self.chat_storage = chat_storage or ChatStorage()
         self.k = k
-        self.enable_reranking = enable_reranking
 
         # Initialize deterministic retrieval manager
         self.retrieval_manager = RetrievalManager(self.vector_store, k=k)
 
         self.cache = QueryCache(ttl_minutes=cache_ttl_minutes) if enable_cache else None
 
-        self.reranker = None
-        if enable_reranking:
-            from src.retrieval.reranker import get_reranker
-            self.reranker = get_reranker()
-        
-        # Chains
-        self.extraction_chain = get_metadata_extraction_prompt() | self.llm.llm.bind(response_format={"type": "json_object"}) | JsonOutputParser()
-        self.refinement_chain = get_query_refinement_prompt() | self.llm.llm | StrOutputParser()
-        self.retriever = EventRetriever(vector_store=self.vector_store, k=k)
-        
+        # Chains - Use UNIFIED prompt (combines reformulation + refinement + extraction into 1 LLM call)
+        # OLD: 3 separate chains = 3 LLM calls (~15-24s)
+        # NEW: 1 unified chain = 1 LLM call (~5-8s)
+        self.unified_understanding_chain = get_query_understanding_prompt() | self.llm.llm.bind(response_format={"type": "json_object"}) | JsonOutputParser()
+
         try:
             total_events_val = self.vector_store.storage.count_events()
             min_date, max_date = self.vector_store.storage.get_date_range()
@@ -305,36 +744,38 @@ class RAGChain:
 
         current_date_val = "2026-01-24" # Reference date
 
-        # 1. Prepare Inputs
+        # 1. Prepare Inputs - Now just passes through (no separate reformulation call)
         def prepare_inputs(inputs):
             history = inputs.get("chat_history", [])
             q = inputs["input"]
-            if not history or len(history) < 2:
-                return {"q": q, "raw_q": q, "history": []}
-            try:
-                reformulation_chain = get_contextualize_q_prompt() | self.llm.llm | StrOutputParser()
-                new_q = reformulation_chain.invoke({"input": q, "chat_history": history})
-                return {"q": new_q, "raw_q": q, "history": history}
-            except:
-                return {"q": q, "raw_q": q, "history": history}
+            return {"q": q, "raw_q": q, "history": history}
 
-        # 2. Refined Hybrid Retrieval
+        # 2. UNIFIED Query Understanding + Hybrid Retrieval
+        # Combines: reformulation + typo correction + filter extraction into ONE LLM call
         def retrieve_docs_hybrid(inputs):
             input_query = inputs["q"]
             raw_query = inputs["raw_q"]
             history = inputs["history"]
-            
+
             try:
-                # 1. Refine Query (Typos)
-                refined_query = self.refinement_chain.invoke({"question": input_query})
-                
-                # 2. Extract Intent (Filters)
-                raw_filters = self.extraction_chain.invoke({"question": refined_query, "chat_history": history})
+                # UNIFIED: One LLM call for reformulation + refinement + extraction
+                understanding_result = self.unified_understanding_chain.invoke({
+                    "question": input_query,
+                    "chat_history": history
+                })
+
+                # Extract results from unified response
+                refined_query = understanding_result.get("refined_query", input_query)
+                raw_filters = understanding_result.get("filters", {})
+
+                logger.info(f"[UNIFIED] Query: '{input_query}' -> Refined: '{refined_query}' | Filters: {raw_filters}")
+
+                # Parse intent from filters
                 intent = self.retrieval_manager.parse_intent(raw_filters)
-                
-                # 3. Execute Multi-Stage Search
+
+                # Execute Multi-Stage Search
                 result = self.retrieval_manager.execute_search(refined_query, intent)
-                
+
                 return {
                     "docs": result["docs"],
                     "filters": raw_filters,
@@ -343,7 +784,7 @@ class RAGChain:
                     "filters_applied": result.get("filters_applied", {})
                 }
             except Exception as e:
-                logger.error(f"Manager retrieval failed: {e}", exc_info=True)
+                logger.error(f"Unified retrieval failed: {e}", exc_info=True)
                 return {"docs": [], "filters": {}, "actual_k": 0}
 
         def format_docs(docs, filters):
@@ -407,14 +848,9 @@ class RAGChain:
         return SimpleSummaryBufferMemory(llm=self.llm.llm, chat_memory=chat_memory)
 
     def query(self, question: str, session_id: str = "default_session") -> str:
+        """Simple wrapper for backward compatibility."""
         result = self.query_with_metadata(question, session_id)
         return result["answer"]
-
-    def _is_statistical_query(self, question: str) -> bool:
-        q = question.lower()
-        stat_kw = ['how many', 'combien', 'number of', 'count', 'total']
-        entity_kw = ['events', 'événements']
-        return any(k in q for k in stat_kw) and any(k in q for k in entity_kw)
 
     def query_with_metadata(self, question: str, session_id: str = "default_session", language: str = None) -> Dict[str, Any]:
         logger.info(f"Query: {question}")
@@ -424,7 +860,9 @@ class RAGChain:
         if language is None:
             language = detect_language_from_query(question)
 
-        # Check for special queries (greetings, capabilities, off-topic)
+        # Check for special queries (greetings, capabilities, off-topic, statistical, out-of-scope city)
+        # OPTIMIZATION: All fast-path queries handled here BEFORE any LLM call
+        # Includes: greeting, capability, off_topic, statistical, out_of_scope_city, city_typo_suggestion
         special_result = check_special_query(question, language)
         if special_result:
             response_text, query_type = special_result
@@ -433,8 +871,8 @@ class RAGChain:
             memory = self._get_memory(session_id)
             memory.chat_memory.add_message(HumanMessage(content=question))
             memory.chat_memory.add_message(AIMessage(content=response_text))
-            # Save to persistent storage and get message_id
-            self.chat_storage.add_chat_message(session_id, "user", question)
+            # Save to persistent storage (user msg async, assistant sync for message_id)
+            _async_db_write(self.chat_storage.add_chat_message, session_id, "user", question)
             message_id = self.chat_storage.add_chat_message(session_id, "assistant", response_text)
             return {
                 "answer": response_text,
@@ -444,19 +882,51 @@ class RAGChain:
                 "query_type": query_type
             }
 
-        if self._is_statistical_query(question):
-            stat_response = "I am designed to find events, not provide statistics."
-            self.chat_storage.add_chat_message(session_id, "user", question)
-            message_id = self.chat_storage.add_chat_message(session_id, "assistant", stat_response)
-            return {"answer": stat_response, "sources": [], "structured_events": [], "message_id": message_id}
-
-        # Cache check
+        # Cache check - re-enrich events to handle stale cache entries
         if self.cache:
             cached = self.cache.get(question, session_id)
-            if cached: return cached
+            if cached:
+                # Re-enrich structured_events in case cache has stale "Unknown" values
+                structured_events = cached.get("structured_events", [])
+                sources = cached.get("sources", [])
+                if structured_events and sources:
+                    _enrich_events_from_metadata(structured_events, sources)
+                    logger.debug(f"[CACHE] Re-enriched {len(structured_events)} cached events")
+                return cached
 
         memory = self._get_memory(session_id)
         chat_history = memory.load_memory_variables({})["chat_history"]
+
+        # ========================================
+        # OPTIMIZATION 1: EARLY BROAD QUERY CHECK
+        # ========================================
+        # Check if query is missing required criteria BEFORE calling LLM
+        # This saves ~5-8s and API costs for vague queries
+        is_broad, broad_reason = is_broad_query(question, chat_history)
+        if is_broad:
+            logger.info(f"[EARLY-BROAD] Query missing criteria: {broad_reason}. Skipping LLM.")
+            from src.retrieval.clarifications import get_clarification_response
+            backup_prefix, backup_questions = get_clarification_response(broad_reason, language)
+
+            if backup_prefix and backup_questions:
+                questions_text = "\n".join([f"- {q}" for q in backup_questions])
+                answer_text = f"{backup_prefix}{questions_text}"
+
+                # Save to memory and storage (user msg async)
+                memory.chat_memory.add_message(HumanMessage(content=question))
+                memory.chat_memory.add_message(AIMessage(content=answer_text))
+                _async_db_write(self.chat_storage.add_chat_message, session_id, "user", question)
+                message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_text)
+
+                return {
+                    "answer": answer_text,
+                    "sources": [],
+                    "structured_events": [],
+                    "message_id": message_id,
+                    "query_type": "broad_query",
+                    "needs_clarification": True,
+                    "clarifying_questions": backup_questions
+                }
 
         try:
             result = self.rag_chain.invoke({
@@ -464,12 +934,120 @@ class RAGChain:
                 "chat_history": chat_history,
                 "language": language
             })
+
+            logger.warning(f"[DEBUG-ANSWER] result['answer'] type: {type(result.get('answer'))}")
             if isinstance(result["answer"], dict):
                 answer_text = result["answer"].get("answer_text", "")
                 structured_events = result["answer"].get("events", [])
+
+                # Enrich structured_events with price_label and age_label from source metadata
+                source_docs = result.get("context", [])
+                logger.info(f"[ENRICH] Starting enrichment: {len(structured_events)} events, {len(source_docs)} source docs")
+                _enrich_events_from_metadata(structured_events, source_docs)
+                logger.info(f"[ENRICH] Enrichment complete. Sample event: {structured_events[0] if structured_events else 'none'}")
+
+                # POST-PROCESSING: Consolidate duplicates by (title, city, date) and enforce k limit
+                # SINGLE SOURCE OF TRUTH: This Python code handles all consolidation.
+                # LLM prompts no longer include consolidation instructions (removed for simplicity).
+                # Times are already collected from source docs in _enrich_events_from_metadata
+                seen_events = {}
+                for event in structured_events:
+                    # Extract just the date part (YYYY-MM-DD) without time
+                    event_date = str(event.get("date", ""))
+                    if "T" in event_date:
+                        date_only = event_date.split("T")[0]
+                    else:
+                        date_only = event_date[:10] if len(event_date) >= 10 else event_date
+
+                    key = (
+                        event.get("title", "").lower().strip(),
+                        event.get("city", "").lower().strip(),
+                        date_only  # Group by date, not time
+                    )
+
+                    if key not in seen_events:
+                        # First occurrence - normalize date to just YYYY-MM-DD
+                        event["date"] = date_only
+                        seen_events[key] = event
+                    else:
+                        # Duplicate event - merge times if both have times arrays
+                        existing = seen_events[key]
+                        existing_times = set(existing.get("times", []))
+                        new_times = set(event.get("times", []))
+                        merged_times = sorted(existing_times | new_times)
+                        if merged_times:
+                            existing["times"] = merged_times
+                            existing["times_display"] = ", ".join(merged_times)
+
+                consolidated = list(seen_events.values())
+
+                # Enforce strict limit of k events
+                if len(consolidated) > self.k:
+                    logger.info(f"[LIMIT] Truncating {len(consolidated)} events to {self.k}")
+                    consolidated = consolidated[:self.k]
+
+                structured_events = consolidated
+                logger.info(f"[POST-PROCESS] Final event count: {len(structured_events)}")
+
+                # CRITICAL FIX: Extract and USE clarification fields
+                needs_clarification = result["answer"].get("needs_clarification", False)
+                clarifying_questions = result["answer"].get("clarifying_questions", [])
+
+                # Type validation to prevent crash if LLM returns wrong type
+                if not isinstance(clarifying_questions, list):
+                    logger.warning(f"clarifying_questions is not a list: {type(clarifying_questions)}")
+                    clarifying_questions = []
+                if not isinstance(needs_clarification, bool):
+                    needs_clarification = bool(needs_clarification)
+
+                # ALWAYS check Python's is_broad_query() as ground truth
+                # Pass chat_history so it respects conversation context
+                is_broad, broad_reason = is_broad_query(question, chat_history)
+
+                # If LLM flagged needs_clarification with proper questions, use them
+                if needs_clarification and clarifying_questions:
+                    logger.info(f"LLM flagged needs_clarification=True with questions: {clarifying_questions}")
+                    # Show ONLY clarification questions, NO events
+                    if language == "fr":
+                        questions_text = "\n".join([f"- {q}" for q in clarifying_questions])
+                        answer_text = f"Pour mieux t'aider, j'ai quelques questions :\n{questions_text}"
+                    else:
+                        questions_text = "\n".join([f"- {q}" for q in clarifying_questions])
+                        answer_text = f"To help you better, I have a few questions:\n{questions_text}"
+                    # Clear events - don't show them with clarification
+                    structured_events = []
+                    logger.info("Broad query: showing only clarification questions, no events")
+
+                # FIX: If LLM flagged needs_clarification=True but gave empty questions,
+                # OR if Python detected broad query but LLM didn't flag it,
+                # -> use backup questions based on broad_reason
+                elif is_broad:
+                    # We reach here if:
+                    # 1. LLM flagged needs_clarification=True but gave empty clarifying_questions
+                    # 2. OR LLM didn't flag needs_clarification but Python detected broad query
+                    # Either way, we need to use backup questions
+                    if needs_clarification:
+                        logger.warning(f"LLM flagged needs_clarification=True but gave empty questions for: '{question}'")
+                    else:
+                        logger.warning(f"LLM missed broad query detection. Query: '{question}', Reason: {broad_reason}")
+
+                    # Generate clarification questions from centralized config
+                    from src.retrieval.clarifications import get_clarification_response
+                    backup_prefix, backup_questions = get_clarification_response(broad_reason, language)
+
+                    if backup_prefix and backup_questions:
+                        # Show ONLY clarification questions, NO events
+                        questions_text = "\n".join([f"- {q}" for q in backup_questions])
+                        answer_text = f"{backup_prefix}{questions_text}"
+                        structured_events = []  # Clear events
+                        needs_clarification = True
+                        clarifying_questions = backup_questions
+                        logger.info("Backup broad query: showing only clarification questions, no events")
             else:
                 answer_text = str(result["answer"])
                 structured_events = []
+                needs_clarification = False
+                clarifying_questions = []
 
             # Sanitize answer to prevent Unicode encoding errors
             answer_text = sanitize_text_for_encoding(answer_text)
@@ -477,16 +1055,18 @@ class RAGChain:
             logger.error(f"Chain failed: {e}", exc_info=True)
             answer_text = "I encountered an error."
             structured_events = []
+            needs_clarification = False
+            clarifying_questions = []
             result = {"context": []}
 
         memory.chat_memory.add_message(HumanMessage(content=question))
         memory.chat_memory.add_message(AIMessage(content=answer_text))
 
-        # Save to persistent storage and get message_id
-        self.chat_storage.add_chat_message(session_id, "user", question)
+        # Save to persistent storage (user msg async, assistant sync for message_id)
+        _async_db_write(self.chat_storage.add_chat_message, session_id, "user", question)
         message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_text)
 
-        # Extract complete source metadata
+        # Extract complete source metadata (including enrichment fields for cache)
         sources = []
         for d in result.get("context", []):
             meta = d.metadata
@@ -497,7 +1077,11 @@ class RAGChain:
                 "category": meta.get("category"),
                 "date": meta.get("start_date"),
                 "score": meta.get("score", 0.0),
-                "match_type": meta.get("match_type", "Unknown")
+                "match_type": meta.get("match_type", "Unknown"),
+                # Include enrichment metadata for cache re-enrichment
+                "conditions": meta.get("conditions"),
+                "age_min": meta.get("age_min"),
+                "age_max": meta.get("age_max"),
             })
 
         # Add retrieval stats
@@ -511,7 +1095,10 @@ class RAGChain:
             "retrieval_stats": {
                 "total_count": retrieval_stats.get("actual_k", len(sources)),
                 "exact_count": sum(1 for s in sources if s.get("match_type") == "Exact Match")
-            }
+            },
+            # Include clarification info for transparency
+            "needs_clarification": needs_clarification,
+            "clarifying_questions": clarifying_questions
         }
         if self.cache: self.cache.set(question, session_id, res)
         return res
