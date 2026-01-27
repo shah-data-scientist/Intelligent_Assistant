@@ -428,35 +428,6 @@ def is_broad_query(query: str, chat_history: Optional[List[Any]] = None) -> Tupl
     return (False, "")
 
 
-def sanitize_text_for_encoding(text: str) -> str:
-    """Remove emojis and problematic Unicode characters to prevent encoding errors.
-
-    This function strips emojis and other special Unicode characters that can cause
-    'charmap' codec errors on Windows systems.
-    """
-    if not text:
-        return text
-
-    # Remove emojis and other special Unicode characters
-    # Keep only basic Latin, Latin Extended, and common punctuation
-    sanitized = []
-    for char in text:
-        code_point = ord(char)
-        # Keep ASCII, Latin-1, Latin Extended, and common symbols
-        if code_point < 0x2000 or (0x2000 <= code_point < 0x2100):  # General punctuation
-            sanitized.append(char)
-        elif code_point in (0x2014, 0x2013, 0x2018, 0x2019, 0x201C, 0x201D):  # Smart quotes/dashes
-            # Replace with ASCII equivalents
-            replacements = {0x2014: '-', 0x2013: '-', 0x2018: "'", 0x2019: "'", 0x201C: '"', 0x201D: '"'}
-            sanitized.append(replacements.get(code_point, char))
-        elif code_point >= 0x1F000:  # Emoji ranges
-            continue  # Skip emojis
-        else:
-            sanitized.append(char)
-
-    return ''.join(sanitized)
-
-
 def check_special_query(query: str, language: Optional[str] = None) -> Optional[Tuple[str, str]]:
     """Check if query is a special case (greeting, capability, off-topic, out-of-scope city, statistical).
 
@@ -824,38 +795,21 @@ class RAGChain:
 
                 # NOTE: k limit enforced in manager.py (single source of truth)
                 # NOTE: Enrichment/deduplication handled at database level (Phase 14/15)
+                # NOTE: Clarification handled by early check before LLM call (Phase 16)
                 logger.info(f"[POST-PROCESS] Event count: {len(structured_events)}")
 
-                # Extract clarification fields from LLM response
-                needs_clarification = result["answer"].get("needs_clarification", False)
-                clarifying_questions = result["answer"].get("clarifying_questions", [])
-
-                # Type validation to prevent crash if LLM returns wrong type
-                if not isinstance(clarifying_questions, list):
-                    logger.warning(f"clarifying_questions is not a list: {type(clarifying_questions)}")
-                    clarifying_questions = []
-                if not isinstance(needs_clarification, bool):
-                    needs_clarification = bool(needs_clarification)
-
-                # If LLM flagged needs_clarification with proper questions, use them
-                if needs_clarification and clarifying_questions:
-                    logger.info(f"LLM flagged needs_clarification=True with questions: {clarifying_questions}")
-                    if language == "fr":
-                        questions_text = "\n".join([f"- {q}" for q in clarifying_questions])
-                        answer_text = f"Pour mieux t'aider, j'ai quelques questions :\n{questions_text}"
-                    else:
-                        questions_text = "\n".join([f"- {q}" for q in clarifying_questions])
-                        answer_text = f"To help you better, I have a few questions:\n{questions_text}"
+                # Ensure events is a list (type safety)
+                if not isinstance(structured_events, list):
+                    logger.warning(f"structured_events is not a list: {type(structured_events)}")
                     structured_events = []
-                    logger.info("LLM clarification: showing only questions, no events")
+
+                needs_clarification = False
+                clarifying_questions = []
             else:
                 answer_text = str(result["answer"])
                 structured_events = []
                 needs_clarification = False
                 clarifying_questions = []
-
-            # Sanitize answer to prevent Unicode encoding errors
-            answer_text = sanitize_text_for_encoding(answer_text)
         except Exception as e:
             logger.error(f"Chain failed: {e}", exc_info=True)
             answer_text = "I encountered an error."

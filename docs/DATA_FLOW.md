@@ -272,17 +272,15 @@ context + question + chat_history → RAG prompt → LLM
 
 ## 5. Post-Processing (Minimal)
 
-### Step 5.1: LLM Clarification Check
-If LLM flagged `needs_clarification=True` with questions → Show only questions, no events.
+**Current**: Type safety only (ensure `structured_events` is a list).
 
-### Step 5.2: Response Sanitization
-Remove emojis and problematic Unicode characters (optional for modern systems).
-
-**REMOVED (Phase 15/16):**
+**REMOVED (Phase 15/16/17):**
 - ~~Event Limit~~ → Now enforced in `manager.py` (single source of truth)
 - ~~Backup Broad Query~~ → Dead code (early check always returns if broad)
 - ~~Metadata Enrichment~~ → Pre-computed in database (`price_label`, `age_label`)
 - ~~Deduplication~~ → Database already deduplicated (Phase 14)
+- ~~LLM Clarification Check~~ → Redundant (handled by early Python check before LLM)
+- ~~Response Sanitization~~ → Removed (modern systems handle Unicode correctly)
 
 ---
 
@@ -514,4 +512,4 @@ message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_
 ---
 
 *Last updated: January 27, 2026*
-*Version: 7.1 (k limit in manager.py, removed dead backup broad query code)*
+*Version: 7.2 (removed post-LLM clarification check and sanitization)*
