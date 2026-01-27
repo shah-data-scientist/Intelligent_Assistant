@@ -715,10 +715,8 @@ class RAGChain:
     ) -> None:
         """Initialize the RAG chain."""
         self.vector_store = vector_store or EventVectorStore()
-        try:
-            self.vector_store.load_index()
-        except Exception as e:
-            logger.warning(f"Could not load FAISS index: {e}.")
+        # OPTIMIZATION D: Lazy initialization - delay index loading until first query
+        self._index_loaded = False
 
         self.llm = llm or MistralLLM()
         self.chat_storage = chat_storage or ChatStorage()
@@ -847,12 +845,25 @@ class RAGChain:
         chat_memory = SQLiteChatMessageHistory(session_id=session_id, storage=self.chat_storage)
         return SimpleSummaryBufferMemory(llm=self.llm.llm, chat_memory=chat_memory)
 
+    def _ensure_ready(self) -> None:
+        """OPTIMIZATION D: Lazy initialization - load index on first query."""
+        if not self._index_loaded:
+            try:
+                self.vector_store.load_index()
+                self._index_loaded = True
+                logger.info("FAISS index loaded (lazy initialization)")
+            except Exception as e:
+                logger.warning(f"Could not load FAISS index: {e}.")
+
     def query(self, question: str, session_id: str = "default_session") -> str:
         """Simple wrapper for backward compatibility."""
         result = self.query_with_metadata(question, session_id)
         return result["answer"]
 
     def query_with_metadata(self, question: str, session_id: str = "default_session", language: str = None) -> Dict[str, Any]:
+        # OPTIMIZATION D: Ensure index is loaded (lazy init on first query)
+        self._ensure_ready()
+
         logger.info(f"Query: {question}")
         check_safety(question)
 
@@ -1000,9 +1011,9 @@ class RAGChain:
                 if not isinstance(needs_clarification, bool):
                     needs_clarification = bool(needs_clarification)
 
-                # ALWAYS check Python's is_broad_query() as ground truth
-                # Pass chat_history so it respects conversation context
-                is_broad, broad_reason = is_broad_query(question, chat_history)
+                # OPTIMIZATION B: Reuse is_broad/broad_reason from early check (line 905)
+                # No need to recalculate - if we reached here, is_broad=False (early return at 906-929)
+                # The backup clarification logic below uses the same values
 
                 # If LLM flagged needs_clarification with proper questions, use them
                 if needs_clarification and clarifying_questions:

@@ -15,6 +15,8 @@ This document describes the complete data flow from user query to response, incl
 - Centralized clarification templates
 - Unified query understanding (1 LLM call instead of 3)
 - **Database-backed keyword detection** (333 event keywords, 78 date keywords with fuzzy matching)
+- **Lazy FAISS index loading** (delay load until first query)
+- **Eliminated redundant function calls** (is_broad_query, language detection reuse)
 
 ---
 
@@ -283,7 +285,7 @@ Group by (title, city, date), merge times.
 Truncate to `self.k` (default: 8)
 
 ### Step 5.4: Backup Broad Query Detection
-If LLM missed broad query → Use Python backup check with centralized templates.
+If LLM missed broad query → Reuse early check result (no recalculation - OPTIMIZATION B).
 
 ### Step 5.5: Response Sanitization
 Remove emojis and problematic Unicode characters.
@@ -467,6 +469,8 @@ message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_
 | Fuzzy city matching | ACTIVE | Better typo tolerance | geo.py:113 |
 | Enhanced skip_words | ACTIVE | Fewer false city detections | chain.py:270 |
 | **Database-backed keywords** | ACTIVE | 333 event + 78 date keywords with fuzzy | keywords.py |
+| **Lazy FAISS loading** | ACTIVE | Faster chain init, load on first query | chain.py:717, 848 |
+| **Redundant call elimination** | ACTIVE | is_broad_query called once, result reused | chain.py:905, 1005 |
 
 ---
 
@@ -516,4 +520,4 @@ message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_
 ---
 
 *Last updated: January 27, 2026*
-*Version: 6.0 (multi-showtime deduplication, period filtering, 3-stage retrieval)*
+*Version: 6.1 (lazy FAISS loading, redundant call elimination, language pass-through)*
