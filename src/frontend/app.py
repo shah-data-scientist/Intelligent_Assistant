@@ -158,6 +158,8 @@ for i, message in enumerate(st.session_state.messages):
                     with c1:
                         st.subheader(event.get("title", "Unknown Event"))
                         st.text(f"📍 {event.get('city', 'Unknown City')} • 📅 {event.get('date', 'Unknown Date')}")
+                        if event.get("times_display"):
+                            st.text(f"🕐 {event.get('times_display')}")
                         if event.get("location"):
                             st.caption(f"Venue: {event.get('location')}")
                     with c2:
