@@ -40,6 +40,16 @@ class Event(BaseModel):
     accessibility: str | None = Field(None, description="Accessibility info")
     conditions: str | None = Field(None, description="Pricing or entry conditions")
 
+    # Multi-showtime fields (for deduplicated events)
+    timings: list[str] = Field(default_factory=list, description="List of show times (e.g., ['10:00', '14:00'])")
+    periods: list[str] = Field(default_factory=list, description="Periods of day (e.g., ['matin', 'après-midi'])")
+    is_full_day: bool = Field(False, description="Whether event spans full day without specific times")
+
+    # Period filter flags (indexed for fast filtering)
+    has_morning: bool = Field(False, description="Has showtime before 12:00")
+    has_afternoon: bool = Field(False, description="Has showtime 12:00-18:00")
+    has_evening: bool = Field(False, description="Has showtime after 18:00")
+
     def to_text(self, include_metadata_prefix: bool = True) -> str:
         """Convert event to text representation for embedding.
 
@@ -75,6 +85,14 @@ class Event(BaseModel):
             parts.append(f"Date de début: {self.start_date.strftime('%d/%m/%Y %H:%M')}")
         if self.end_date:
             parts.append(f"Date de fin: {self.end_date.strftime('%d/%m/%Y %H:%M')}")
+
+        # Multi-showtime information
+        if self.timings:
+            parts.append(f"Horaires: {', '.join(self.timings)}")
+        if self.periods:
+            parts.append(f"Créneaux: {', '.join(self.periods)}")
+        if self.is_full_day:
+            parts.append("Événement toute la journée")
 
         # Location information
         if self.location:
@@ -201,6 +219,22 @@ class Event(BaseModel):
 
         if self.url:
             metadata["url"] = self.url
+
+        # Price and age metadata for event card enrichment
+        if self.conditions:
+            metadata["conditions"] = self.conditions
+        if self.age_min is not None:
+            metadata["age_min"] = self.age_min
+        if self.age_max is not None:
+            metadata["age_max"] = self.age_max
+
+        # Multi-showtime metadata
+        if self.timings:
+            metadata["timings"] = self.timings
+        if self.periods:
+            metadata["periods"] = self.periods
+        if self.is_full_day:
+            metadata["is_full_day"] = True
 
         return metadata
 

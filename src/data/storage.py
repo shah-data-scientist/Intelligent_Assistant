@@ -63,6 +63,16 @@ class EventRecord(Base):
     accessibility = Column(String(500), nullable=True)
     conditions = Column(Text, nullable=True)
 
+    # Multi-showtime fields (for deduplicated events)
+    timings_json = Column(Text, nullable=True)  # JSON array: ["10:00", "14:00"]
+    periods_json = Column(Text, nullable=True)  # JSON array: ["matin", "après-midi"]
+    is_full_day = Column(Integer, nullable=True)  # 1 = full day event
+
+    # Period filter flags (indexed for fast filtering)
+    has_morning = Column(Integer, nullable=True, index=True)    # 1 if any timing < 12:00
+    has_afternoon = Column(Integer, nullable=True, index=True)  # 1 if any timing 12:00-18:00
+    has_evening = Column(Integer, nullable=True, index=True)    # 1 if any timing >= 18:00
+
     # Metadata
     raw_data_json = Column(Text, nullable=True)  # Full raw event data
     scraped_content = Column(Text, nullable=True)  # Content scraped from URL
@@ -127,7 +137,13 @@ class EventStorage:
                     "age_min": "INTEGER",
                     "age_max": "INTEGER",
                     "accessibility": "VARCHAR(500)",
-                    "conditions": "TEXT"
+                    "conditions": "TEXT",
+                    "timings_json": "TEXT",
+                    "periods_json": "TEXT",
+                    "is_full_day": "INTEGER",
+                    "has_morning": "INTEGER",
+                    "has_afternoon": "INTEGER",
+                    "has_evening": "INTEGER"
                 }
                 
                 for col_name, col_type in new_cols.items():
@@ -179,6 +195,12 @@ class EventStorage:
             age_max=event.age_max,
             accessibility=event.accessibility,
             conditions=event.conditions,
+            timings_json=json.dumps(event.timings) if event.timings else None,
+            periods_json=json.dumps(event.periods) if event.periods else None,
+            is_full_day=1 if event.is_full_day else None,
+            has_morning=1 if event.has_morning else None,
+            has_afternoon=1 if event.has_afternoon else None,
+            has_evening=1 if event.has_evening else None,
             faiss_index=faiss_index,
         )
 
@@ -234,6 +256,21 @@ class EventStorage:
             except json.JSONDecodeError:
                 pass
 
+        # Parse timings and periods
+        timings = []
+        if record.timings_json:
+            try:
+                timings = json.loads(record.timings_json)
+            except json.JSONDecodeError:
+                pass
+
+        periods = []
+        if record.periods_json:
+            try:
+                periods = json.loads(record.periods_json)
+            except json.JSONDecodeError:
+                pass
+
         return Event(
             event_id=record.event_id,
             title=record.title,
@@ -252,6 +289,12 @@ class EventStorage:
             age_max=record.age_max,
             accessibility=record.accessibility,
             conditions=record.conditions,
+            timings=timings,
+            periods=periods,
+            is_full_day=bool(record.is_full_day) if record.is_full_day else False,
+            has_morning=bool(record.has_morning) if record.has_morning else False,
+            has_afternoon=bool(record.has_afternoon) if record.has_afternoon else False,
+            has_evening=bool(record.has_evening) if record.has_evening else False,
         )
 
     def add_event(self, event: Event, faiss_index: int | None = None) -> bool:
@@ -423,6 +466,12 @@ class EventStorage:
             record.age_max = event.age_max
             record.accessibility = event.accessibility
             record.conditions = event.conditions
+            record.timings_json = json.dumps(event.timings) if event.timings else None
+            record.periods_json = json.dumps(event.periods) if event.periods else None
+            record.is_full_day = 1 if event.is_full_day else None
+            record.has_morning = 1 if event.has_morning else None
+            record.has_afternoon = 1 if event.has_afternoon else None
+            record.has_evening = 1 if event.has_evening else None
 
             if event.location:
                 record.city = event.location.city

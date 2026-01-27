@@ -1,7 +1,7 @@
 # Project Memory
 
-**Last Updated:** 2026-01-26 15:00
-**Status:** Phase 13 Complete - CENTRALIZED CHATBOT IDENTITY CONFIGURATION - Production Ready
+**Last Updated:** 2026-01-27 12:00
+**Status:** Phase 14 Complete - DATABASE DEDUPLICATION & PERIOD FILTERING - Production Ready
 **Project:** RAG-based Cultural Events Recommendation Assistant
 
 ## 📋 Project Requirements
@@ -859,6 +859,146 @@ To rename the chatbot or change its personality:
 1. Edit [src/config.py](src/config.py)
 2. Modify `chatbot_name`, `chatbot_tagline_*`, or `chatbot_personality_*`
 3. All components will automatically reflect the changes
+
+**Status:** ✅ **COMPLETE**
+
+## Phase 14: Database Deduplication & Period Filtering (2026-01-27)
+
+**Objective:** Consolidate multi-showtime events (same title/city/date) into single records with timings metadata, reducing storage overhead and enabling period-based filtering.
+
+### Problem Identified
+- Database contained duplicate records for events with multiple showtimes
+- Example: "Jazz Concert" at 10:00, 14:00, and 20:00 stored as 3 separate events
+- Analysis revealed 143 multi-showtime groups, 174 redundant rows (17.4% of database)
+
+### Solution: Multi-Showtime Consolidation
+
+**1. Database Schema Changes** ([src/data/models.py](src/data/models.py), [src/data/storage.py](src/data/storage.py))
+
+New fields added to Event model:
+```python
+# Multi-showtime fields (for deduplicated events)
+timings: list[str]     # Show times: ["10:00", "14:00", "20:00"]
+periods: list[str]     # Periods: ["matin", "après-midi", "soir"]
+is_full_day: bool      # True for full-day events without specific times
+
+# Period filter flags (indexed for fast filtering)
+has_morning: bool      # Has showtime before 12:00
+has_afternoon: bool    # Has showtime 12:00-18:00
+has_evening: bool      # Has showtime after 18:00
+```
+
+New SQLite columns:
+- `timings_json` (TEXT) - JSON array of show times
+- `periods_json` (TEXT) - JSON array of periods
+- `is_full_day` (INTEGER) - Boolean flag
+- `has_morning`, `has_afternoon`, `has_evening` (INTEGER, indexed) - Fast filtering
+
+**2. Migration Scripts**
+- [scripts/migrate_deduplicate_events.py](scripts/migrate_deduplicate_events.py) - Initial deduplication
+- [scripts/migrate_period_flags.py](scripts/migrate_period_flags.py) - Populate period filter flags
+
+**3. Ingestion Flow Update** ([src/data/processor.py](src/data/processor.py))
+
+Updated `deduplicate_events()` method to merge same-day events:
+- Groups events by (title, city, date)
+- Merges timings into single record
+- Classifies periods: matin (<12:00), après-midi (12:00-18:00), soir (≥18:00)
+- Sets period flags for fast filtering
+
+**4. Period Filtering** ([src/models/vector_store.py](src/models/vector_store.py))
+
+Added `period` filter support in `_matches_filter()`:
+- Accepts: "matin", "morning", "après-midi", "afternoon", "soir", "evening"
+- Supports single or multiple periods
+- Example: `{"period": ["matin", "soir"]}` matches events with morning OR evening shows
+
+### Migration Results
+
+**Before:**
+- Total events: 1,000
+- Multi-showtime duplicates: 174 rows
+
+**After:**
+- Total events: 826 (17.4% reduction)
+- Multi-showtime groups merged: 143
+- Period flag coverage:
+  - Morning: 229 events
+  - Afternoon: 254 events
+  - Evening: 446 events
+
+### Data Flow Diagram
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│                        DATA INGESTION FLOW                                  │
+└────────────────────────────────────────────────────────────────────────────┘
+
+OpenAgenda API                    EventProcessor                    EventStorage
+     │                                 │                                 │
+     │  {"uid": "123",                 │                                 │
+     │   "timings": [                  │                                 │
+     │     {"begin": "10:00"},         │                                 │
+     │     {"begin": "14:00"},         │                                 │
+     │     {"begin": "20:00"}          │                                 │
+     │   ], ...}                       │                                 │
+     │                                 │                                 │
+     └────────────────────────────────>│                                 │
+                                       │                                 │
+                           process_record()                              │
+                           Creates 3 Event objects                       │
+                           (one per timing)                              │
+                                       │                                 │
+                           deduplicate_events()                          │
+                           Groups by (title, city, date)                 │
+                           Merges timings → ["10:00", "14:00", "20:00"]  │
+                           Classifies periods → ["matin", "après-midi", "soir"]
+                           Sets flags: has_morning=1, has_afternoon=1, has_evening=1
+                                       │                                 │
+                                       └────────────────────────────────>│
+                                                                         │
+                                                              save_events()
+                                                              Stores 1 record with:
+                                                              - timings_json: '["10:00", "14:00", "20:00"]'
+                                                              - periods_json: '["matin", "après-midi", "soir"]'
+                                                              - has_morning: 1
+                                                              - has_afternoon: 1
+                                                              - has_evening: 1
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│                        QUERY PROCESSING FLOW                               │
+└────────────────────────────────────────────────────────────────────────────┘
+
+User Query                    RAGChain                     EventVectorStore
+     │                            │                               │
+     │  "Evening jazz concerts    │                               │
+     │   in Paris"                │                               │
+     │                            │                               │
+     └───────────────────────────>│                               │
+                                  │                               │
+                      query_understanding_chain                   │
+                      Extracts: {"city": "Paris",                 │
+                                "period": "soir",                 │
+                                "category": "Musique"}            │
+                                  │                               │
+                                  └──────────────────────────────>│
+                                                                  │
+                                                    _matches_filter()
+                                                    Checks: event.has_evening == True
+                                                           event.city == "Paris"
+                                                           event.category == "Musique"
+                                                                  │
+                                                    Returns filtered events
+                                                    with timings display
+```
+
+### Testing & Verification
+
+End-to-end test with mock API record:
+1. Mock record with 3 timings created
+2. `process_record()` creates 3 Event objects
+3. `deduplicate_events()` merges into 1 Event with `timings=["10:00", "14:00", "20:00"]`
+4. Period flags correctly set: `has_morning=True, has_afternoon=True, has_evening=True`
 
 **Status:** ✅ **COMPLETE**
 

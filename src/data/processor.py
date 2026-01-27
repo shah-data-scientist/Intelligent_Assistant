@@ -36,9 +36,10 @@ class EventProcessor:
         "Musique": ["concert", "musique", "jazz", "opera", "récital", "chanson", "rock", "groove", "orchestre", "philharmonie"],
         "Théâtre / Spectacle": ["théâtre", "spectacle", "comédie", "tragédie", "scène", "pièce", "marionnettes", "mime", "cirque"],
         "Art / Exposition": ["exposition", "expo", "peinture", "sculpture", "galerie", "musée", "art", "vernissage", "photographie"],
+        "Danse": ["danse", "dance", "ballet", "hip-hop", "contemporain", "chorégraphie", "ballerine", "spectacle de danse"],
         "Conférence / Débat": ["conférence", "débat", "rencontre", "littérature", "histoire", "colloque", "table ronde", "arpentage"],
         "Atelier / Workshop": ["atelier", "stage", "cours", "initiation", "formation", "masterclasse", "découverte"],
-        "Sport / Loisirs": ["sport", "match", "compétition", "tournoi", "danse", "yoga", "parcours", "randonnée", "vtt"],
+        "Sport / Loisirs": ["sport", "match", "compétition", "tournoi", "yoga", "parcours", "randonnée", "vtt"],
         "Jeunesse / Famille": ["jeunesse", "famille", "enfant", "scolaire", "bébé", "vacances", "jeune public", "kids"],
         "Festival": ["festival", "fête", "biennale", "salon"],
         "Patrimoine": ["patrimoine", "château", "visite guidée", "monument", "archives", "historique"],
@@ -294,24 +295,98 @@ class EventProcessor:
             logger.error(f"Error processing record {record.get('uid')}: {e}")
             return []
 
+    def _classify_period(self, hour: int) -> str:
+        """Classify time into period of day."""
+        if hour < 12:
+            return "matin"
+        elif hour < 18:
+            return "après-midi"
+        else:
+            return "soir"
+
     def deduplicate_events(self, events: list[Event]) -> list[Event]:
-        """Deduplicate events based on (title, city, precise_start_datetime)."""
-        seen = set()
-        unique_events = []
-        
+        """Deduplicate events by (title, city, date) and merge timings.
+
+        Events occurring at multiple times on the same day are consolidated
+        into a single Event with timings, periods, and is_full_day populated.
+        """
+        from collections import defaultdict
+
+        # Group events by (normalized_title, city, date_only)
+        groups: dict[tuple, list[Event]] = defaultdict(list)
+
         for event in events:
             city = event.location.city if event.location else "Unknown"
-            start_str = event.start_date.isoformat() if event.start_date else "NoDate"
+            date_str = event.start_date.strftime("%Y-%m-%d") if event.start_date else "NoDate"
             # Normalize title for robust comparison
             norm_title = "".join(filter(str.isalnum, event.title)).lower()
-            
-            key = (norm_title, city, start_str)
-            
-            if key not in seen:
-                seen.add(key)
+
+            key = (norm_title, city, date_str)
+            groups[key].append(event)
+
+        # Merge each group
+        unique_events = []
+        for key, group in groups.items():
+            if len(group) == 1:
+                # Single event - extract time if available
+                event = group[0]
+                if event.start_date:
+                    time_str = event.start_date.strftime("%H:%M")
+                    if time_str != "00:00":  # Not midnight (likely full day)
+                        event.timings = [time_str]
+                        period = self._classify_period(event.start_date.hour)
+                        event.periods = [period]
+                        # Set period flags
+                        event.has_morning = (period == "matin")
+                        event.has_afternoon = (period == "après-midi")
+                        event.has_evening = (period == "soir")
+                    else:
+                        event.is_full_day = True
+                        # Full day events are available all periods
+                        event.has_morning = True
+                        event.has_afternoon = True
+                        event.has_evening = True
                 unique_events.append(event)
-        
-        logger.info(f"Deduplication: {len(events)} -> {len(unique_events)} events")
+            else:
+                # Multiple events - merge timings
+                # Keep the earliest event as primary
+                group.sort(key=lambda e: e.start_date if e.start_date else datetime.max)
+                primary = group[0]
+
+                # Collect all unique times
+                all_times = set()
+                all_periods = set()
+
+                for evt in group:
+                    if evt.start_date:
+                        time_str = evt.start_date.strftime("%H:%M")
+                        if time_str != "00:00":
+                            all_times.add(time_str)
+                            all_periods.add(self._classify_period(evt.start_date.hour))
+
+                if all_times:
+                    primary.timings = sorted(all_times)
+                    primary.periods = sorted(all_periods)
+                    primary.is_full_day = False
+                    # Set period flags based on collected periods
+                    primary.has_morning = ("matin" in all_periods)
+                    primary.has_afternoon = ("après-midi" in all_periods)
+                    primary.has_evening = ("soir" in all_periods)
+                else:
+                    primary.is_full_day = True
+                    # Full day events are available all periods
+                    primary.has_morning = True
+                    primary.has_afternoon = True
+                    primary.has_evening = True
+
+                # Merge conditions (keep longest)
+                for evt in group[1:]:
+                    if evt.conditions and len(evt.conditions) > len(primary.conditions or ""):
+                        primary.conditions = evt.conditions
+
+                unique_events.append(primary)
+
+        logger.info(f"Deduplication: {len(events)} -> {len(unique_events)} events (merged {len(events) - len(unique_events)} same-day duplicates)")
         return unique_events
 
     def process_records(self, records: list[dict[str, Any]]) -> list[Event]:

@@ -13,6 +13,7 @@ from src.config import settings
 from src.data.models import Event
 from src.data.storage import EventStorage
 from src.models.embeddings import EventEmbedder
+from src.retrieval.filters import IDF_REGIONAL_TERMS  # Shared constant for regional terms
 from src.utils.geo import CityLocator, haversine_distance
 from src.utils.language import tokenize_for_bm25, LanguageCode
 
@@ -178,21 +179,26 @@ class EventVectorStore:
 
         logger.info(f"Loaded Hybrid Index: {len(self.event_ids)} events")
 
-    def search_raw(
+    def _hybrid_search(
         self,
         query: str,
         k: int = 100,
         language: LanguageCode | None = None
     ) -> list[tuple[Event, float]]:
-        """Search and return RAW similarity results (no filtering, no sorting).
+        """PRIVATE: Core hybrid search implementation (Vector + BM25 + RRF fusion).
 
-        REFACTORED (Phase 2 & 4): This method makes the vector_store "dumb".
-        It ONLY does semantic search (vector + BM25 fusion + keyword boosting).
-        NO filtering, NO geo-sorting, NO post-processing.
+        This is the internal implementation. Use search() as the public entry point.
 
-        ENHANCED (Phase 10): Now supports language-aware BM25 tokenization.
+        Does:
+        - Vector search (FAISS)
+        - BM25 keyword search (language-aware tokenization)
+        - Keyword boosting
+        - RRF fusion
+        - Basic deduplication by (title, city, date)
 
-        Filtering is now done in RetrievalOrchestrator using SearchFilters.matches().
+        Does NOT:
+        - Metadata filtering (handled by search())
+        - Geo-priority sorting (handled by search())
 
         Args:
             query: Search query string
@@ -262,7 +268,7 @@ class EventVectorStore:
             if len(results) >= k:
                 break
 
-        logger.debug(f"search_raw returning {len(results)} unique events")
+        logger.debug(f"_hybrid_search returning {len(results)} unique events")
         return results
 
     def search(
@@ -271,100 +277,52 @@ class EventVectorStore:
         k: int = 5,
         metadata_filter: dict[str, Any] | None = None,
         enable_hybrid: bool = True,
-        candidate_pool: int | None = None
+        candidate_pool: int | None = None,
+        language: LanguageCode | None = None
     ) -> list[tuple[Event, float]]:
-        """Search using Hybrid Fusion (Vector + BM25) + Geo Priority.
+        """Search events with hybrid retrieval + metadata filtering + geo priority.
 
-        LEGACY METHOD: This method is kept for backward compatibility.
-        New code should use search_raw() + RetrievalOrchestrator instead.
+        THIS IS THE ONLY PUBLIC SEARCH METHOD. Use this for all event searches.
+
+        Pipeline:
+        1. _hybrid_search(): Vector + BM25 + RRF fusion → raw candidates
+        2. _matches_filter(): Apply metadata filters (city, date, category, etc.)
+        3. _apply_geo_priority(): Sort by distance to target city
 
         Args:
             query: Search query
-            k: Number of results
-            metadata_filter: Filters to apply (legacy)
-            enable_hybrid: Enable hybrid search (unused, always True)
-            candidate_pool: Size of candidate pool
+            k: Number of results to return
+            metadata_filter: Optional filters dict with keys:
+                - city: Target city name
+                - month, day, year: Date components
+                - date_min, date_max: Date range
+                - category: Event category
+                - is_free: Boolean for free events
+                - age: Target age for age-appropriate events
+            enable_hybrid: Unused (always True, kept for compatibility)
+            candidate_pool: Size of initial candidate pool (default: k * 10)
+            language: Language for BM25 tokenization ("fr" or "en")
 
         Returns:
-            List of (Event, score) tuples
+            List of (Event, score) tuples, filtered and sorted
         """
-        if self.index is None:
-            raise ValueError("No index loaded.")
+        # Get raw candidates from hybrid search
+        raw_k = candidate_pool or max(k * 10, 100)
+        raw_results = self._hybrid_search(query, k=raw_k, language=language)
 
-        # 1. Vector Search
-        query_embedding = self.embedder.embed_query(query)
-        query_array = np.array([query_embedding], dtype=np.float32)
-        faiss.normalize_L2(query_array)
-        
-        # Retrieve more candidates for filtering/fusion
-        # Default to a safe large number if not specified
-        search_k = candidate_pool or (k * 200)
-        v_distances, v_indices = self.index.search(query_array, search_k)
-        
-        vector_results = {}
-        for idx, dist in zip(v_indices[0], v_distances[0]):
-            if idx != -1:
-                vector_results[self.event_ids[idx]] = float(dist)
+        # Apply metadata filter if provided
+        if metadata_filter:
+            filtered = [(event, score) for event, score in raw_results
+                        if self._matches_filter(event, metadata_filter)]
+        else:
+            filtered = raw_results
 
-        # 2. BM25 Search (if available)
-        bm25_results = {}
-        if self.bm25:
-            tokenized_query = query.lower().split()
-            # Get raw scores
-            doc_scores = self.bm25.get_scores(tokenized_query)
-            # Get top N indices
-            top_n = np.argsort(doc_scores)[::-1][:search_k]
-            for idx in top_n:
-                if doc_scores[idx] > 0:
-                    bm25_results[self.event_ids[idx]] = doc_scores[idx]
-
-        # 2.5 KEYWORD BOOSTING (BEFORE fusion) - REFACTORED
-        # Boost vector and BM25 scores separately BEFORE combining them
-        # This preserves the RRF score distribution
-        boost_keywords = self._extract_significant_keywords(query)
-        if boost_keywords:
-            logger.debug(f"Applying keyword boosting for: {boost_keywords}")
-            vector_results = self._apply_keyword_boost(vector_results, boost_keywords)
-            bm25_results = self._apply_keyword_boost(bm25_results, boost_keywords)
-
-        # 3. Fusion (RRF) - operates on boosted scores
-        fused_scores_list = self._reciprocal_rank_fusion(vector_results, bm25_results)
-        # No need to sort here, RRF already returns sorted list
-
-        # 4. Fetch Events & Filter
-        candidates = []
-        seen_event_keys = set()
-        
-        for event_id, score in fused_scores_list:
-            event = self.storage.get_event(event_id)
-            if not event: continue
-            
-            # Apply Filters
-            if metadata_filter and not self._matches_filter(event, metadata_filter):
-                continue
-            
-            # Deduplicate by Title + City + Date
-            # Use date only (not time) for broader deduplication
-            event_date = event.start_date.date() if event.start_date else "no-date"
-            event_key = f"{event.title}|{event.location.city if event.location else ''}|{event_date}".lower()
-            
-            if event_key in seen_event_keys:
-                continue
-                
-            seen_event_keys.add(event_key)
-            candidates.append((event, score))
-            
-            # Stop if we have enough unique candidates (fetch extra for reranking if needed)
-            # We want at least k unique ones, but fetch more for broad listings
-            if len(candidates) >= 100: 
-                break
-
-        # 5. Apply Geo Priority Logic (if city filter exists)
+        # Apply Geo Priority Logic (if city filter exists)
         if metadata_filter and "city" in metadata_filter:
-            return self._apply_geo_priority(candidates, metadata_filter["city"], k)
+            return self._apply_geo_priority(filtered, metadata_filter["city"], k)
 
         # Return top k unique results
-        return candidates[:k]
+        return filtered[:k]
 
     def _extract_significant_keywords(self, query: str) -> List[str]:
         """Extract significant keywords from query for boosting.
@@ -462,9 +420,14 @@ class EventVectorStore:
         return sorted(fusion_scores.items(), key=lambda x: x[1], reverse=True)
 
     def _apply_geo_priority(self, candidates: List[Tuple[Event, float]], target_city: str, k: int):
-        """Prioritize exact city matches, then nearby events sorted by distance."""
+        """Prioritize exact city matches, then nearby events sorted by distance.
+
+        NOTE: City matching uses simple case-insensitive substring check.
+        The geo-distance logic in _matches_filter() is more complex (radius-based).
+        """
         # Skip prioritization if it's a broad regional term
-        if target_city.lower().strip() in ["ile de france", "ile-de-france", "idf", "paris region"]:
+        # Uses shared constant from filters.py for consistency
+        if target_city.lower().strip() in IDF_REGIONAL_TERMS:
             return candidates[:k]
 
         target_coords = self.city_locator.get_coords(target_city)
@@ -475,7 +438,13 @@ class EventVectorStore:
         nearby_matches = []
 
         for event, score in candidates:
-            if event.location and event.location.city and target_city.lower() in event.location.city.lower():
+            # Simple city substring match (case-insensitive)
+            is_exact_city = (
+                event.location and
+                event.location.city and
+                target_city.lower() in event.location.city.lower()
+            )
+            if is_exact_city:
                 exact_matches.append((event, score))
             else:
                 dist = float('inf')
@@ -508,7 +477,8 @@ class EventVectorStore:
                 logger.debug(f"Filtering by city: {target_city}")
                 
                 # Skip filtering if it's a broad regional term rather than a specific city
-                if target_city in ["ile de france", "ile-de-france", "idf", "paris region"]:
+                # Uses shared constant from filters.py for consistency
+                if target_city.lower() in IDF_REGIONAL_TERMS:
                     logger.debug("Skipping city filter for regional term")
                     continue
                     
@@ -516,7 +486,7 @@ class EventVectorStore:
                 logger.debug(f"Target coords for {target_city}: {target_coords}")
                 
                 if target_coords:
-                    # Radius search (Expanded to 50km for neighbor fallback)
+                    # Radius search (configurable via settings.retrieval_geo_radius_km)
                     # Check for coordinates in event.location
                     if not event.location or not event.location.coordinates:
                         # Fallback to string match if no coords
@@ -534,7 +504,7 @@ class EventVectorStore:
                             target_coords[0], target_coords[1],
                             lat, lon
                         )
-                        if dist > 50.0: return False # 50km radius
+                        if dist > settings.retrieval_geo_radius_km: return False
                 else:
                     if not event.location or not event.location.city: return False
                     if value.lower() not in event.location.city.lower(): return False
@@ -588,7 +558,7 @@ class EventVectorStore:
                         value = date.fromisoformat(value)
                     except ValueError:
                         continue
-                
+
                 # Ensure value is a date or datetime object before comparing
                 from datetime import date, datetime
                 if not isinstance(value, (date, datetime)):
@@ -597,6 +567,34 @@ class EventVectorStore:
                 # Handle comparison between datetime and date
                 event_date = event.start_date.date() if hasattr(event.start_date, 'date') else event.start_date
                 if event_date > value: return False
+
+            # Period Filtering (has_morning, has_afternoon, has_evening)
+            elif key == "period":
+                # Period can be a string or list of periods
+                # e.g., "matin", "soir", or ["matin", "après-midi"]
+                if isinstance(value, str):
+                    periods_requested = [value]
+                elif isinstance(value, list):
+                    periods_requested = value
+                else:
+                    continue
+
+                # Check if event has any of the requested periods
+                has_match = False
+                for period in periods_requested:
+                    period_lower = period.lower()
+                    if period_lower in ("matin", "morning") and event.has_morning:
+                        has_match = True
+                        break
+                    elif period_lower in ("après-midi", "afternoon") and event.has_afternoon:
+                        has_match = True
+                        break
+                    elif period_lower in ("soir", "evening") and event.has_evening:
+                        has_match = True
+                        break
+
+                if not has_match:
+                    return False
 
         return True
 
