@@ -272,15 +272,11 @@ context + question + chat_history → RAG prompt → LLM
 
 ## 5. Post-Processing (Minimal)
 
-**Current**: Type safety only (ensure `structured_events` is a list).
+**File:** `src/retrieval/chain.py` (line 791-812)
 
-**REMOVED (Phase 15/16/17):**
-- ~~Event Limit~~ → Now enforced in `manager.py` (single source of truth)
-- ~~Backup Broad Query~~ → Dead code (early check always returns if broad)
-- ~~Metadata Enrichment~~ → Pre-computed in database (`price_label`, `age_label`)
-- ~~Deduplication~~ → Database already deduplicated (Phase 14)
-- ~~LLM Clarification Check~~ → Redundant (handled by early Python check before LLM)
-- ~~Response Sanitization~~ → Removed (modern systems handle Unicode correctly)
+Type safety only: ensures `structured_events` is a list.
+
+**Note:** Event limit (k=8) is enforced in `manager.py`, not post-processing.
 
 ---
 
@@ -406,14 +402,8 @@ message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ 9. POST-PROCESSING (Minimal - Phase 15/16/17)                               │
+│ 9. POST-PROCESSING (Minimal)                                                │
 │    └── Type safety only (ensure structured_events is list)                  │
-│        NOTE: All other steps REMOVED:                                       │
-│        - Enrichment → pre-computed in database                              │
-│        - Deduplication → database deduplicated (Phase 14)                   │
-│        - Event limit → enforced in manager.py                               │
-│        - Backup broad check → removed (early check handles)                 │
-│        - Sanitization → removed (modern systems handle Unicode)             │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
@@ -514,4 +504,4 @@ message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_
 ---
 
 *Last updated: January 27, 2026*
-*Version: 7.3 (deep check: fixed all line numbers, corrected stale flow diagram)*
+*Version: 8.0 (current state only - removed historical phase references)*
