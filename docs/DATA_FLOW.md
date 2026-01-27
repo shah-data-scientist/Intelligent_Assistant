@@ -270,18 +270,17 @@ context + question + chat_history → RAG prompt → LLM
 
 ---
 
-## 5. Post-Processing
+## 5. Post-Processing (Minimal)
 
-### Step 5.1: Event Limit Enforcement
-Truncate to `self.k` (default: 8)
+### Step 5.1: LLM Clarification Check
+If LLM flagged `needs_clarification=True` with questions → Show only questions, no events.
 
-### Step 5.2: Backup Broad Query Detection
-If LLM missed broad query → Reuse early check result (no recalculation - OPTIMIZATION B).
+### Step 5.2: Response Sanitization
+Remove emojis and problematic Unicode characters (optional for modern systems).
 
-### Step 5.3: Response Sanitization
-Remove emojis and problematic Unicode characters.
-
-**REMOVED (Phase 15):**
+**REMOVED (Phase 15/16):**
+- ~~Event Limit~~ → Now enforced in `manager.py` (single source of truth)
+- ~~Backup Broad Query~~ → Dead code (early check always returns if broad)
 - ~~Metadata Enrichment~~ → Pre-computed in database (`price_label`, `age_label`)
 - ~~Deduplication~~ → Database already deduplicated (Phase 14)
 
@@ -515,4 +514,4 @@ message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_
 ---
 
 *Last updated: January 27, 2026*
-*Version: 7.0 (pre-computed labels, removed enrichment/deduplication, database optimizations)*
+*Version: 7.1 (k limit in manager.py, removed dead backup broad query code)*

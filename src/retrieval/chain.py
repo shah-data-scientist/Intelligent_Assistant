@@ -817,21 +817,16 @@ class RAGChain:
                 "language": language
             })
 
-            logger.warning(f"[DEBUG-ANSWER] result['answer'] type: {type(result.get('answer'))}")
+            logger.debug(f"[DEBUG-ANSWER] result['answer'] type: {type(result.get('answer'))}")
             if isinstance(result["answer"], dict):
                 answer_text = result["answer"].get("answer_text", "")
                 structured_events = result["answer"].get("events", [])
 
-                # POST-PROCESSING: Enforce k limit only
-                # NOTE: Enrichment and deduplication removed - handled at database level
-                # price_label, age_label, timings are pre-computed in database (Phase 14)
-                if len(structured_events) > self.k:
-                    logger.info(f"[LIMIT] Truncating {len(structured_events)} events to {self.k}")
-                    structured_events = structured_events[:self.k]
+                # NOTE: k limit enforced in manager.py (single source of truth)
+                # NOTE: Enrichment/deduplication handled at database level (Phase 14/15)
+                logger.info(f"[POST-PROCESS] Event count: {len(structured_events)}")
 
-                logger.info(f"[POST-PROCESS] Final event count: {len(structured_events)}")
-
-                # CRITICAL FIX: Extract and USE clarification fields
+                # Extract clarification fields from LLM response
                 needs_clarification = result["answer"].get("needs_clarification", False)
                 clarifying_questions = result["answer"].get("clarifying_questions", [])
 
@@ -842,49 +837,17 @@ class RAGChain:
                 if not isinstance(needs_clarification, bool):
                     needs_clarification = bool(needs_clarification)
 
-                # OPTIMIZATION B: Reuse is_broad/broad_reason from early check (line 905)
-                # No need to recalculate - if we reached here, is_broad=False (early return at 906-929)
-                # The backup clarification logic below uses the same values
-
                 # If LLM flagged needs_clarification with proper questions, use them
                 if needs_clarification and clarifying_questions:
                     logger.info(f"LLM flagged needs_clarification=True with questions: {clarifying_questions}")
-                    # Show ONLY clarification questions, NO events
                     if language == "fr":
                         questions_text = "\n".join([f"- {q}" for q in clarifying_questions])
                         answer_text = f"Pour mieux t'aider, j'ai quelques questions :\n{questions_text}"
                     else:
                         questions_text = "\n".join([f"- {q}" for q in clarifying_questions])
                         answer_text = f"To help you better, I have a few questions:\n{questions_text}"
-                    # Clear events - don't show them with clarification
                     structured_events = []
-                    logger.info("Broad query: showing only clarification questions, no events")
-
-                # FIX: If LLM flagged needs_clarification=True but gave empty questions,
-                # OR if Python detected broad query but LLM didn't flag it,
-                # -> use backup questions based on broad_reason
-                elif is_broad:
-                    # We reach here if:
-                    # 1. LLM flagged needs_clarification=True but gave empty clarifying_questions
-                    # 2. OR LLM didn't flag needs_clarification but Python detected broad query
-                    # Either way, we need to use backup questions
-                    if needs_clarification:
-                        logger.warning(f"LLM flagged needs_clarification=True but gave empty questions for: '{question}'")
-                    else:
-                        logger.warning(f"LLM missed broad query detection. Query: '{question}', Reason: {broad_reason}")
-
-                    # Generate clarification questions from centralized config
-                    from src.retrieval.clarifications import get_clarification_response
-                    backup_prefix, backup_questions = get_clarification_response(broad_reason, language)
-
-                    if backup_prefix and backup_questions:
-                        # Show ONLY clarification questions, NO events
-                        questions_text = "\n".join([f"- {q}" for q in backup_questions])
-                        answer_text = f"{backup_prefix}{questions_text}"
-                        structured_events = []  # Clear events
-                        needs_clarification = True
-                        clarifying_questions = backup_questions
-                        logger.info("Backup broad query: showing only clarification questions, no events")
+                    logger.info("LLM clarification: showing only questions, no events")
             else:
                 answer_text = str(result["answer"])
                 structured_events = []
