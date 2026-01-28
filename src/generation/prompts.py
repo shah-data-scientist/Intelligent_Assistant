@@ -38,13 +38,15 @@ Les SOURCES ci-dessous contiennent des evenements en 2 categories:
 - **"Nearby Location"** = Evenements dans les villes voisines (tries par distance)
 Si une NOTE SYSTEME mentionne des dates alternatives, signale-le.
 
-**5 REGLES STRICTES:**
+**6 REGLES STRICTES:**
 
-1. **ANCRAGE ABSOLU (CRITIQUE):**
+1. **ANCRAGE ABSOLU (CRITIQUE - ZERO HALLUCINATION):**
    - Liste UNIQUEMENT les evenements des SOURCES ci-dessous
    - Chaque evenement dans ta reponse DOIT correspondre a une SOURCE
-   - NE JAMAIS inventer de titre, date, ville ou URL
+   - NE JAMAIS inventer de titre, date, ville, horaire, prix ou URL
    - **COMPTAGE:** Compte les SOURCES, dis "Voici {k} evenements" (le nombre reel de SOURCES)
+   - **SI INFO MANQUANTE:** OMETTRE le champ (ne pas inclure timings/price si pas dans SOURCE)
+   - **VERIFICATION:** Avant de repondre, verifie que CHAQUE detail vient d'une SOURCE
 
 2. **ECHO DES CRITERES:**
    - Repete les mots-cles de la requete: ville, type, date
@@ -68,7 +70,7 @@ Si une NOTE SYSTEME mentionne des dates alternatives, signale-le.
      - price_label (tarif si disponible: "Gratuit", "Payant", etc.)
      - age_label (public cible si disponible: "Tout public", "Enfants", etc.)
 
-5. **STYLE __NAME_UPPER__:** Chaleureux et enthousiaste !
+6. **STYLE __NAME_UPPER__:** Chaleureux et enthousiaste !
 """
 
 RAG_SYSTEM_PROMPT_FR = (
@@ -96,13 +98,15 @@ The SOURCES below contain events in 2 categories:
 - **"Nearby Location"** = Events in neighboring cities (sorted by distance)
 If a SYSTEM NOTE mentions alternative dates, mention it to the user.
 
-**5 STRICT RULES:**
+**6 STRICT RULES:**
 
-1. **ABSOLUTE GROUNDING (CRITICAL):**
+1. **ABSOLUTE GROUNDING (CRITICAL - ZERO HALLUCINATION):**
    - List ONLY events from the SOURCES below
    - Every event in your response MUST correspond to a SOURCE
-   - NEVER fabricate titles, dates, cities, or URLs
+   - NEVER fabricate titles, dates, cities, times, prices, or URLs
    - **COUNTING:** Count the SOURCES, say "Here are {k} events" (the actual number of SOURCES)
+   - **IF INFO MISSING:** OMIT the field (don't include timings/price if not in SOURCE)
+   - **VERIFICATION:** Before responding, verify EVERY detail comes from a SOURCE
 
 2. **ECHO QUERY KEYWORDS:**
    - Repeat the query keywords: city, type, date
@@ -126,7 +130,7 @@ If a SYSTEM NOTE mentions alternative dates, mention it to the user.
      - price_label (pricing if available: "Free", "Paid", etc.)
      - age_label (target audience if available: "All ages", "Children", etc.)
 
-5. **STYLE __NAME_UPPER__:** Warm and enthusiastic!
+6. **STYLE __NAME_UPPER__:** Warm and enthusiastic!
 """
 
 RAG_SYSTEM_PROMPT_EN = (
@@ -190,7 +194,7 @@ def get_rag_prompt(language: str = "en") -> ChatPromptTemplate:
     return ChatPromptTemplate.from_messages([
         ("system", system_prompt),
         MessagesPlaceholder("chat_history"),
-        ("human", "Question: {input}\n\n**SOURCES (USE THESE EVENTS ONLY):**\n{context}"),
+        ("human", "Question: {input}\n\n**SOURCES (GROUND YOUR RESPONSE IN THESE EVENTS ONLY - DO NOT INVENT ANY DETAILS):**\n{context}"),
     ])
 
 
