@@ -1,7 +1,9 @@
 """Mistral embeddings client for generating event embeddings."""
 
+import hashlib
 import logging
-from typing import Any
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
 
 from langchain_mistralai import MistralAIEmbeddings
 
@@ -9,6 +11,11 @@ from src.config import settings
 from src.data.models import Event
 
 logger = logging.getLogger(__name__)
+
+# Global embedding cache for query embeddings
+_EMBEDDING_CACHE: Dict[str, Dict[str, Any]] = {}
+_CACHE_TTL_MINUTES = 120  # 2 hours
+_CACHE_MAX_SIZE = 500
 
 
 class EventEmbedder:
@@ -66,16 +73,54 @@ class EventEmbedder:
 
         return embeddings
 
-    def embed_query(self, query: str) -> list[float]:
-        """Generate embedding for a search query.
+    def embed_query(self, query: str, use_cache: bool = True) -> list[float]:
+        """Generate embedding for a search query with caching.
 
         Args:
             query: Search query text
+            use_cache: Whether to use embedding cache (default: True)
 
         Returns:
             Query embedding vector
         """
+        global _EMBEDDING_CACHE
+
+        # Normalize query for cache key (SHA-256 for security compliance)
+        normalized = query.lower().strip()
+        cache_key = hashlib.sha256(normalized.encode()).hexdigest()
+
+        # Check cache
+        if use_cache and cache_key in _EMBEDDING_CACHE:
+            entry = _EMBEDDING_CACHE[cache_key]
+            cached_at = entry["cached_at"]
+            if datetime.now() - cached_at < timedelta(minutes=_CACHE_TTL_MINUTES):
+                logger.debug(f"[EMBED-CACHE] HIT for query: {query[:40]}...")
+                return entry["embedding"]
+            else:
+                # Expired
+                del _EMBEDDING_CACHE[cache_key]
+
+        # Cache miss - generate embedding
         embedding = self.embeddings.embed_query(query)
+
+        # Store in cache
+        if use_cache:
+            # Evict oldest if full
+            if len(_EMBEDDING_CACHE) >= _CACHE_MAX_SIZE:
+                oldest_key = min(
+                    _EMBEDDING_CACHE.keys(),
+                    key=lambda k: _EMBEDDING_CACHE[k]["cached_at"]
+                )
+                del _EMBEDDING_CACHE[oldest_key]
+                logger.debug("[EMBED-CACHE] Evicted oldest entry")
+
+            _EMBEDDING_CACHE[cache_key] = {
+                "embedding": embedding,
+                "cached_at": datetime.now(),
+                "query": query[:50]
+            }
+            logger.debug(f"[EMBED-CACHE] SET for query: {query[:40]}...")
+
         return embedding
 
 

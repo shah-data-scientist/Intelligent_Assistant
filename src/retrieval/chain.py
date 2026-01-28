@@ -386,6 +386,13 @@ def is_broad_query(query: str, chat_history: Optional[List[Any]] = None) -> Tupl
     has_event_type = keyword_locator.has_event_indicator(query)
     has_date = keyword_locator.has_date_indicator(query)
 
+    # Track what was found in query vs history for debugging
+    city_from_query = has_city
+    event_from_query = has_event_type
+    date_from_query = has_date
+
+    logger.info(f"[BROAD-QUERY] Query analysis: city={has_city}, event_type={has_event_type}, date={has_date}")
+
     # IMPORTANT: Check chat history context (last 5 messages only for relevance)
     # If history mentions city/event_type/date, treat it as present
     if chat_history:
@@ -397,18 +404,31 @@ def is_broad_query(query: str, chat_history: Optional[List[Any]] = None) -> Tupl
             if hasattr(msg, "content"):
                 history_text += " " + msg.content.lower()
 
+        logger.info(f"[BROAD-QUERY] Checking history context ({len(recent_history)} messages)")
+
         # Check if history contains the missing criteria
         if not has_city:
             has_city = any(city in history_text for city in known_cities) or any(r in history_text for r in region_words)
+            if has_city:
+                logger.info("[BROAD-QUERY] Found CITY in history context")
         if not has_event_type:
             # Use KeywordLocator for fuzzy matching in history context
             has_event_type = keyword_locator.has_event_indicator(history_text)
+            if has_event_type:
+                logger.info("[BROAD-QUERY] Found EVENT TYPE in history context")
         if not has_date:
             # Use KeywordLocator for date detection (including specific date formats)
             has_date = keyword_locator.has_date_indicator(history_text)
+            if has_date:
+                logger.info("[BROAD-QUERY] Found DATE in history context")
 
+        # Summary of incremental clarification
         if has_city or has_event_type or has_date:
-            logger.debug(f"Context from history: city={has_city}, event_type={has_event_type}, date={has_date}")
+            logger.info(
+                f"[BROAD-QUERY] After history check: city={has_city} (from_history={has_city and not city_from_query}), "
+                f"event_type={has_event_type} (from_history={has_event_type and not event_from_query}), "
+                f"date={has_date} (from_history={has_date and not date_from_query})"
+            )
 
     # STRICT 3-CRITERIA: Build list of missing criteria
     missing = []
@@ -587,7 +607,9 @@ class RAGChain:
             total_events_val = "Unknown"
             date_range_val = "Unknown"
 
-        current_date_val = "2026-01-24" # Reference date
+        # CRITICAL: Use dynamic date, not hardcoded
+        from datetime import date
+        current_date_val = date.today().strftime("%Y-%m-%d")
 
         # 1. Prepare Inputs - Now just passes through (no separate reformulation call)
         def prepare_inputs(inputs):
@@ -725,10 +747,6 @@ class RAGChain:
         if special_result:
             response_text, query_type = special_result
             logger.info(f"Special query detected: {query_type}")
-            # Save to chat history (LangChain memory)
-            memory = self._get_memory(session_id)
-            memory.chat_memory.add_message(HumanMessage(content=question))
-            memory.chat_memory.add_message(AIMessage(content=response_text))
             # Save to persistent storage (user msg async, assistant sync for message_id)
             _async_db_write(self.chat_storage.add_chat_message, session_id, "user", question)
             message_id = self.chat_storage.add_chat_message(session_id, "assistant", response_text)
@@ -765,9 +783,7 @@ class RAGChain:
                 questions_text = "\n".join([f"- {q}" for q in backup_questions])
                 answer_text = f"{backup_prefix}{questions_text}"
 
-                # Save to memory and storage (user msg async)
-                memory.chat_memory.add_message(HumanMessage(content=question))
-                memory.chat_memory.add_message(AIMessage(content=answer_text))
+                # Save to persistent storage (user msg async, assistant sync for message_id)
                 _async_db_write(self.chat_storage.add_chat_message, session_id, "user", question)
                 message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_text)
 
@@ -793,9 +809,6 @@ class RAGChain:
                 answer_text = result["answer"].get("answer_text", "")
                 structured_events = result["answer"].get("events", [])
 
-                # NOTE: k limit enforced in manager.py (single source of truth)
-                # NOTE: Enrichment/deduplication handled at database level (Phase 14/15)
-                # NOTE: Clarification handled by early check before LLM call (Phase 16)
                 logger.info(f"[POST-PROCESS] Event count: {len(structured_events)}")
 
                 # Ensure events is a list (type safety)
@@ -817,9 +830,6 @@ class RAGChain:
             needs_clarification = False
             clarifying_questions = []
             result = {"context": []}
-
-        memory.chat_memory.add_message(HumanMessage(content=question))
-        memory.chat_memory.add_message(AIMessage(content=answer_text))
 
         # Save to persistent storage (user msg async, assistant sync for message_id)
         _async_db_write(self.chat_storage.add_chat_message, session_id, "user", question)

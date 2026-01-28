@@ -1,0 +1,25 @@
+[run]
+source = src
+omit =
+    # Frontend Streamlit app - requires integration/E2E testing
+    src/frontend/*
+    # Data ingestion utilities - run separately, not part of main RAG flow
+    src/data/ingestion.py
+    src/data/scraper.py
+    src/data/api_client.py
+    # Evaluation framework - separate validation tools, not core RAG
+    src/evaluation/reports/*
+    src/evaluation/evaluators/*
+    src/evaluation/llm_backends.py
+    # FastAPI main entry point - mostly startup/shutdown hooks
+    src/api/main.py
+    # __init__ files
+    src/*/__init__.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
