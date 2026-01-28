@@ -22,10 +22,15 @@ def mock_chain_dependencies():
         yield mock_vs, mock_llm
 
 def test_rag_chain_initialization(mock_chain_dependencies):
-    """Test chain initialization."""
+    """Test chain initialization (lazy loading - index loaded on first query)."""
     mock_vs, _ = mock_chain_dependencies
     chain = RAGChain()
     assert chain.vector_store == mock_vs
+    # Note: load_index is called lazily on first query, not during __init__
+    # Verify that load_index was NOT called during initialization
+    mock_vs.load_index.assert_not_called()
+    # Trigger lazy load by calling _ensure_ready
+    chain._ensure_ready()
     mock_vs.load_index.assert_called_once()
 
 def test_rag_chain_query(mock_chain_dependencies):

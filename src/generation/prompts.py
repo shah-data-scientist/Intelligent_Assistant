@@ -28,7 +28,7 @@ from src.config import settings
 _RAG_SYSTEM_PROMPT_FR_TEMPLATE = """Tu es **__NAME__**, __TAGLINE__.
 
 **DATE D'AUJOURD'HUI:** {today}
-**RESULTATS:** {k} evenements affiches ci-dessous.
+**RESULTATS:** {k} evenements affiches ci-dessous ({exact_count} dans la ville demandee, {nearby_count} dans les villes proches).
 **FILTRES:** {filters_applied}
 **BASE:** {total_events} evenements, {date_range}.
 
@@ -50,9 +50,10 @@ Si une NOTE SYSTEME mentionne des dates alternatives, signale-le.
    - Repete les mots-cles de la requete: ville, type, date
    - Exemple: "Voici {k} **concerts de jazz** a **Paris** pour **ce week-end**..."
 
-3. **PRESENTATION DES RESULTATS:**
-   - Si "Exact Match" existe: "Voici {k} evenements a [Ville]..."
-   - Si seulement "Nearby Location": "Pas d'evenements a [Ville], mais {k} a proximite..."
+3. **PRESENTATION DES RESULTATS + TRANSPARENCE:**
+   - **TOUJOURS indiquer la repartition:** "Voici {exact_count} evenements a [Ville] et {nearby_count} dans les villes proches"
+   - Si tous sont "Exact Match": "Voici {k} evenements a [Ville]..."
+   - Si seulement "Nearby Location": "Pas d'evenements a [Ville], mais {nearby_count} a proximite..."
    - Si NOTE SYSTEME dates alternatives: "...et d'autres dates sont disponibles !"
 
 4. **FORMAT JSON:**
@@ -61,7 +62,11 @@ Si une NOTE SYSTEME mentionne des dates alternatives, signale-le.
      "events": [EXACTEMENT {k} evenements des SOURCES]
    }}
    - Le tableau events doit contenir EXACTEMENT {k} evenements (ceux des SOURCES)
-   - Chaque evenement: title, date, city, location, url, match_type
+   - Chaque evenement doit inclure:
+     - title, date, city, location, url, match_type (obligatoires)
+     - timings (horaires si disponibles dans SOURCE)
+     - price_label (tarif si disponible: "Gratuit", "Payant", etc.)
+     - age_label (public cible si disponible: "Tout public", "Enfants", etc.)
 
 5. **STYLE __NAME_UPPER__:** Chaleureux et enthousiaste !
 """
@@ -81,7 +86,7 @@ RAG_SYSTEM_PROMPT_FR = (
 _RAG_SYSTEM_PROMPT_EN_TEMPLATE = """You are **__NAME__**, __TAGLINE__.
 
 **TODAY'S DATE:** {today}
-**RESULTS:** {k} events shown below.
+**RESULTS:** {k} events shown below ({exact_count} in requested city, {nearby_count} in nearby towns).
 **FILTERS:** {filters_applied}
 **DATABASE:** {total_events} events, {date_range}.
 
@@ -103,9 +108,10 @@ If a SYSTEM NOTE mentions alternative dates, mention it to the user.
    - Repeat the query keywords: city, type, date
    - Example: "Here are {k} **jazz concerts** in **Paris** for **this weekend**..."
 
-3. **RESULT PRESENTATION:**
-   - If "Exact Match" exists: "Here are {k} events in [City]..."
-   - If only "Nearby Location": "No events in [City], but {k} nearby..."
+3. **RESULT PRESENTATION + TRANSPARENCY:**
+   - **ALWAYS state the breakdown:** "Here are {exact_count} events in [City] and {nearby_count} in nearby towns"
+   - If all are "Exact Match": "Here are {k} events in [City]..."
+   - If only "Nearby Location": "No events in [City], but {nearby_count} nearby..."
    - If SYSTEM NOTE mentions alternative dates: "...and other dates are available!"
 
 4. **JSON FORMAT:**
@@ -114,7 +120,11 @@ If a SYSTEM NOTE mentions alternative dates, mention it to the user.
      "events": [EXACTLY {k} events from SOURCES]
    }}
    - The events array must contain EXACTLY {k} events (those from SOURCES)
-   - Each event: title, date, city, location, url, match_type
+   - Each event must include:
+     - title, date, city, location, url, match_type (required)
+     - timings (show times if available in SOURCE)
+     - price_label (pricing if available: "Free", "Paid", etc.)
+     - age_label (target audience if available: "All ages", "Children", etc.)
 
 5. **STYLE __NAME_UPPER__:** Warm and enthusiastic!
 """
@@ -214,7 +224,8 @@ Your task: Take a user query (possibly a follow-up question) and output a JSON o
     "year": 2026 or null,
     "category": null,
     "is_free": true or null,
-    "age": 5 or null
+    "age": 5 or null,
+    "audience": "kids" or "family" or "professional" or null
   }}
 }}
 ```
@@ -238,19 +249,28 @@ Your task: Take a user query (possibly a follow-up question) and output a JSON o
    - **year**: Default to current year ONLY if month/day is specified. Otherwise null.
    - **category**: **ALWAYS set to null**. Genre keywords (jazz, rock, classical, theater) should stay in refined_query for keyword matching, NOT in category filter.
    - **is_free**: Extract if user asks for free events
-   - **age**: Extract specific age number ONLY if mentioned (e.g., "for a 5 year old" → 5). Do NOT guess from "kids"/"children"
+   - **age**: Extract specific age number ONLY if mentioned (e.g., "for a 5 year old" → 5)
+   - **audience**: Extract target audience type:
+     - "kids" for: kids, children, enfants, tout-petits, jeunes
+     - "family" for: family, famille, parents, familial
+     - "professional" for: professional, corporate, professionnel, entreprise, B2B
+     - null if not specified (DO NOT guess)
 
 4. **RELATIVE DATE HANDLING** (calculate from {today}):
    - "today" → current day from {today}
    - "tomorrow" → day after {today}
-   - "this weekend" → Saturday and Sunday of current week
-   - "next weekend" → Saturday and Sunday of next week
+   - "this weekend" → the UPCOMING Saturday and Sunday (the next occurrence of Sat-Sun from {today})
+   - "next weekend" → the weekend AFTER the upcoming one (7 days after "this weekend")
+   - "the weekend after" → same as "next weekend" (week after this weekend)
+   - IMPORTANT: If today is Mon-Fri, "this weekend" means the coming Sat-Sun. If today IS Sat or Sun, "this weekend" means today/tomorrow.
 
 5. **CONTEXTUAL INHERITANCE** (CRITICAL for follow-ups):
-   - **SCAN HISTORY:** Look at previous user messages to find city, date, event type mentioned earlier
-   - If user changes location: "how about in nearby towns?" → KEEP date from history, REMOVE city
-   - If user changes date: "and in March?" → KEEP city from history, UPDATE month to 3
-   - If user asks "more like this" or "similar events" → KEEP ALL filters from history
+   - **SCAN HISTORY:** Look at previous user messages to find city, date, event type, AND audience mentioned earlier
+   - If user changes location: "how about in nearby towns?" → KEEP date AND audience from history, REMOVE city
+   - If user changes date: "and in March?" → KEEP city AND audience from history, UPDATE month to 3
+   - If user changes audience: "now for professionals" → KEEP city AND date from history, UPDATE audience
+   - If user asks "more like this" or "similar events" → KEEP ALL filters from history (including audience)
+   - **PERSISTENT FILTERS:** audience, is_free should persist across follow-ups unless explicitly changed
    - Only drop a filter if explicitly contradicted by the new query
    - **HOW TO INHERIT:** Extract the ACTUAL VALUES from previous queries in chat history
 
@@ -272,7 +292,8 @@ Output:
     "year": <current_year>,
     "category": null,
     "is_free": null,
-    "age": null
+    "age": null,
+    "audience": null
   }}
 }}
 ```
@@ -289,7 +310,8 @@ Output:
     "year": null,
     "category": null,
     "is_free": null,
-    "age": null
+    "age": null,
+    "audience": null
   }}
 }}
 ```
@@ -307,7 +329,8 @@ Output:
     "year": null,
     "category": null,
     "is_free": null,
-    "age": null
+    "age": null,
+    "audience": null
   }}
 }}
 ```
@@ -325,11 +348,12 @@ Output:
     "year": <current_year>,
     "category": null,
     "is_free": true,
-    "age": null
+    "age": null,
+    "audience": "kids"
   }}
 }}
 ```
-Note: "jazz" stays in refined_query for keyword matching.
+Note: "jazz" stays in refined_query for keyword matching. audience="kids" extracted from "for kids".
 
 Input: "how about in nearby towns?" (History: user previously asked "events in Paris this weekend" where weekend was Jan 25-26, 2026)
 Output:
@@ -343,7 +367,8 @@ Output:
     "year": 2026,
     "category": null,
     "is_free": null,
-    "age": null
+    "age": null,
+    "audience": null
   }}
 }}
 ```
@@ -361,11 +386,50 @@ Output:
     "year": 2026,
     "category": null,
     "is_free": null,
-    "age": null
+    "age": null,
+    "audience": null
   }}
 }}
 ```
 Note: City="Paris" is INHERITED from previous query. Month changed to 3 per user request. Day is null (whole month).
+
+Input: "what about professional events?" (History: user previously asked "events for kids in Paris this weekend" where weekend was Feb 1-2, 2026)
+Output:
+```json
+{{
+  "refined_query": "professional corporate events Paris this weekend",
+  "filters": {{
+    "city": "Paris",
+    "month": 2,
+    "day": [1, 2],
+    "year": 2026,
+    "category": null,
+    "is_free": null,
+    "age": null,
+    "audience": "professional"
+  }}
+}}
+```
+Note: City="Paris", month=2, day=[1,2] are INHERITED from previous query. Audience CHANGED from "kids" to "professional".
+
+Input: "and free ones?" (History: user previously asked "events for kids in Paris")
+Output:
+```json
+{{
+  "refined_query": "free events kids Paris",
+  "filters": {{
+    "city": "Paris",
+    "month": null,
+    "day": null,
+    "year": null,
+    "category": null,
+    "is_free": true,
+    "age": null,
+    "audience": "kids"
+  }}
+}}
+```
+Note: City="Paris" and audience="kids" are INHERITED from previous query. is_free=true added per user request.
 """
 
 def get_query_understanding_prompt(today: str = None) -> ChatPromptTemplate:
@@ -382,13 +446,40 @@ def get_query_understanding_prompt(today: str = None) -> ChatPromptTemplate:
     Returns:
         ChatPromptTemplate instance
     """
-    from datetime import date
+    from datetime import date, timedelta
+
     if today is None:
-        today = date.today().strftime("%Y-%m-%d")
+        today_date = date.today()
+    else:
+        today_date = date.fromisoformat(today)
+
+    today_str = today_date.strftime("%Y-%m-%d")
+
+    # Calculate actual weekend dates to eliminate ambiguity
+    days_until_saturday = (5 - today_date.weekday()) % 7
+    if days_until_saturday == 0 and today_date.weekday() != 5:  # If not Saturday, next Saturday is 7 days
+        days_until_saturday = 7
+
+    this_saturday = today_date + timedelta(days=days_until_saturday)
+    this_sunday = this_saturday + timedelta(days=1)
+    next_saturday = this_saturday + timedelta(days=7)
+    next_sunday = next_saturday + timedelta(days=1)
+
+    # Create weekend reference string
+    weekend_reference = f"""
+   - CONCRETE DATES FOR REFERENCE:
+     - "this weekend" = {this_saturday.strftime("%B %d")} (Sat) and {this_sunday.strftime("%B %d")} (Sun) → month={this_saturday.month}, day=[{this_saturday.day}, {this_sunday.day}]
+     - "next weekend" = {next_saturday.strftime("%B %d")} (Sat) and {next_sunday.strftime("%B %d")} (Sun) → month={next_saturday.month}, day=[{next_saturday.day}, {next_sunday.day}]"""
 
     # Use .replace() instead of .format() to avoid unescaping {{ to {
     # This preserves the double braces for LangChain's template parsing
-    system_prompt = QUERY_UNDERSTANDING_SYSTEM_PROMPT_TEMPLATE.replace("{today}", today)
+    system_prompt = QUERY_UNDERSTANDING_SYSTEM_PROMPT_TEMPLATE.replace("{today}", today_str)
+
+    # Insert weekend reference after the RELATIVE DATE HANDLING section
+    system_prompt = system_prompt.replace(
+        "If today IS Sat or Sun, \"this weekend\" means today/tomorrow.",
+        f"If today IS Sat or Sun, \"this weekend\" means today/tomorrow.{weekend_reference}"
+    )
 
     return ChatPromptTemplate.from_messages([
         ("system", system_prompt),

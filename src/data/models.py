@@ -228,6 +228,14 @@ class Event(BaseModel):
         metadata["price_label"] = self.price_label
         metadata["age_label"] = self.age_label
 
+        # Raw conditions and age fields for detailed display
+        if self.conditions:
+            metadata["conditions"] = self.conditions
+        if self.age_min is not None:
+            metadata["age_min"] = self.age_min
+        if self.age_max is not None:
+            metadata["age_max"] = self.age_max
+
         # Multi-showtime metadata
         if self.timings:
             metadata["timings"] = self.timings
@@ -235,6 +243,13 @@ class Event(BaseModel):
             metadata["periods"] = self.periods
         if self.is_full_day:
             metadata["is_full_day"] = True
+
+        # Location details for display
+        if self.location:
+            if self.location.address:
+                metadata["address"] = self.location.address
+            if self.location.postal_code:
+                metadata["postal_code"] = self.location.postal_code
 
         return metadata
 

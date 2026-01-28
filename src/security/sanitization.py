@@ -16,7 +16,6 @@ class PIIDetector:
     CREDIT_CARD_PATTERN = r'\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b'
     SSN_PATTERN = r'\b\d{1}\s?\d{2}\s?\d{2}\s?\d{2}\s?\d{3}\s?\d{3}\b'  # French SSN (Numéro de sécurité sociale)
 
-    # Enhanced PII patterns (Phase 10)
     ADDRESS_PATTERN = r'\b\d{1,5}\s+(rue|avenue|boulevard|place|allée|impasse|chemin|voie|cours|quai|square|passage)\s+[A-Za-zÀ-ÿ\s\'-]{3,50}'  # French addresses
     DOB_PATTERN = r'\b(?:\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{4}[/-]\d{1,2}[/-]\d{1,2})\b'  # Date of birth (DD/MM/YYYY or YYYY-MM-DD)
     IP_PATTERN = r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'  # IPv4 addresses

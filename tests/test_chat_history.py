@@ -24,14 +24,15 @@ def mock_chain_dependencies():
 
 def test_chat_history_statefulness(tmp_path, mock_chain_dependencies):
     """Test that the chain maintains history across calls using SQLite storage."""
+    from unittest.mock import patch
     mock_vs, mock_llm = mock_chain_dependencies
-    
+
     db_path = tmp_path / "test_history.db"
     real_storage = ChatStorage(db_path=str(db_path))
-    
+
     # Initialize RAGChain with real storage
     chain = RAGChain(chat_storage=real_storage, vector_store=mock_vs, llm=mock_llm)
-    
+
     # Mock the internal rag_chain invoke to avoid real processing
     chain.rag_chain = MagicMock()
     chain.rag_chain.invoke.return_value = {
@@ -39,16 +40,22 @@ def test_chat_history_statefulness(tmp_path, mock_chain_dependencies):
         "events": [],
         "context": []
     }
-    
+
     session_id = "test_session_state"
-    
-    # Turn 1
-    chain.query("Hello AI", session_id=session_id)
-    
+
+    # Turn 1: Patch special query check to avoid greeting response
+    with patch("src.retrieval.chain.check_special_query", return_value=None), \
+         patch("src.retrieval.chain.is_broad_query", return_value=(False, "")):
+        chain.query("Jazz events in Paris", session_id=session_id)
+
+    # Wait for async writes to complete (user messages are written asynchronously)
+    import time
+    time.sleep(0.1)
+
     # Verify history in DB
     history = real_storage.get_chat_history(session_id)
     assert len(history) == 2
-    assert history[0]["content"] == "Hello AI"
+    assert history[0]["content"] == "Jazz events in Paris"
     assert history[1]["content"] == "Response from AI"
     
     # Turn 2: New chain instance, same storage
@@ -59,12 +66,19 @@ def test_chat_history_statefulness(tmp_path, mock_chain_dependencies):
         "events": [],
         "context": []
     }
-    
-    chain2.query("How are you?", session_id=session_id)
-    
+
+    # Patch special query check to avoid greeting response
+    with patch("src.retrieval.chain.check_special_query", return_value=None), \
+         patch("src.retrieval.chain.is_broad_query", return_value=(False, "")):
+        chain2.query("Any concerts tomorrow?", session_id=session_id)
+
+    # Wait for async writes to complete (user messages are written asynchronously)
+    import time
+    time.sleep(0.1)
+
     history_updated = real_storage.get_chat_history(session_id)
     assert len(history_updated) == 4
-    assert history_updated[2]["content"] == "How are you?"
+    assert history_updated[2]["content"] == "Any concerts tomorrow?"
     assert history_updated[3]["content"] == "I am fine."
 
 @pytest.mark.integration

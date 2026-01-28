@@ -92,33 +92,6 @@ class MistralLLM:
         logger.debug(f"Calling LLM generate with {len(messages)} messages")
         return llm_breaker.call(self.llm.generate, [messages], **kwargs)
 
-    async def agenerate(
-        self,
-        messages: list[BaseMessage],
-        **kwargs: Any,
-    ) -> ChatResult:
-        """Generate response from messages asynchronously with automatic retry.
-
-        Retries up to 3 times with exponential backoff.
-
-        Args:
-            messages: List of chat messages
-            **kwargs: Additional arguments for the LLM
-
-        Returns:
-            LLM response
-
-        Raises:
-            Exception: If all retry attempts fail
-        """
-        logger.debug(f"Calling LLM agenerate with {len(messages)} messages")
-        # Note: tenacity retry decorator works with async functions
-        @llm_retry
-        async def _agenerate_with_retry():
-            return await self.llm.agenerate([messages], **kwargs)
-
-        return await _agenerate_with_retry()
-
     @llm_retry
     def invoke(self, input: Any, **kwargs: Any) -> BaseMessage:
         """Invoke the LLM with a single input with automatic retry and circuit breaker.

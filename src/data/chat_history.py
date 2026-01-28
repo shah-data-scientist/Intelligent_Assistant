@@ -24,7 +24,7 @@ class SQLiteChatMessageHistory(BaseChatMessageHistory):
         # We create a new storage instance if not provided.
         # Ideally, this should be a singleton or dependency injected.
         self.storage = storage or ChatStorage()
-        print(f"DEBUG: Initialized history for {session_id} with storage {self.storage}")
+        logger.debug(f"Initialized history for {session_id}")
 
     @property
     def messages(self) -> List[BaseMessage]:
@@ -40,15 +40,13 @@ class SQLiteChatMessageHistory(BaseChatMessageHistory):
 
     def add_message(self, message: BaseMessage) -> None:
         """Add a message to the database."""
-        print(f"DEBUG: Adding message to {self.session_id}: {message}")
+        logger.debug(f"Adding message to {self.session_id}")
         if isinstance(message, HumanMessage):
             role = "user"
         elif isinstance(message, AIMessage):
             role = "assistant"
         else:
-            # Handle SystemMessage or others if needed, typically we skip or map to 'system'
             role = "system"
-        
         self.storage.add_chat_message(self.session_id, role, str(message.content))
 
     def clear(self) -> None:

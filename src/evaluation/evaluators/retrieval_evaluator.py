@@ -1,6 +1,7 @@
 """Retrieval evaluation component.
 
 Evaluates retrieval quality against golden dataset using retrieval metrics.
+Uses the PRODUCTION retrieval path (RetrievalManager) for accurate metrics.
 """
 
 import logging
@@ -9,23 +10,27 @@ from typing import Any
 
 from src.evaluation.metrics.retrieval import RetrievalMetrics
 from src.evaluation.datasets.golden_dataset import GoldenDataset, Query
-from src.retrieval.retriever import EventRetriever
+from src.retrieval.manager import RetrievalManager
 
 logger = logging.getLogger(__name__)
 
 
 class RetrievalEvaluator:
-    """Evaluate retrieval performance against golden dataset."""
+    """Evaluate retrieval performance against golden dataset.
 
-    def __init__(self, retriever: EventRetriever):
+    Uses RetrievalManager (the production retrieval path) to ensure
+    evaluation metrics reflect actual system behavior.
+    """
+
+    def __init__(self, retrieval_manager: RetrievalManager):
         """Initialize retrieval evaluator.
 
         Args:
-            retriever: EventRetriever instance to evaluate
+            retrieval_manager: RetrievalManager instance (production retrieval)
         """
-        self.retriever = retriever
+        self.retrieval_manager = retrieval_manager
         self.metrics = RetrievalMetrics()
-        logger.info("Initialized RetrievalEvaluator")
+        logger.info("Initialized RetrievalEvaluator with production RetrievalManager")
 
     def evaluate_query(
         self,
@@ -48,18 +53,18 @@ class RetrievalEvaluator:
         start_time = time.time()
 
         try:
-            # Perform retrieval
-            documents = self.retriever.search_with_filters(
-                query=query.query,
-                k=k,
-                metadata_filter=query.expected_filters or None
-            )
+            # Parse filters into SearchIntent (same as production)
+            raw_filters = query.expected_filters or {}
+            intent = self.retrieval_manager.parse_intent(raw_filters)
+
+            # Execute multi-stage search (same as production)
+            result = self.retrieval_manager.execute_search(query.query, intent)
 
             latency_ms = (time.time() - start_time) * 1000
 
             # Extract retrieved event IDs from documents
             retrieved_ids = []
-            for doc in documents:
+            for doc in result["docs"][:k]:  # Respect k limit
                 event_id = doc.metadata.get("event_id", "")
                 if event_id:
                     retrieved_ids.append(event_id)
@@ -72,6 +77,8 @@ class RetrievalEvaluator:
                 "retrieved_count": len(retrieved_ids),
                 "relevant_count": len(relevant_ids),
                 "latency_ms": latency_ms,
+                "exact_matches": result.get("exact_count", 0),
+                "total_in_database": result.get("total_in_database", 0),
             }
 
             # Add retrieval metrics if we have ground truth

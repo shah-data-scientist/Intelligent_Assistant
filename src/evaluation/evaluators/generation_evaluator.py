@@ -5,6 +5,7 @@ Evaluates generation quality against golden dataset using LLM-as-a-Judge.
 
 import logging
 import time
+import uuid
 from typing import Any
 
 from src.evaluation.metrics.generation import LLMAsJudge
@@ -140,13 +141,13 @@ class GenerationEvaluator:
     def evaluate_dataset(
         self,
         golden_dataset: GoldenDataset,
-        session_id: str = "evaluation_session"
+        session_id: str | None = None
     ) -> dict[str, Any]:
         """Evaluate generation quality across entire golden dataset.
 
         Args:
             golden_dataset: GoldenDataset to evaluate against
-            session_id: Session ID for RAG chain
+            session_id: Base session ID (ignored - each conversation gets its own session)
 
         Returns:
             Dictionary with aggregated metrics and per-query results
@@ -160,10 +161,26 @@ class GenerationEvaluator:
         quality_scores = []
         language_consistent_count = 0
 
-        for i, query in enumerate(golden_dataset.queries, 1):
-            logger.debug(f"Evaluating query {i}/{golden_dataset.total_queries}: {query.id}")
+        # Track active sessions to reset RAG chain state between conversations
+        current_session_id = None
 
-            result = self.evaluate_query(query, session_id=session_id)
+        for i, query in enumerate(golden_dataset.queries, 1):
+            # Use query's session_id for multi-turn conversations
+            # Generate unique session_id for single queries (no session_id)
+            query_session_id = query.session_id or f"eval_single_{uuid.uuid4().hex[:8]}"
+
+            # Log when we switch to a new conversation
+            if query_session_id != current_session_id:
+                if current_session_id is not None:
+                    logger.info(f"Switching to new session: {query_session_id}")
+                    # Clear previous session's filters to avoid bleeding
+                    if current_session_id in self.rag_chain._session_filters:
+                        del self.rag_chain._session_filters[current_session_id]
+                current_session_id = query_session_id
+
+            logger.debug(f"Evaluating query {i}/{golden_dataset.total_queries}: {query.id} (session: {query_session_id})")
+
+            result = self.evaluate_query(query, session_id=query_session_id)
             per_query_results.append(result)
 
             # Accumulate metrics

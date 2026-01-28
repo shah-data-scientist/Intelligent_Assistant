@@ -71,6 +71,59 @@ class CityLocator:
                 if city_key not in self.city_cache:
                     self.city_cache[city_key] = coords
 
+            # City aliases: short names → full official names
+            # Maps common short forms to their official IDF city names
+            # This handles compound French city names where users use short forms
+            aliases = {
+                # Saint-Ouen variants
+                "saint-ouen": "saint-ouen-sur-seine",
+                "st-ouen": "saint-ouen-sur-seine",
+                "st ouen": "saint-ouen-sur-seine",
+                "saintouen": "saint-ouen-sur-seine",
+                "saint ouen": "saint-ouen-sur-seine",
+                # Sainte-Geneviève variants
+                "sainte-genevieve": "sainte-geneviève-des-bois",
+                "ste-genevieve": "sainte-geneviève-des-bois",
+                "sainte genevieve": "sainte-geneviève-des-bois",
+                # Saint-Maur variants
+                "saint-maur": "saint-maur-des-fossés",
+                "st-maur": "saint-maur-des-fossés",
+                "saint maur": "saint-maur-des-fossés",
+                # Saint-Germain variants
+                "saint-germain": "saint-germain-en-laye",
+                "st-germain": "saint-germain-en-laye",
+                "saint germain": "saint-germain-en-laye",
+                # Plessis-Robinson variants (FIXES: "Plessis" not matching)
+                "plessis": "le plessis-robinson",
+                "le plessis": "le plessis-robinson",
+                "plessis robinson": "le plessis-robinson",
+                "plessis-robinson": "le plessis-robinson",
+                # Boulogne-Billancourt variants
+                "boulogne": "boulogne-billancourt",
+                "boulogne billancourt": "boulogne-billancourt",
+                # Issy-les-Moulineaux variants
+                "issy": "issy-les-moulineaux",
+                "issy les moulineaux": "issy-les-moulineaux",
+                # Neuilly-sur-Seine variants
+                "neuilly": "neuilly-sur-seine",
+                "neuilly sur seine": "neuilly-sur-seine",
+                # Levallois-Perret variants
+                "levallois": "levallois-perret",
+                "levallois perret": "levallois-perret",
+                # Fontenay-sous-Bois variants
+                "fontenay": "fontenay-sous-bois",
+                "fontenay sous bois": "fontenay-sous-bois",
+                # Vincennes and surroundings
+                "nogent": "nogent-sur-marne",
+                "nogent sur marne": "nogent-sur-marne",
+                # Clichy variants
+                "clichy": "clichy-la-garenne",
+                "clichy la garenne": "clichy-la-garenne",
+            }
+            for alias, official in aliases.items():
+                if official in self.city_cache and alias not in self.city_cache:
+                    self.city_cache[alias] = self.city_cache[official]
+
             logger.info(f"Loaded {len(self.city_cache)} city locations from database.")
                 
         except Exception as e:
@@ -81,6 +134,73 @@ class CityLocator:
         if not city_name:
             return None
         return self.city_cache.get(city_name.lower().strip())
+
+    def is_in_scope(self, city_name: str) -> bool:
+        """Check if a city is within the Île-de-France region scope.
+
+        Simple logic: If the city is in our database, it's in scope.
+        Everything else is out of scope. The database IS the source of truth.
+        """
+        if not city_name:
+            return True  # No city specified = search all IDF
+
+        city_key = city_name.lower().strip()
+
+        # Known cities in our database are in scope
+        if city_key in self.city_cache:
+            return True
+
+        # Check for partial matches (e.g., "Paris 15" matches "paris")
+        for known_city in self.city_cache.keys():
+            if city_key in known_city or known_city in city_key:
+                return True
+
+        # Not in database = out of scope
+        logger.debug(f"City '{city_name}' not found in database - out of scope")
+        return False
+
+    def get_known_cities(self) -> list:
+        """Return list of all known cities in the database."""
+        return list(self.city_cache.keys())
+
+    def find_closest_city(self, city_name: str, threshold: float = 0.75) -> Optional[str]:
+        """Find closest matching city using Levenshtein distance (fuzzy matching).
+
+        This helps handle typos like "Possy" → "Poissy", "Pari" → "Paris".
+
+        Args:
+            city_name: The city name to match (possibly misspelled)
+            threshold: Minimum similarity ratio (0.0 to 1.0). Default 0.75.
+
+        Returns:
+            The closest matching known city name, or None if no match above threshold.
+        """
+        from difflib import SequenceMatcher
+
+        if not city_name:
+            return None
+
+        city_key = city_name.lower().strip()
+
+        # Skip if exact match exists
+        if city_key in self.city_cache:
+            return city_key
+
+        best_match = None
+        best_ratio = 0.0
+
+        for known_city in self.city_cache.keys():
+            # Calculate similarity ratio
+            ratio = SequenceMatcher(None, city_key, known_city).ratio()
+
+            if ratio > best_ratio and ratio >= threshold:
+                best_ratio = ratio
+                best_match = known_city
+
+        if best_match:
+            logger.info(f"Fuzzy matched '{city_name}' -> '{best_match}' (similarity: {best_ratio:.2f})")
+
+        return best_match
 
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Calculate distance in km between two points."""

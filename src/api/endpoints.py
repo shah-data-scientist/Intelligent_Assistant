@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends, Request, Security
 from fastapi.security import APIKeyHeader
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from src.api.schemas import ChatRequest, ChatResponse, FeedbackRequest
@@ -12,7 +12,7 @@ from src.retrieval.chain import RAGChain
 from src.config import settings
 from src.security.guardrails import check_safety, SecurityException
 from src.security.sanitization import scan_for_pii
-from src.utils.tracing import generate_trace_id, get_trace_id, clear_trace_id
+from src.utils.tracing import generate_trace_id, clear_trace_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -66,7 +66,6 @@ def chat(request: Request, chat_request: ChatRequest, chain: RAGChain = Depends(
         logger.info(f"Received chat request: {chat_request.question} (session: {chat_request.session_id})")
 
         # 2. RAG Generation
-        # Pass language parameter to enable bilingual support (Phase 10)
         result = chain.query_with_metadata(
             chat_request.question,
             session_id=chat_request.session_id,
@@ -87,7 +86,9 @@ def chat(request: Request, chat_request: ChatRequest, chain: RAGChain = Depends(
             answer=sanitized_answer,
             sources=result["sources"],
             structured_events=result.get("structured_events", []),
-            message_id=result.get("message_id")
+            message_id=result.get("message_id"),
+            needs_clarification=result.get("needs_clarification", False),
+            clarifying_questions=result.get("clarifying_questions", [])
         )
 
         logger.info(f"Chat request completed successfully")
@@ -121,28 +122,6 @@ def post_feedback(request: FeedbackRequest, chain: RAGChain = Depends(get_rag_ch
         logger.error(f"Error submitting feedback: {e}")
         raise HTTPException(status_code=500, detail="Failed to submit feedback")
 
-@router.post("/chat/stream", dependencies=[Depends(verify_api_key)])
-def chat_stream(request: ChatRequest, chain: RAGChain = Depends(get_rag_chain)):
-    """
-    Stream the response token by token.
-    """
-    try:
-        check_safety(chat_request.question)
-        logger.info(f"Received stream request: {chat_request.question} (session: {chat_request.session_id})")
-
-        return StreamingResponse(
-            chain.stream_query(chat_request.question, session_id=chat_request.session_id),
-            media_type="text/plain"
-        )
-    except SecurityException as se:
-        logger.warning(f"Security guardrail triggered (stream): {se}")
-        raise HTTPException(status_code=400, detail=str(se))
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        logger.error(f"Error streaming chat request: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
 @router.get("/metrics")
 async def get_metrics():
     """
@@ -159,7 +138,7 @@ async def get_metrics():
         "state": str(llm_breaker.current_state),
         "failure_count": llm_breaker.fail_counter,
         "failure_threshold": llm_breaker.fail_max,
-        "timeout_duration": llm_breaker.timeout_duration,
+        "reset_timeout": llm_breaker.reset_timeout,
     }
 
     # Add last failure time if available

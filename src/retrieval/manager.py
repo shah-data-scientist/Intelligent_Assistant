@@ -23,7 +23,9 @@ class SearchIntent:
     date_min: Optional[date] = None
     date_max: Optional[date] = None
     category: Optional[str] = None
-    
+    is_free: Optional[bool] = None
+    audience: Optional[str] = None  # kids, family, professional
+
     @property
     def has_date_filter(self) -> bool:
         return any([self.days, self.month, self.date_min, self.date_max])
@@ -53,7 +55,9 @@ class RetrievalManager:
             city=filters.get("city"),
             month=filters.get("month"),
             year=filters.get("year", 2026),
-            category=filters.get("category")
+            category=filters.get("category"),
+            is_free=filters.get("is_free"),
+            audience=filters.get("audience")
         )
         
         # Handle Days (single or list)
@@ -187,20 +191,24 @@ class RetrievalManager:
             "year": intent.year,
             "date_min": intent.date_min,
             "date_max": intent.date_max,
-            "category": intent.category
+            "category": intent.category,
+            "is_free": intent.is_free,
+            "audience": intent.audience
         }
         clean = {k: v for k, v in filters.items() if v is not None}
         return self.vector_store.search(query, k=self.k * 3, metadata_filter=clean, candidate_pool=1000)
 
     def _search_nearby_locations(self, query: str, intent: SearchIntent, k: int) -> List[Tuple[Event, float]]:
-        # Remove city but keep date strict
+        # Remove city but keep date and audience strict
         filters = {
             "month": intent.month,
             "day": intent.days,
             "year": intent.year,
             "date_min": intent.date_min,
             "date_max": intent.date_max,
-            "category": intent.category
+            "category": intent.category,
+            "is_free": intent.is_free,
+            "audience": intent.audience
         }
         clean = {k: v for k, v in filters.items() if v is not None}
         return self.vector_store.search(query, k=k, metadata_filter=clean, candidate_pool=1500)
@@ -214,7 +222,9 @@ class RetrievalManager:
             "year": intent.year,
             "date_min": intent.date_min,
             "date_max": intent.date_max,
-            "category": intent.category
+            "category": intent.category,
+            "is_free": intent.is_free,
+            "audience": intent.audience
         }
         clean = {k: v for k, v in filters.items() if v is not None}
 
@@ -223,18 +233,20 @@ class RetrievalManager:
         return len(results)
 
     def _count_alt_dates(self, query: str, intent: SearchIntent, exclude_ids: Set[str]) -> int:
-        # Keep city, remove date, add window
+        # Keep city and audience, remove date, add window
         filters = {
             "city": intent.city,
-            "category": intent.category
+            "category": intent.category,
+            "is_free": intent.is_free,
+            "audience": intent.audience
         }
         if intent.target_date:
             filters["date_min"] = intent.target_date - timedelta(days=7)
             filters["date_max"] = intent.target_date + timedelta(days=7)
-            
+
         clean = {k: v for k, v in filters.items() if v is not None}
         results = self.vector_store.search(query, k=20, metadata_filter=clean, candidate_pool=500)
-        
+
         count = 0
         for evt, _ in results:
             if evt.event_id not in exclude_ids:

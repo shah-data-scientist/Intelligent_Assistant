@@ -175,28 +175,30 @@ for i, message in enumerate(st.session_state.messages):
                     st.write(f"- **{src['title']}** ({src['city']})")
         
         # Feedback logic for assistant messages
+        # Use index 'i' in keys to handle duplicate message_ids from repeated queries
         if message["role"] == "assistant" and "message_id" in message and message["message_id"]:
             msg_id = message["message_id"]
-            
+            unique_key = f"{i}_{msg_id}"  # Combine index + msg_id for uniqueness
+
             if msg_id not in st.session_state.feedback_submitted:
                 col1, col2, _ = st.columns([0.05, 0.05, 0.9])
                 with col1:
-                    if st.button("👍", key=f"up_{msg_id}"):
+                    if st.button("👍", key=f"up_{unique_key}"):
                         if submit_feedback(msg_id, True):
                             st.toast("Thanks for your positive feedback!")
                             st.rerun()
                 with col2:
-                    if st.button("👎", key=f"down_{msg_id}"):
-                        st.session_state[f"show_comment_{msg_id}"] = True
-                
+                    if st.button("👎", key=f"down_{unique_key}"):
+                        st.session_state[f"show_comment_{unique_key}"] = True
+
                 # Show comment box if thumbs down was clicked
-                if st.session_state.get(f"show_comment_{msg_id}"):
-                    with st.form(key=f"form_{msg_id}"):
-                        comment = st.text_area("How can we improve?", key=f"text_{msg_id}")
+                if st.session_state.get(f"show_comment_{unique_key}"):
+                    with st.form(key=f"form_{unique_key}"):
+                        comment = st.text_area("How can we improve?", key=f"text_{unique_key}")
                         if st.form_submit_button("Submit"):
                             if submit_feedback(msg_id, False, comment):
                                 st.toast("Thanks for your feedback. We will improve!")
-                                del st.session_state[f"show_comment_{msg_id}"]
+                                del st.session_state[f"show_comment_{unique_key}"]
                                 st.rerun()
             else:
                 st.caption("Feedback received. Thank you!")

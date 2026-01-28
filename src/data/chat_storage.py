@@ -109,7 +109,7 @@ class ChatStorage:
             session_id: Session identifier
             role: "user" or "assistant"
             content: Message content
-            
+
         Returns:
             The ID of the inserted message record.
         """

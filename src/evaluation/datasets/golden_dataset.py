@@ -1,6 +1,7 @@
 """Golden dataset loader for evaluation.
 
 This module provides data structures and loaders for the golden evaluation dataset.
+Supports both v2.0 (flat queries) and v3.0 (conversations + single_queries) formats.
 """
 
 import json
@@ -26,10 +27,13 @@ class GenerationExpectations(BaseModel):
     """Expected behavior for generation evaluation."""
 
     must_contain_keywords: list[str] = Field(default_factory=list)
+    must_not_contain_keywords: list[str] = Field(default_factory=list)
     must_not_hallucinate: bool = True
     should_ask_clarification: bool = False
     should_refuse_gracefully: bool = False
     expected_language: str | None = None  # "fr" or "en"
+    clarification_topics: list[str] = Field(default_factory=list)
+    must_reference_specific_event: bool = False
 
 
 class Query(BaseModel):
@@ -39,12 +43,18 @@ class Query(BaseModel):
     query: str
     language: str  # "fr" or "en"
     query_type: str  # "simple_search", "complex", "multi_turn", "entity_specific", "edge_case", etc.
-    complexity: str  # "low", "medium", "high"
+    complexity: str = "medium"  # "low", "medium", "high"
     expected_entities: list[str] = Field(default_factory=list)
     expected_categories: list[str] = Field(default_factory=list)
     expected_filters: dict[str, Any] = Field(default_factory=dict)
     relevance_ground_truth: list[RelevanceGroundTruth] = Field(default_factory=list)
     generation_expectations: GenerationExpectations = Field(default_factory=GenerationExpectations)
+    # v3.0 conversation context
+    session_id: str | None = None  # For multi-turn conversations
+    turn_number: int | None = None
+    turn_type: str | None = None  # "initial", "refinement", "follow_up", "topic_shift", "clarification_response"
+    previous_turn_id: str | None = None
+    context_dependency: str | None = None
 
     class Config:
         """Pydantic configuration."""
@@ -71,6 +81,43 @@ class Query(BaseModel):
         }
 
 
+# v3.0 Conversation Models
+class ExpectedBehavior(BaseModel):
+    """Expected behavior for a conversation turn."""
+    should_ask_clarification: bool = False
+    clarification_topics: list[str] = Field(default_factory=list)
+    acceptable_actions: list[str] = Field(default_factory=list)
+    reason: str | None = None
+    should_use_context: bool = False
+    inherited_filters: list[str] = Field(default_factory=list)
+    new_filters: dict[str, Any] = Field(default_factory=dict)
+    should_reset_filters: bool = False
+    references_previous_results: bool = False
+    expected_action: str | None = None
+
+
+class ConversationTurn(BaseModel):
+    """A single turn in a multi-turn conversation."""
+    turn_id: str
+    turn_number: int
+    turn_type: str  # "initial", "refinement", "follow_up", "topic_shift", "clarification_response"
+    query: str
+    previous_turn: str | None = None
+    context_dependency: str | None = None
+    expected_behavior: ExpectedBehavior = Field(default_factory=ExpectedBehavior)
+    expected_filters: dict[str, Any] = Field(default_factory=dict)
+    generation_expectations: GenerationExpectations = Field(default_factory=GenerationExpectations)
+
+
+class Conversation(BaseModel):
+    """A multi-turn conversation scenario."""
+    session_id: str
+    description: str
+    test_focus: list[str] = Field(default_factory=list)
+    language: str
+    turns: list[ConversationTurn]
+
+
 class GoldenDatasetMetadata(BaseModel):
     """Metadata for the golden dataset."""
 
@@ -81,12 +128,75 @@ class GoldenDatasetMetadata(BaseModel):
 
 
 class GoldenDataset(BaseModel):
-    """Complete golden dataset structure."""
+    """Complete golden dataset structure.
+
+    Supports both v2.0 (flat queries) and v3.0 (conversations + single_queries) formats.
+    """
 
     version: str
     created_at: str
     description: str | None = None
-    queries: list[Query]
+    # v2.0 format
+    queries: list[Query] = Field(default_factory=list)
+    # v3.0 format
+    conversations: list[Conversation] = Field(default_factory=list)
+    single_queries: list[dict[str, Any]] = Field(default_factory=list)
+    schema_notes: dict[str, Any] = Field(default_factory=dict)
+    evaluation_guidelines: dict[str, Any] = Field(default_factory=dict)
+
+    def model_post_init(self, __context: Any) -> None:
+        """Convert v3.0 format to unified queries list after initialization."""
+        if not self.queries and (self.conversations or self.single_queries):
+            self._flatten_v3_to_queries()
+
+    def _flatten_v3_to_queries(self) -> None:
+        """Flatten v3.0 conversations and single_queries into unified queries list."""
+        flattened = []
+
+        # Process conversations - each turn becomes a Query
+        for conv in self.conversations:
+            for turn in conv.turns:
+                query = Query(
+                    id=turn.turn_id,
+                    query=turn.query,
+                    language=conv.language,
+                    query_type=turn.turn_type,
+                    complexity="medium",
+                    expected_filters=turn.expected_filters,
+                    generation_expectations=turn.generation_expectations,
+                    session_id=conv.session_id,
+                    turn_number=turn.turn_number,
+                    turn_type=turn.turn_type,
+                    previous_turn_id=turn.previous_turn,
+                    context_dependency=turn.context_dependency,
+                )
+                flattened.append(query)
+
+        # Process single_queries
+        for sq in self.single_queries:
+            gen_exp_data = sq.get("generation_expectations", {})
+            gen_exp = GenerationExpectations(
+                must_contain_keywords=gen_exp_data.get("must_contain_keywords", []),
+                must_not_contain_keywords=gen_exp_data.get("must_not_contain_keywords", []),
+                must_not_hallucinate=gen_exp_data.get("must_not_hallucinate", True),
+                should_ask_clarification=gen_exp_data.get("should_ask_clarification", False),
+                expected_language=gen_exp_data.get("expected_language"),
+                clarification_topics=gen_exp_data.get("clarification_topics", []),
+            )
+            query = Query(
+                id=sq["id"],
+                query=sq["query"],
+                language=sq.get("language", "fr"),
+                query_type=sq.get("query_type", "single"),
+                complexity=sq.get("complexity", "medium"),
+                expected_filters=sq.get("expected_filters", {}),
+                generation_expectations=gen_exp,
+            )
+            flattened.append(query)
+
+        self.queries = flattened
+        logger.info(f"Flattened v3.0 dataset: {len(self.conversations)} conversations + "
+                   f"{len(self.single_queries)} single queries → {len(flattened)} total queries")
 
     @property
     def total_queries(self) -> int:

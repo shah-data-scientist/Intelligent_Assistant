@@ -596,6 +596,45 @@ class EventVectorStore:
                 if not has_match:
                     return False
 
+            # Audience Filtering (kids, family, professional)
+            elif key == "audience" and value:
+                audience_lower = value.lower()
+                event_text = ""
+                if event.title:
+                    event_text += event.title.lower() + " "
+                if event.description:
+                    event_text += event.description.lower() + " "
+                if event.tags:
+                    event_text += " ".join(event.tags).lower() + " "
+                if event.conditions:
+                    event_text += event.conditions.lower() + " "
+
+                if audience_lower == "kids":
+                    # Match events for children/kids
+                    kids_keywords = ["enfant", "enfants", "jeune", "jeunes", "kids", "children", "tout-petit", "tout-petits", "jeune public"]
+                    # Also match if age_max is set and <= 12 (suggesting child-appropriate)
+                    has_age_hint = event.age_max is not None and event.age_max <= 12
+                    has_keyword = any(kw in event_text for kw in kids_keywords)
+                    if not has_keyword and not has_age_hint:
+                        return False
+
+                elif audience_lower == "family":
+                    # Match events for families
+                    family_keywords = ["famille", "familial", "family", "parents", "tout public", "tous publics"]
+                    has_keyword = any(kw in event_text for kw in family_keywords)
+                    # Also include kids events for family
+                    kids_keywords = ["enfant", "enfants", "kids", "children"]
+                    has_kids_keyword = any(kw in event_text for kw in kids_keywords)
+                    if not has_keyword and not has_kids_keyword:
+                        return False
+
+                elif audience_lower == "professional":
+                    # Match professional/corporate events
+                    pro_keywords = ["professionnel", "professionnelle", "corporate", "entreprise", "b2b", "business", "networking", "séminaire", "conférence professionnelle"]
+                    has_keyword = any(kw in event_text for kw in pro_keywords)
+                    if not has_keyword:
+                        return False
+
         return True
 
     def close(self) -> None:

@@ -30,6 +30,17 @@ class Settings(BaseSettings):
     faiss_index_path: str = "./data/faiss_index"
     vector_dimension: int = 1024
 
+    # ========================================
+    # RETRIEVAL TUNING PARAMETERS
+    # ========================================
+    # These parameters control the hybrid search behavior.
+    # Adjust these to tune retrieval quality without code changes.
+
+    retrieval_geo_radius_km: float = 50.0  # Radius for "nearby" city matching
+    retrieval_keyword_boost: float = 1.5  # Boost factor for keyword matches
+    retrieval_rrf_k: int = 60  # Reciprocal Rank Fusion parameter
+    retrieval_date_window_days: int = 7  # Days to expand for alternative dates
+
     # API Settings
     api_host: str = "0.0.0.0"
     api_port: int = 8000

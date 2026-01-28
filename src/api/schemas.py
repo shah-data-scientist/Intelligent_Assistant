@@ -32,6 +32,8 @@ class StructuredEvent(BaseModel):
     url: Optional[str] = None
     price_label: str = "Unknown"
     age_label: str = "Unknown"
+    times: List[str] = Field(default_factory=list, description="List of available times if event has multiple showings")
+    times_display: str = Field(default="", description="Formatted times for display (e.g., '19:30, 21:30')")
 
 class ChatResponse(BaseModel):
     """Response model for chat endpoint."""
@@ -39,6 +41,8 @@ class ChatResponse(BaseModel):
     sources: List[SourceDocument] = Field(default_factory=list, description="List of events used as context")
     structured_events: List[StructuredEvent] = Field(default_factory=list, description="List of formatted event cards")
     message_id: Optional[int] = Field(None, description="Database ID of the assistant's message for feedback")
+    needs_clarification: bool = Field(default=False, description="True if the query was too broad and clarifying questions were asked")
+    clarifying_questions: List[str] = Field(default_factory=list, description="List of clarifying questions asked to the user")
 
 class FeedbackRequest(BaseModel):
     """Request model for feedback endpoint."""

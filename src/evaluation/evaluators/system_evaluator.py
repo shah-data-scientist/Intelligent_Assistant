@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from src.evaluation.datasets.golden_dataset import GoldenDataset
 from src.evaluation.evaluators.retrieval_evaluator import RetrievalEvaluator
 from src.evaluation.evaluators.generation_evaluator import GenerationEvaluator
-from src.retrieval.retriever import EventRetriever
+from src.retrieval.manager import RetrievalManager
 from src.retrieval.chain import RAGChain
 from src.evaluation.metrics.generation import LLMAsJudge
 from src.config import settings
@@ -54,7 +54,7 @@ class SystemEvaluator:
 
     def __init__(
         self,
-        retriever: EventRetriever | None = None,
+        retrieval_manager: RetrievalManager | None = None,
         rag_chain: RAGChain | None = None,
         judge_backend: str = "mistral",
         **judge_kwargs: Any
@@ -62,13 +62,13 @@ class SystemEvaluator:
         """Initialize system evaluator.
 
         Args:
-            retriever: EventRetriever instance (creates one if None)
+            retrieval_manager: RetrievalManager instance (creates one if None)
             rag_chain: RAGChain instance (creates one if None)
             judge_backend: LLM backend for LLM-as-a-Judge
             **judge_kwargs: Additional kwargs for judge
         """
         # Initialize components if not provided
-        if retriever is None:
+        if retrieval_manager is None:
             from src.models.vector_store import EventVectorStore
             vector_store = EventVectorStore()
             try:
@@ -76,12 +76,12 @@ class SystemEvaluator:
                 logger.info(f"Loaded FAISS index: {len(vector_store.event_ids)} events")
             except Exception as e:
                 logger.warning(f"Could not load FAISS index: {e}. Retrieval evaluation will fail.")
-            retriever = EventRetriever(vector_store=vector_store)
+            retrieval_manager = RetrievalManager(vector_store)
 
         if rag_chain is None:
             rag_chain = RAGChain()
 
-        self.retrieval_evaluator = RetrievalEvaluator(retriever)
+        self.retrieval_evaluator = RetrievalEvaluator(retrieval_manager)
         self.generation_evaluator = GenerationEvaluator(
             rag_chain,
             judge_backend=judge_backend,
