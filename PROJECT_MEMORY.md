@@ -1,7 +1,7 @@
 # Project Memory
 
-**Last Updated:** 2026-01-28 22:30
-**Status:** Phase 15 Complete - EVALUATION RECOMMENDATIONS - Production Ready
+**Last Updated:** 2026-01-29 22:00
+**Status:** Phase 15 Complete - HuggingFace Backend Added - Production Ready
 **Project:** RAG-based Cultural Events Recommendation Assistant
 
 ## 📋 Project Requirements
@@ -180,6 +180,19 @@ To ensure high-quality RAG performance, data undergoes a multi-stage refinement 
 ## 📝 Implementation Notes
 
 ### Recent Changes
+
+**2026-01-29: HuggingFace Backend & Error Handling**
+- **HuggingFace Integration**
+  - Added `src/generation/hf_wrapper.py` for HuggingFace Inference API
+  - Default LLM backend changed to `huggingface` (Qwen/Qwen2.5-7B-Instruct)
+  - Supports fallback when Mistral/Gemini APIs are rate-limited
+- **Robust Error Handling**
+  - Automatic retry for model cold starts (3 retries, 10-30s exponential wait)
+  - HuggingFace-specific error types: `HuggingFaceModelLoadingError`, `HuggingFaceRateLimitError`, `HuggingFaceQueueError`
+  - Bilingual user-friendly error messages (FR/EN)
+- **Bug Fixes**
+  - Error responses no longer cached (prevents stale error propagation)
+  - Follow-up queries now work correctly with filter merging
 
 **2026-01-21: Phase 7 - Full Optimization**
 - **Phase 7.1: Data Enrichment & Quality**

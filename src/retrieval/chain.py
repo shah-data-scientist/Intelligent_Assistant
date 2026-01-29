@@ -8,11 +8,13 @@ from datetime import date, timedelta
 
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda, RunnableBranch
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
+from langchain_core.output_parsers.base import BaseOutputParser
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, BaseMessage
+import json
 
 from src.models.vector_store import EventVectorStore
 from src.generation.llm import MistralLLM
-from src.generation.prompts import get_rag_prompt, get_query_understanding_prompt
+from src.generation.prompts import get_rag_prompt
 from src.retrieval.cache import QueryCache
 from src.retrieval.manager import RetrievalManager
 from src.data.chat_history import SQLiteChatMessageHistory
@@ -21,9 +23,75 @@ from src.data.chat_storage import ChatStorage
 from src.security.guardrails import check_safety
 from src.utils.geo import CityLocator
 from src.utils.keywords import get_keyword_locator
-from src.retrieval.intent import classify_intent, QueryIntent
-from src.retrieval.unified_analyzer import unified_analyze, QueryIntent as UnifiedIntent, UnifiedAnalysisResult, QueryDimension
+from src.retrieval.unified_analyzer import unified_analyze, QueryIntent as UnifiedIntent, UnifiedAnalysisResult, QueryDimension, map_category_to_db
 from src.config import settings
+
+# ========================================
+# ROBUST JSON PARSER WITH TEXT FALLBACK
+# ========================================
+# Handles JSON parsing failures by extracting text content from the LLM response.
+# This is critical for HuggingFace models that may return truncated JSON.
+
+class RobustJsonParser(BaseOutputParser):
+    """JSON parser with fallback to text extraction when JSON parsing fails.
+
+    When the LLM returns truncated or malformed JSON (common with smaller models),
+    this parser extracts the readable text content instead of raising an error.
+    """
+
+    def parse(self, text: str) -> Dict[str, Any]:
+        """Parse LLM output, falling back to text extraction if JSON fails."""
+        # First, try standard JSON parsing
+        try:
+            # Try to find JSON in the text (may be wrapped in markdown code blocks)
+            json_match = re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)
+            if json_match:
+                return json.loads(json_match.group(1))
+
+            # Try parsing the whole text as JSON
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        # JSON parsing failed - extract text content as fallback
+        logger.warning(f"[ROBUST-PARSER] JSON parsing failed, extracting text fallback")
+
+        # Try to extract answer_text from partial JSON
+        answer_match = re.search(r'"answer_text"\s*:\s*"(.*?)(?:"|$)', text, re.DOTALL)
+        if answer_match:
+            answer_text = answer_match.group(1)
+            # Unescape common JSON escapes
+            answer_text = answer_text.replace('\\n', '\n').replace('\\"', '"')
+            logger.info(f"[ROBUST-PARSER] Extracted answer_text from partial JSON ({len(answer_text)} chars)")
+            return {"answer_text": answer_text, "events": []}
+
+        # Try to extract readable text before any JSON
+        # HuggingFace models often produce: "Here are the events:\n1. Event A\n2. Event B\n\n{json...}"
+        json_start = text.find('{')
+        if json_start > 50:  # Significant text before JSON
+            readable_text = text[:json_start].strip()
+            if readable_text:
+                logger.info(f"[ROBUST-PARSER] Extracted pre-JSON text ({len(readable_text)} chars)")
+                return {"answer_text": readable_text, "events": []}
+
+        # Last resort: use the entire text as the answer (cleaned up)
+        # Remove any partial JSON fragments
+        clean_text = re.sub(r'\{[^}]*$', '', text)  # Remove trailing incomplete JSON
+        clean_text = re.sub(r'```json.*', '', clean_text, flags=re.DOTALL)  # Remove code blocks
+        clean_text = clean_text.strip()
+
+        if clean_text:
+            logger.info(f"[ROBUST-PARSER] Using cleaned text as answer ({len(clean_text)} chars)")
+            return {"answer_text": clean_text, "events": []}
+
+        # Absolute fallback
+        logger.warning("[ROBUST-PARSER] No usable text found, returning empty response")
+        return {"answer_text": "Je n'ai pas pu traiter votre demande. Veuillez reformuler.", "events": []}
+
+    @property
+    def _type(self) -> str:
+        return "robust_json"
+
 
 # Feature flag: Use unified LLM analyzer instead of keyword-based checks
 # This consolidates intent + entity extraction + filters into ONE LLM call
@@ -48,7 +116,7 @@ logger = logging.getLogger(__name__)
 # ========================================
 # Fire-and-forget database writes to reduce response latency
 
-def _async_db_write(func, *args, **kwargs):
+def _background_db_write(func, *args, **kwargs):
     """Execute a database write in a background thread (fire-and-forget).
 
     This reduces perceived latency by not waiting for database writes.
@@ -63,7 +131,7 @@ def _async_db_write(func, *args, **kwargs):
         try:
             func(*args, **kwargs)
         except Exception as e:
-            logger.error(f"[ASYNC-DB] Background write failed: {e}")
+            logger.error(f"[BACKGROUND-DB] Write failed: {e}")
 
     thread = threading.Thread(target=_worker, daemon=True)
     thread.start()
@@ -694,254 +762,7 @@ def detect_out_of_scope_city(query: str) -> tuple[Optional[str], Optional[str]]:
     return (None, None)
 
 
-def is_broad_query(query: str, chat_history: Optional[List[Any]] = None) -> Tuple[bool, str]:
-    """Detect if a query is too broad and needs clarification.
 
-    STRICT 3-CRITERIA REQUIREMENT:
-    A query must have ALL THREE of:
-    - City (e.g., "Paris", "Versailles")
-    - Event type (e.g., "concerts", "expositions", "jazz")
-    - Date/timeframe (e.g., "ce week-end", "en février", "today")
-
-    If ANY criterion is missing (from query + chat history context),
-    the query is considered broad and needs clarification.
-
-    EXCEPTION: Explicit "all/everything" intent bypasses this check.
-
-    Args:
-        query: The user query
-        chat_history: Optional list of previous chat messages (HumanMessage/AIMessage)
-
-    Returns:
-        Tuple of (is_broad, reason) where reason describes what's missing
-    """
-    query_lower = query.lower().strip()
-    words = query_lower.split()
-
-    # Skip very short queries (greetings handled elsewhere)
-    if len(words) < 1:
-        return (False, "")
-
-    # EXCEPTION: Explicit "all/everything" intent - user wants broad search
-    broad_intent_words = {
-        "all", "everything", "anything", "tous", "tout", "toutes",
-        "n'importe", "nimporte", "whatever", "any"
-    }
-    if any(word in query_lower for word in broad_intent_words):
-        logger.debug(f"Explicit broad intent detected in query: '{query}'")
-        return (False, "")
-
-    # Known IDF cities (check against city locator cache)
-    city_locator = get_city_locator()
-    known_cities = set(city_locator.city_cache.keys())
-
-    # Also accept "île-de-france", "idf", "region" as valid city context
-    region_words = {"île-de-france", "ile-de-france", "idf", "région", "region", "paris region"}
-
-    # OPTIMIZATION: Use database-backed KeywordLocator for event types and dates
-    # This provides fuzzy matching, typo detection, and comprehensive keyword coverage
-    # (327 event descriptors, 78 date keywords with variants)
-    keyword_locator = get_keyword_locator()
-
-    # Check what the current query contains
-    has_city = any(city in query_lower for city in known_cities) or any(r in query_lower for r in region_words)
-    # KeywordLocator provides fuzzy matching for typos like "wekend" -> "weekend"
-    has_event_type = keyword_locator.has_event_indicator(query)
-    has_date = keyword_locator.has_date_indicator(query)
-
-    # Track what was found in query vs history for debugging
-    city_from_query = has_city
-    event_from_query = has_event_type
-    date_from_query = has_date
-
-    logger.info(f"[BROAD-QUERY] Query analysis: city={has_city}, event_type={has_event_type}, date={has_date}")
-
-    # IMPORTANT: Check chat history context (last 5 messages only for relevance)
-    # If history mentions city/event_type/date, treat it as present
-    if chat_history:
-        # Only check recent history (last 5 messages) to avoid stale context
-        recent_history = chat_history[-5:] if len(chat_history) > 5 else chat_history
-
-        history_text = ""
-        for msg in recent_history:
-            if hasattr(msg, "content"):
-                history_text += " " + msg.content.lower()
-
-        logger.info(f"[BROAD-QUERY] Checking history context ({len(recent_history)} messages)")
-
-        # Check if history contains the missing criteria
-        if not has_city:
-            has_city = any(city in history_text for city in known_cities) or any(r in history_text for r in region_words)
-            if has_city:
-                logger.info("[BROAD-QUERY] Found CITY in history context")
-        if not has_event_type:
-            # Use KeywordLocator for fuzzy matching in history context
-            has_event_type = keyword_locator.has_event_indicator(history_text)
-            if has_event_type:
-                logger.info("[BROAD-QUERY] Found EVENT TYPE in history context")
-        if not has_date:
-            # Use KeywordLocator for date detection (including specific date formats)
-            has_date = keyword_locator.has_date_indicator(history_text)
-            if has_date:
-                logger.info("[BROAD-QUERY] Found DATE in history context")
-
-        # Summary of incremental clarification
-        if has_city or has_event_type or has_date:
-            logger.info(
-                f"[BROAD-QUERY] After history check: city={has_city} (from_history={has_city and not city_from_query}), "
-                f"event_type={has_event_type} (from_history={has_event_type and not event_from_query}), "
-                f"date={has_date} (from_history={has_date and not date_from_query})"
-            )
-
-    # RELAXED CRITERIA: Date is OPTIONAL when city + event_type are present
-    # This allows "concerts de jazz à Paris" to work without asking for date
-    missing = []
-    if not has_city:
-        missing.append("city")
-    if not has_event_type:
-        missing.append("event_type")
-    # Only require date if city OR event_type is also missing
-    if not has_date and (not has_city or not has_event_type):
-        missing.append("date")
-
-    # If criteria missing, query is broad
-    if missing:
-        reason = "missing_" + "+".join(missing)
-        logger.debug(f"Broad query detected. Missing: {missing}. Query: '{query}'")
-        return (True, reason)
-
-    # City + Event type is enough - date is optional
-    if has_city and has_event_type:
-        logger.info(f"[BROAD-QUERY] City + Event type present, date optional - proceeding with search")
-
-    return (False, "")
-
-
-def check_special_query(query: str, language: Optional[str] = None) -> Optional[Tuple[str, str]]:
-    """Check if query is a special case (greeting, capability, off-topic, out-of-scope city, statistical).
-
-    Uses LLM-based intent classification as PRIMARY detection method for robustness.
-    Falls back to database-backed KeywordLocator for edge cases and fast responses.
-
-    Detection order (priority):
-    0. LLM Intent Classification (robust handling of conversational queries)
-    1. Greetings (bonjour, hello, salut) - keyword fallback
-    2. Capability questions (help, what can you do)
-    3. Statistical queries (how many events, combien)
-    4. Off-topic queries (weather, recipe, translate)
-    5. Out-of-scope cities (Delhi, London) - with fuzzy city correction
-
-    Args:
-        query: The user query
-        language: Optional language code ("fr" or "en")
-
-    Returns:
-        Tuple of (response_text, query_type) if special query detected, None otherwise
-    """
-    # Defensive: Auto-detect language if not provided
-    if language is None:
-        language = detect_language_from_query(query)
-
-    # ========================================
-    # 0. LLM-BASED INTENT CLASSIFICATION (PRIMARY)
-    # ========================================
-    # This is the most robust method for detecting conversational queries
-    # like "how are you", "what's up", etc. that keyword matching might miss
-    try:
-        intent, confidence = classify_intent(query)
-        logger.info(f"[INTENT-LLM] Query: '{query[:40]}...' -> {intent.value} (confidence: {confidence:.2f})")
-
-        # Handle non-event-search intents with high confidence
-        if intent == QueryIntent.GREETING and confidence >= 0.7:
-            return (GREETING_RESPONSES[language], "greeting")
-
-        if intent == QueryIntent.CHITCHAT and confidence >= 0.7:
-            return (CHITCHAT_RESPONSES[language], "chitchat")
-
-        if intent == QueryIntent.CAPABILITY and confidence >= 0.7:
-            return (CAPABILITY_RESPONSES[language], "capability")
-
-        if intent == QueryIntent.ABUSE and confidence >= 0.7:
-            return (ABUSE_RESPONSES[language], "abuse")
-
-        if intent == QueryIntent.OFF_TOPIC and confidence >= 0.7:
-            return (OFF_TOPIC_RESPONSES[language], "off_topic")
-
-        # If event_search with high confidence, skip keyword checks and proceed
-        if intent == QueryIntent.EVENT_SEARCH and confidence >= 0.8:
-            logger.info("[INTENT-LLM] High-confidence event_search - skipping keyword checks")
-            return None
-
-    except Exception as e:
-        logger.warning(f"[INTENT-LLM] Classification failed: {e}. Falling back to keyword detection.")
-
-    # ========================================
-    # KEYWORD-BASED FALLBACK (for edge cases)
-    # ========================================
-    # Get KeywordLocator for fuzzy matching (fallback source of truth)
-    keyword_locator = get_keyword_locator()
-
-    # ========================================
-    # 1. GREETING CHECK
-    # ========================================
-    greeting_match = keyword_locator.detect_greeting(query)
-    if greeting_match:
-        logger.info(f"[SPECIAL-QUERY] Greeting detected: '{greeting_match.original}' -> '{greeting_match.matched}' ({greeting_match.match_type})")
-        return (GREETING_RESPONSES[language], "greeting")
-
-    # ========================================
-    # 2. CAPABILITY CHECK
-    # ========================================
-    capability_match = keyword_locator.detect_capability(query)
-    if capability_match:
-        logger.info(f"[SPECIAL-QUERY] Capability detected: '{capability_match.original}' -> '{capability_match.matched}' ({capability_match.match_type})")
-        return (CAPABILITY_RESPONSES[language], "capability")
-
-    # ========================================
-    # 3. STATISTICAL CHECK
-    # ========================================
-    statistical_match = keyword_locator.detect_statistical(query)
-    if statistical_match:
-        logger.info(f"[SPECIAL-QUERY] Statistical detected: '{statistical_match.original}' -> '{statistical_match.matched}' ({statistical_match.match_type})")
-        return (STATISTICAL_RESPONSES[language], "statistical")
-
-    # ========================================
-    # 4. OFF-TOPIC CHECK (including abuse/insults)
-    # ========================================
-    off_topic_match = keyword_locator.detect_off_topic(query)
-    if off_topic_match:
-        logger.info(f"[SPECIAL-QUERY] Off-topic detected: '{off_topic_match.original}' -> '{off_topic_match.matched}' ({off_topic_match.match_type}, subcategory: {off_topic_match.implied_category})")
-        # Special handling for abuse/insults - polite response
-        if off_topic_match.implied_category == "abuse":
-            return (ABUSE_RESPONSES[language], "abuse")
-        return (OFF_TOPIC_RESPONSES[language], "off_topic")
-
-    # ========================================
-    # 5. OUT-OF-SCOPE CITY CHECK
-    # ========================================
-    out_of_scope_city, suggested_city = detect_out_of_scope_city(query)
-    if out_of_scope_city:
-        if suggested_city:
-            # Typo detected with fuzzy match - offer correction
-            if language == "fr":
-                response = f"""Je n'ai pas trouve **{out_of_scope_city}**, mais vouliez-vous dire **{suggested_city}** ?
-
-Si oui, reformulez votre demande avec "{suggested_city}" et je serai ravie de vous aider !
-
-Sinon, je couvre uniquement la region **Ile-de-France** (Paris et environs)."""
-            else:
-                response = f"""I couldn't find **{out_of_scope_city}**, but did you mean **{suggested_city}**?
-
-If so, rephrase your request with "{suggested_city}" and I'll be happy to help!
-
-Otherwise, I only cover the **Ile-de-France** region (Paris and surroundings)."""
-            return (response, "city_typo_suggestion")
-        else:
-            # Truly out of scope, no fuzzy match
-            response = OUT_OF_SCOPE_CITY_RESPONSES[language].format(city=out_of_scope_city)
-            return (response, "out_of_scope_city")
-
-    return None
 
 class SimpleSummaryBufferMemory:
     """Custom implementation of Summary Buffer Memory with actual LLM summarization."""
@@ -994,7 +815,15 @@ class RAGChain:
         # OPTIMIZATION D: Lazy initialization - delay index loading until first query
         self._index_loaded = False
 
-        self.llm = llm or MistralLLM()
+        # Use get_chat_llm() to respect llm_backend setting (mistral/google/huggingface)
+        from src.generation.llm import get_chat_llm, MistralLLM
+        raw_llm = llm or get_chat_llm()
+        # Wrap in MistralLLM for consistent interface (it expects self.llm.llm pattern)
+        if isinstance(raw_llm, MistralLLM):
+            self.llm = raw_llm
+        else:
+            # Create a simple wrapper to provide consistent interface
+            self.llm = type('LLMWrapper', (), {'llm': raw_llm, 'invoke': raw_llm.invoke})()
         self.chat_storage = chat_storage or ChatStorage()
         self.k = k
 
@@ -1006,11 +835,6 @@ class RAGChain:
         # SESSION FILTER CACHE: Store last analysis filters per session for follow-up merging
         # This enables code-level filter preservation instead of relying on LLM to re-interpret
         self._session_filters: Dict[str, Dict[str, Any]] = {}
-
-        # Chains - Use UNIFIED prompt (combines reformulation + refinement + extraction into 1 LLM call)
-        # OLD: 3 separate chains = 3 LLM calls (~15-24s)
-        # NEW: 1 unified chain = 1 LLM call (~5-8s)
-        self.unified_understanding_chain = get_query_understanding_prompt() | self.llm.llm.bind(response_format={"type": "json_object"}) | JsonOutputParser()
 
         try:
             total_events_val = self.vector_store.storage.count_events()
@@ -1037,32 +861,22 @@ class RAGChain:
                 "pre_refined_query": inputs.get("pre_refined_query")
             }
 
-        # 2. UNIFIED Query Understanding + Hybrid Retrieval
-        # Combines: reformulation + typo correction + filter extraction into ONE LLM call
-        # OPTIMIZATION: If pre-computed filters from unified analyzer are provided, skip LLM call
+        # 2. Hybrid Retrieval with pre-computed filters from UnifiedAnalyzer
+        # ARCHITECTURE: UnifiedAnalyzer runs BEFORE this, providing filters via pre_filters
         def retrieve_docs_hybrid(inputs):
             input_query = inputs["q"]
             raw_query = inputs["raw_q"]
             history = inputs["history"]
 
-            # Check if pre-computed filters from unified analyzer are available
+            # Get pre-computed filters from UnifiedAnalyzer (always provided in normal flow)
             pre_filters = inputs.get("pre_filters")
             pre_refined_query = inputs.get("pre_refined_query")
 
             try:
-                if pre_filters is not None:
-                    # SKIP LLM CALL: Use pre-computed filters from unified analyzer
-                    refined_query = pre_refined_query or input_query
-                    raw_filters = pre_filters
-                    logger.info(f"[OPTIMIZED] Using pre-computed filters, skipping redundant LLM call")
-                else:
-                    # FALLBACK: Make LLM call for reformulation + refinement + extraction
-                    understanding_result = self.unified_understanding_chain.invoke({
-                        "question": input_query,
-                        "chat_history": history
-                    })
-                    refined_query = understanding_result.get("refined_query", input_query)
-                    raw_filters = understanding_result.get("filters", {})
+                # Use pre-computed filters from UnifiedAnalyzer
+                refined_query = pre_refined_query or input_query
+                raw_filters = pre_filters or {}
+                logger.info(f"[RETRIEVAL] Using filters from UnifiedAnalyzer")
 
                 logger.info(f"[UNIFIED] Query: '{input_query}' -> Refined: '{refined_query}' | Filters: {raw_filters}")
 
@@ -1131,12 +945,12 @@ class RAGChain:
                         today=lambda x: x["current_date"],
                         total_matching=lambda x: str(x["retrieved_data"].get("total_in_database", x["formatting_results"][1])),
                         filters_applied=lambda x: str(x["retrieved_data"].get("filters_applied", {})),
-                        exact_count=lambda x: str(x["retrieved_data"].get("exact_count", 0)),
-                        nearby_count=lambda x: str(x["formatting_results"][1] - x["retrieved_data"].get("exact_count", 0))
+                        exact_count=lambda x: str(min(x["retrieved_data"].get("exact_count", 0), x["formatting_results"][1])),
+                        nearby_count=lambda x: str(max(0, x["formatting_results"][1] - x["retrieved_data"].get("exact_count", 0)))
                     )
                     | RunnableLambda(select_prompt)
-                    | self.llm.llm.bind(response_format={"type": "json_object"})
-                    | JsonOutputParser()
+                    | self.llm.llm
+                    | RobustJsonParser()
                 ),
                 context=lambda x: x["retrieved_data"]["docs"]
             )
@@ -1171,16 +985,28 @@ class RAGChain:
         filters_only = {k: v for k, v in stored.items() if not k.startswith('_')}
         logger.info(f"[SESSION-FILTERS] Stored for {session_id}: filters={filters_only}, search_terms={stored.get('_search_terms', [])}")
 
-    def _merge_with_previous_filters(self, session_id: str, current_filters: Dict[str, Any], current_refined_query: str = None) -> Tuple[Dict[str, Any], str]:
+    def _merge_with_previous_filters(
+        self,
+        session_id: str,
+        current_filters: Dict[str, Any],
+        current_refined_query: str = None,
+        analysis: "UnifiedAnalysisResult" = None
+    ) -> Tuple[Dict[str, Any], str]:
         """Merge current filters with previous session filters and accumulate search terms.
 
         For follow-up queries, this preserves filters that weren't explicitly changed
         and accumulates search terms across turns.
 
+        SMART CLEARING RULES:
+        - If user says "any kind of event" (scope=all), DON'T carry over category
+        - If user specifies a new month, DON'T carry over the day from previous month
+        - If user specifies a new date range, clear previous single-day filters
+
         Args:
             session_id: The session identifier
             current_filters: Filters extracted from current query
             current_refined_query: Current turn's refined query text
+            analysis: The UnifiedAnalysisResult for smart filter clearing
 
         Returns:
             Tuple of (merged_filters, accumulated_search_query)
@@ -1191,15 +1017,48 @@ class RAGChain:
 
         merged = current_filters.copy()
         carried_over = []
+        cleared = []
 
-        # Only carry over if current value is None and previous has a value
+        # ========================================
+        # SMART CLEARING RULES
+        # ========================================
+
+        # Rule 1: If scope="all" (any kind of event), DON'T carry over category
+        wants_all_events = False
+        if analysis and hasattr(analysis, 'wants_all_events'):
+            wants_all_events = analysis.wants_all_events
+            if wants_all_events:
+                cleared.append("category (scope=all)")
+                logger.info(f"[FILTER-CLEAR] User wants all events - NOT carrying over category")
+
+        # Rule 2: If user specifies a new month, DON'T carry over day
+        # (e.g., "in February" should clear day=18 from March)
+        month_changed = (
+            merged.get("month") is not None and
+            previous.get("month") is not None and
+            merged.get("month") != previous.get("month")
+        )
+        if month_changed:
+            cleared.append(f"day (month changed from {previous.get('month')} to {merged.get('month')})")
+            logger.info(f"[FILTER-CLEAR] Month changed - NOT carrying over day")
+
+        # Only carry over if current value is None, previous has a value,
+        # AND smart clearing rules allow it
         for key in ["city", "month", "day", "year", "category", "audience"]:
+            # Skip keys that should be cleared
+            if key == "category" and wants_all_events:
+                continue  # Don't carry over category when user wants all events
+            if key == "day" and month_changed:
+                continue  # Don't carry over day when month changed
+
             if merged.get(key) is None and previous.get(key) is not None:
                 merged[key] = previous[key]
                 carried_over.append(f"{key}={previous[key]}")
 
         if carried_over:
             logger.info(f"[FILTER-MERGE] Carried over from previous: {', '.join(carried_over)}")
+        if cleared:
+            logger.info(f"[FILTER-CLEAR] Smart clearing applied: {', '.join(cleared)}")
 
         # Accumulate search terms (individual terms, not combined strings)
         previous_terms = previous.get("_search_terms", [])
@@ -1234,7 +1093,7 @@ class RAGChain:
             except Exception as e:
                 logger.warning(f"Could not load FAISS index: {e}.")
 
-    def _unified_pre_analysis(self, question: str, chat_history: List[BaseMessage], language: str) -> Optional[Dict[str, Any]]:
+    def _unified_pre_analysis(self, question: str, chat_history: List[BaseMessage], language: str, session_id: str = None) -> Optional[Dict[str, Any]]:
         """Use unified LLM analyzer for MULTI-DIMENSIONAL intent analysis.
 
         This performs multi-dimensional classification where a query can have
@@ -1243,6 +1102,12 @@ class RAGChain:
         - Typo correction dimension (acknowledgment added)
         - Statistical dimension (changes output to count instead of list)
         - Scope dimension (all events vs specific type)
+
+        Args:
+            question: User's query
+            chat_history: Previous conversation turns
+            language: Detected/specified language
+            session_id: Session ID to check for existing filters (enables follow-up handling)
 
         Returns:
             Dict with early response if query is special/incomplete, None to continue RAG
@@ -1254,6 +1119,13 @@ class RAGChain:
 
             # ONE unified LLM call with multi-dimensional output
             analysis = unified_analyze(question, chat_history, known_cities)
+
+            # CRITICAL: Update language from analysis IMMEDIATELY (before any early returns)
+            # This ensures all responses use the correct detected language
+            detected_lang = getattr(analysis, 'detected_language', language)
+            if detected_lang in ["fr", "en"]:
+                language = detected_lang
+                logger.info(f"[LANGUAGE] Updated from LLM analysis: {language}")
 
             # Log dimensions
             dims_str = ", ".join([
@@ -1273,6 +1145,11 @@ class RAGChain:
             # EXCEPTION: If greeting dimension + event_search intent, continue to RAG
             if analysis.intent != UnifiedIntent.EVENT_SEARCH and analysis.intent_confidence >= 0.7:
                 # Pure non-event intent (not a compound query like "hello, find me concerts")
+                # CRITICAL: Use detected_language from analysis (not fallback language parameter)
+                detected_lang = getattr(analysis, 'detected_language', language)
+                if detected_lang not in ["fr", "en"]:
+                    detected_lang = "fr"  # Normalize to valid values
+
                 response_map = {
                     UnifiedIntent.GREETING: GREETING_RESPONSES,
                     UnifiedIntent.CHITCHAT: CHITCHAT_RESPONSES,
@@ -1281,8 +1158,9 @@ class RAGChain:
                     UnifiedIntent.OFF_TOPIC: OFF_TOPIC_RESPONSES,
                 }
                 responses = response_map.get(analysis.intent, OFF_TOPIC_RESPONSES)
+                logger.info(f"[LANGUAGE] Early response using detected_language: {detected_lang}")
                 return {
-                    "early_response": responses[language],
+                    "early_response": responses[detected_lang],
                     "query_type": analysis.intent.value,
                     "analysis": analysis
                 }
@@ -1291,10 +1169,15 @@ class RAGChain:
             # OUT-OF-SCOPE CITY
             # ========================================
             if analysis.city and not analysis.city_normalized:
-                # Build response prefix for dimensions
-                prefix = compose_response_prefix(analysis, language)
+                # Use detected language from analysis
+                detected_lang = getattr(analysis, 'detected_language', language)
+                if detected_lang not in ["fr", "en"]:
+                    detected_lang = "fr"
 
-                if language == "fr":
+                # Build response prefix for dimensions
+                prefix = compose_response_prefix(analysis, detected_lang)
+
+                if detected_lang == "fr":
                     response = prefix + OUT_OF_SCOPE_CITY_RESPONSES["fr"].format(city=analysis.city.title())
                 else:
                     response = prefix + OUT_OF_SCOPE_CITY_RESPONSES["en"].format(city=analysis.city.title())
@@ -1321,10 +1204,38 @@ class RAGChain:
                 }
 
             # ========================================
+            # RATE LIMIT EXHAUSTED - TEMPORARY ERROR
+            # ========================================
+            # If the analyzer failed due to rate limiting (after all retries),
+            # show a clear message instead of asking for clarification
+            if analysis.raw_response.get("error") == "rate_limit_exhausted":
+                rate_limit_messages = {
+                    "fr": (
+                        "**Erreur API : Limite de requetes atteinte**\n\n"
+                        "Le service d'intelligence artificielle est temporairement indisponible "
+                        "(trop de requetes). Veuillez patienter 30 secondes avant de reessayer."
+                    ),
+                    "en": (
+                        "**API Error: Rate limit reached**\n\n"
+                        "The AI service is temporarily unavailable (too many requests). "
+                        "Please wait 30 seconds before trying again."
+                    )
+                }
+                return {
+                    "early_response": rate_limit_messages.get(language, rate_limit_messages["en"]),
+                    "query_type": "rate_limit_error",
+                    "analysis": analysis
+                }
+
+            # ========================================
             # INCOMPLETE QUERIES (need clarification)
             # ========================================
             # CRITICAL: Statistical and "all events" scope queries skip this check
-            if not analysis.is_complete and analysis.missing_criteria:
+            # ALSO CRITICAL: If session has existing filters, this is a follow-up query
+            # that will have context merged - don't ask for clarification
+            has_session_context = session_id and bool(self._session_filters.get(session_id))
+
+            if not analysis.is_complete and analysis.missing_criteria and not has_session_context:
                 from src.retrieval.clarifications import get_clarification_response
                 # Convert missing to format expected by clarifications
                 reason = "missing_" + "+".join(analysis.missing_criteria)
@@ -1342,6 +1253,8 @@ class RAGChain:
                         "clarifying_questions": backup_questions,
                         "analysis": analysis
                     }
+            elif has_session_context and not analysis.is_complete:
+                logger.info(f"[FOLLOW-UP] Query incomplete but session has context - continuing to RAG with filter merge")
 
             # ========================================
             # VALID EVENT SEARCH - CONTINUE TO RAG
@@ -1372,11 +1285,14 @@ class RAGChain:
         self._ensure_ready()
 
         logger.info(f"Query: {question}")
-        check_safety(question)
+        check_safety(question, session_id=session_id)
 
-        # Default to French if language not specified, or auto-detect
+        # Track if language was explicitly provided vs auto-detected
+        language_explicit = language is not None
+
+        # Temporary fallback to French (will be overridden by unified analyzer if used)
         if language is None:
-            language = detect_language_from_query(question)
+            language = "fr"  # Default to French, will be updated by unified analyzer
 
         # Cache check - labels are now pre-computed in database, no enrichment needed
         if self.cache:
@@ -1399,7 +1315,14 @@ class RAGChain:
         # - Filter extraction
         unified_result = None
         if USE_UNIFIED_ANALYZER:
-            unified_result = self._unified_pre_analysis(question, chat_history, language)
+            unified_result = self._unified_pre_analysis(question, chat_history, language, session_id)
+
+            # Update language from unified analyzer if not explicitly provided
+            if unified_result and not language_explicit:
+                analysis = unified_result.get("analysis")
+                if analysis and hasattr(analysis, "detected_language"):
+                    language = analysis.detected_language
+                    logger.info(f"[LANGUAGE] Using LLM-detected language: {language}")
 
             if unified_result:
                 # Handle early responses (greeting, chitchat, out-of-scope, incomplete)
@@ -1408,7 +1331,7 @@ class RAGChain:
                     query_type = unified_result.get("query_type", "special")
                     logger.info(f"[UNIFIED] Early response: {query_type}")
 
-                    _async_db_write(self.chat_storage.add_chat_message, session_id, "user", question)
+                    _background_db_write(self.chat_storage.add_chat_message, session_id, "user", question)
                     message_id = self.chat_storage.add_chat_message(session_id, "assistant", response_text)
 
                     result_dict = {
@@ -1430,11 +1353,13 @@ class RAGChain:
         is_statistical = False
 
         default_timeframe_applied = False
+        analysis = None  # UnifiedAnalysisResult for smart filter clearing
         if unified_result and unified_result.get("continue_rag"):
             pre_filters = unified_result.get("filters")
             pre_refined_query = unified_result.get("refined_query")
             response_prefix = unified_result.get("response_prefix", "")
             is_statistical = unified_result.get("is_statistical", False)
+            analysis = unified_result.get("analysis")  # For smart clearing rules
 
             # ========================================
             # FILTER MERGING: Preserve context from previous turn
@@ -1442,10 +1367,19 @@ class RAGChain:
             # For follow-up queries, merge current filters with previous session filters.
             # Only values that are None in current but exist in previous are carried over.
             # Also accumulates search terms across turns.
+            # SMART CLEARING: Pass analysis for scope=all and month change detection
             if pre_filters:
                 pre_filters, pre_refined_query = self._merge_with_previous_filters(
-                    session_id, pre_filters, pre_refined_query
+                    session_id, pre_filters, pre_refined_query, analysis=analysis
                 )
+                # CRITICAL: Apply category mapping after merge to ensure valid DB category
+                # This fixes the bug where merged category was raw (e.g., 'concerts de jazz')
+                # instead of mapped (e.g., 'Musique')
+                if pre_filters.get("category"):
+                    raw_category = pre_filters["category"]
+                    pre_filters["category"] = map_category_to_db(raw_category)
+                    if pre_filters["category"] != raw_category:
+                        logger.info(f"[CATEGORY-MAP] Post-merge mapping: '{raw_category}' → '{pre_filters['category']}'")
 
             # Apply default timeframe if none specified (Option B: auto-apply next 30 days)
             if pre_filters and should_apply_default_timeframe(pre_filters):
@@ -1459,6 +1393,8 @@ class RAGChain:
             if is_statistical:
                 logger.info("[MULTI-DIM] Statistical query mode - will return count")
 
+        # Track if this is an error response (don't cache errors)
+        _is_error_response = False
         try:
             result = self.rag_chain.invoke({
                 "input": question,
@@ -1555,15 +1491,99 @@ class RAGChain:
                 logger.info(f"[REFINEMENT] Added refinement (has_results={has_results}, count={result_count})")
 
         except Exception as e:
-            logger.error(f"Chain failed: {e}", exc_info=True)
-            answer_text = "I encountered an error."
+            error_str = str(e).lower()
+            error_type = type(e).__name__
+            logger.error(f"Chain failed ({error_type}): {e}", exc_info=True)
+
+            # Import HuggingFace error types for specific handling
+            from src.generation.hf_wrapper import (
+                HuggingFaceModelLoadingError,
+                HuggingFaceRateLimitError,
+                HuggingFaceQueueError,
+            )
+
+            # Provide clear, user-friendly error message based on error type
+            # HuggingFace-specific: Model loading (cold start)
+            if isinstance(e, HuggingFaceModelLoadingError) or "model is currently loading" in error_str or "is currently loading" in error_str:
+                error_messages = {
+                    "fr": (
+                        "**Modele en cours de chargement**\n\n"
+                        "Le modele IA demarre (cela peut prendre 20-30 secondes). "
+                        "Veuillez reessayer dans un moment."
+                    ),
+                    "en": (
+                        "**Model Loading**\n\n"
+                        "The AI model is starting up (this can take 20-30 seconds). "
+                        "Please try again in a moment."
+                    )
+                }
+            # HuggingFace-specific: Rate limit
+            elif isinstance(e, HuggingFaceRateLimitError) or "rate" in error_str and "limit" in error_str or "429" in error_str or "resource_exhausted" in error_str:
+                error_messages = {
+                    "fr": (
+                        "**Limite de requetes atteinte**\n\n"
+                        "Le service IA est temporairement sature. "
+                        "Veuillez patienter 30 secondes avant de reessayer."
+                    ),
+                    "en": (
+                        "**Rate Limit Reached**\n\n"
+                        "The AI service is temporarily busy. "
+                        "Please wait 30 seconds before trying again."
+                    )
+                }
+            # HuggingFace-specific: Queue/timeout
+            elif isinstance(e, HuggingFaceQueueError) or "queue" in error_str:
+                error_messages = {
+                    "fr": (
+                        "**Service occupe**\n\n"
+                        "Le service IA traite beaucoup de demandes. "
+                        "Veuillez reessayer dans quelques secondes."
+                    ),
+                    "en": (
+                        "**Service Busy**\n\n"
+                        "The AI service is processing many requests. "
+                        "Please try again in a few seconds."
+                    )
+                }
+            # General: Connection/timeout errors
+            elif "timeout" in error_str or "connection" in error_str:
+                error_messages = {
+                    "fr": (
+                        "**Erreur de connexion**\n\n"
+                        "Impossible de joindre le service IA. "
+                        "Verifiez votre connexion internet et reessayez."
+                    ),
+                    "en": (
+                        "**Connection Error**\n\n"
+                        "Unable to reach the AI service. "
+                        "Please check your internet connection and try again."
+                    )
+                }
+            # General: Unknown error
+            else:
+                error_messages = {
+                    "fr": (
+                        "**Erreur inattendue**\n\n"
+                        "Une erreur s'est produite lors du traitement de votre demande. "
+                        "Veuillez reformuler votre question ou reessayer plus tard."
+                    ),
+                    "en": (
+                        "**Unexpected Error**\n\n"
+                        "An error occurred while processing your request. "
+                        "Please rephrase your question or try again later."
+                    )
+                }
+
+            answer_text = error_messages.get(language, error_messages["en"])
             structured_events = []
             needs_clarification = False
             clarifying_questions = []
             result = {"context": []}
+            # Mark this as an error response - DO NOT CACHE
+            _is_error_response = True
 
         # Save to persistent storage (user msg async, assistant sync for message_id)
-        _async_db_write(self.chat_storage.add_chat_message, session_id, "user", question)
+        _background_db_write(self.chat_storage.add_chat_message, session_id, "user", question)
         message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_text)
 
         # Extract complete source metadata (including enrichment fields for cache)
@@ -1616,5 +1636,7 @@ class RAGChain:
         if pre_filters:
             self._store_session_filters(session_id, pre_filters, pre_refined_query)
 
-        if self.cache: self.cache.set(question, session_id, res)
+        # Don't cache error responses - transient failures shouldn't persist
+        if self.cache and not _is_error_response:
+            self.cache.set(question, session_id, res)
         return res

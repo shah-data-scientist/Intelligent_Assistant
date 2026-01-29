@@ -14,7 +14,17 @@ class Settings(BaseSettings):
     )
 
     # Mistral API
-    mistral_api_key: str
+    mistral_api_key: str = ""  # Optional if using Google
+
+    # Google API (Gemini)
+    google_api_key: str = ""  # Optional if using Mistral
+
+    # LLM Backend: "mistral", "google", or "huggingface"
+    llm_backend: str = "huggingface"  # Using HuggingFace while Mistral is rate limited
+
+    # HuggingFace settings (for llm_backend="huggingface")
+    hf_token: str | None = None  # Set HF_TOKEN env var or provide here
+    hf_model: str = "Qwen/Qwen2.5-7B-Instruct"  # 7B model, good at JSON output
 
     # OpenAgenda API (via Opendatasoft)
     openagenda_base_url: str = (
@@ -28,7 +38,7 @@ class Settings(BaseSettings):
 
     # Vector Store
     faiss_index_path: str = "./data/faiss_index"
-    vector_dimension: int = 1024
+    vector_dimension: int = 1024  # Mistral mistral-embed dimension
 
     # ========================================
     # RETRIEVAL TUNING PARAMETERS
