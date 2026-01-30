@@ -12,7 +12,7 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-commit]
-        exclude: ^scripts/global_policy/
+        exclude: ^(scripts/global_policy/|scripts/_archived/|_archived_scripts/|docs/archive/)
         description: Validates documentation headers and comment hygiene for staged files
 
       - id: validate-file-locations
@@ -31,6 +31,14 @@ repos:
         stages: [pre-commit]
         verbose: true
         description: Warns about old debug scripts and orphaned files (non-blocking)
+
+      - id: validate-changelog
+        name: Validate CHANGELOG.md Entries
+        entry: python scripts/global_policy/validate_changelog.py
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+        description: Ensures changed Python files are documented in CHANGELOG.md
 
   # Python Code Quality
   - repo: https://github.com/psf/black
@@ -52,6 +60,7 @@ repos:
     hooks:
       - id: bandit
         args: [-r, src/, -ll]
+        files: ^src/
         description: Security vulnerability scanner
 
   # Secrets Detection

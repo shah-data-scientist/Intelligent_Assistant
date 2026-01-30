@@ -274,6 +274,42 @@ CATEGORY_MAPPING = {
 }
 ```
 
+**Entity → Filter Conversion (event_type → category):**
+
+The system uses two distinct concepts for event categorization:
+
+| Term | Description | Example | Source |
+|------|-------------|---------|--------|
+| **`event_type`** | User input term (informal, lowercase) | "concert", "jazz", "theatre" | LLM entity extraction |
+| **`category`** | Database classification (formal, title case) | "Musique", "Théâtre / Spectacle" | Database schema |
+
+**Conversion Logic:**
+```python
+# File: src/retrieval/unified_analyzer.py:888-893
+# DERIVE CATEGORY from event_type
+# LLM extracts event_type (e.g., "jazz", "concert") but often leaves category=null
+event_type = entities.get("event_type")
+if event_type and not filters.get("category"):
+    filters["category"] = event_type
+    logger.info(f"[FILTER-INFER] Derived category from event_type: '{event_type}'")
+```
+
+**Why Two Terms?**
+- **User speaks informally:** "concerts de jazz" → LLM extracts `event_type: "jazz"`
+- **Database uses formal labels:** Events stored with `category: "Musique"`
+- **System bridges the gap:** If `category` filter is missing, derive it from `event_type`
+
+**Example Flow:**
+```
+User query: "concerts de jazz à Paris"
+    ↓
+LLM entities: {event_type: "jazz", city: "Paris"}
+    ↓
+Filter derivation: {category: "jazz", city: "Paris"}  ← event_type copied to category
+    ↓
+Database search: WHERE category IN ('Musique', 'jazz') AND city = 'Paris'
+```
+
 **Early Responses (no RAG needed):**
 | Intent | Response |
 |--------|----------|

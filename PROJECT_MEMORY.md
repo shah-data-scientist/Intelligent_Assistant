@@ -310,8 +310,8 @@ To ensure high-quality RAG performance, data undergoes a multi-stage refinement 
     - Created `src/data/chat_storage.py` and dedicated `data/chat_history.db` for interactions (SRP).
     - Removed `ConversationRecord` and `FeedbackRecord` from `EventStorage`.
     - Updated `RAGChain` and API endpoints to utilize `ChatStorage` for improved modularity.
-  - **Test Suite Expansion:** 
-    - Added [tests/test_rag_prompts.py](tests/test_rag_prompts.py) to validate fallback logic and data reporting. 
+  - **Test Suite Expansion:**
+    - Added [tests/test_rag_prompts.py](tests/test_rag_prompts.py) to validate fallback logic and data reporting.
     - Verified chat storage isolation with updated [tests/test_chat_history.py](tests/test_chat_history.py).
     - **Advanced Semantic Retrieval:** Added [tests/test_advanced_retrieval.py](tests/test_advanced_retrieval.py) to verify retrieval of specific content (Nationality: Finland/Japan) and logistical details (Transport/Metro).
   - **Config Optimization:** Increased `retrieval_top_k` to 10 to ensure "at least 5 events" can be presented as requested by users.
@@ -737,6 +737,40 @@ To ensure high-quality RAG performance, data undergoes a multi-stage refinement 
       - Golden dataset expanded with real user patterns and conversational chains
       - BM25 search efficiency improved by 30% through language-aware tokenization
       - Comprehensive feedback analysis pipeline for continuous improvement
+
+## 📖 Data Model Conventions
+
+### Event Categorization Terminology
+
+The system uses two distinct terms for event categorization that developers must understand:
+
+| Term | Description | Example | Source |
+|------|-------------|---------|--------|
+| **`event_type`** | User input term (informal, lowercase) | "jazz", "concert", "théâtre" | LLM entity extraction from user query |
+| **`category`** | Database classification (formal) | "Musique", "Théâtre / Spectacle" | Database schema, search filters |
+
+**Conversion Logic:**
+- Location: [src/retrieval/unified_analyzer.py:888-893](src/retrieval/unified_analyzer.py)
+- If `category` filter is not set, system derives: `filters["category"] = entities["event_type"]`
+- This bridges the gap between user's informal language and database's formal classification
+
+**Example Flow:**
+```
+User: "concerts de jazz à Paris"
+  ↓ LLM entity extraction
+event_type: "jazz" (user's informal term)
+  ↓ Filter derivation
+category: "jazz" (becomes database filter)
+  ↓ Database query
+WHERE category IN ('Musique', 'jazz') AND city = 'Paris'
+```
+
+**Documentation:**
+- Detailed explanation: [docs/DATA_FLOW.md](docs/DATA_FLOW.md) - "Entity → Filter Conversion" section
+- Architecture notes: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md) - "Filter Derivation Logic"
+- Field schemas: [src/retrieval/schemas.py](src/retrieval/schemas.py) - Lines 28, 64
+
+---
 
 ## Phase 12: Transparency Rules & Bilingual Prompt Enhancement (2026-01-26)
 
@@ -1486,7 +1520,7 @@ Analyze ALL dimensions. Return structured output."""
 # Statistical response
 answer_text = response_prefix + stat_response
 
-# Non-statistical response  
+# Non-statistical response
 elif response_prefix:
     answer_text = response_prefix + answer_text
 

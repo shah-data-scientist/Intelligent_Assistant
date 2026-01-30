@@ -145,6 +145,10 @@ flowchart TB
 - **Unified Analyzer**: LLM-based intent classification and entity extraction
   - Detects: greeting, chitchat, capability, directions, abuse, off_topic, event_search
   - Extracts: city, event_type, dates, filters, language (fr/en)
+  - **Filter Derivation Logic**: Converts user-friendly terms to database filters
+    - `event_type` (user input: "jazz", "concert") → `category` (database: "Musique")
+    - See: [src/retrieval/unified_analyzer.py:888-893](../src/retrieval/unified_analyzer.py) for implementation
+    - Terminology: `event_type` = informal user term, `category` = formal database classification
 - **Retrieval Manager**: Multi-stage retrieval with fallback strategies
   - Stage 1: Exact match (city + date + category)
   - Stage 2: Nearby cities fallback

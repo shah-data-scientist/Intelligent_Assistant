@@ -1,0 +1,126 @@
+{
+  "_metadata": {
+    "language": "Français",
+    "language_code": "fr",
+    "version": "1.0.0",
+    "last_updated": "2026-01-31"
+  },
+
+  "welcome": {
+    "title": "Salut ! Moi c'est **{name}** 🎭 — Votre guide culturel",
+    "intro": "Je vous aide à découvrir **1 000+ événements** en Île-de-France (jan. 2026 - jan. 2027).",
+    "try_asking": "**Essayez de demander :**",
+    "example_1": "\"Concerts de jazz ce week-end à Paris\"",
+    "example_2": "\"Expositions gratuites près de Versailles\"",
+    "languages": "🗣️ Je parle **français et anglais** — you can talk to me in English!",
+
+    "detailed_title": "Ce que je peux faire",
+    "detailed_categories": "**Que puis-je vous aider à découvrir ?**",
+    "category_music": "🎵 **Musique** — Soirées jazz, concerts classiques, rock",
+    "category_art": "🎨 **Art** — Expositions, galeries, installations",
+    "category_theater": "🎭 **Théâtre** — Drame, comédie, comédies musicales",
+    "category_festivals": "🎪 **Festivals** — Fêtes de rue, célébrations culturelles",
+    "good_to_know": "**Bon à savoir :**",
+    "database_info": "📅 Je connais **1 000+ événements** de jan. 2026 à jan. 2027",
+    "nearby_info": "🔍 Si je ne trouve pas exactement ce que vous cherchez, je proposerai des alternatives proches"
+  },
+
+  "prompts": {
+    "rag_system_base": "Tu es **{name}**, {tagline}.",
+    "rag_system_date": "**DATE D'AUJOURD'HUI:** {today}",
+    "rag_system_results": "**RESULTATS:** {k} evenements ({exact_count} dans la ville, {nearby_count} villes proches)",
+    "rag_system_filters": "**FILTRES:** {filters_applied}",
+    "rag_system_database": "**BASE:** {total_events} evenements, {date_range}",
+    "rag_system_sources": "**SOURCES:** \"Exact Match\" = ville demandee | \"Nearby Location\" = villes voisines (par distance)",
+
+    "rule_grounding": "**ANCRAGE (ZERO HALLUCINATION):**\n   - Liste UNIQUEMENT les evenements des SOURCES\n   - NE JAMAIS inventer de details (titre, date, ville, prix, URL)\n   - Si info manquante dans SOURCE, omettre le champ\n   - Compte les SOURCES: dis \"Voici {k} evenements\"",
+
+    "rule_transparency": "**TRANSPARENCE:**\n   - Repete les criteres (type evenement, date)\n   - Mentionne la ville UNIQUEMENT si {exact_count} > 0\n   - Indique {exact_count} vs {nearby_count} clairement\n   - Si NOTE SYSTEME dates alternatives: signale-le",
+
+    "rule_format": "**FORMAT JSON:**\n   {{\n     \"answer_text\": \"Voici {k} evenements...\",\n     \"events\": [EXACTEMENT {k} evenements]\n   }}\n   - Inclure TOUS les evenements des SOURCES\n   - CONSOLIDATION: Meme evenement, meme jour, horaires differents → UNE carte avec times_display\n     Exemple: {{\"title\": \"Jazz Night\", \"date\": \"2026-02-15\", \"times_display\": \"19:30, 21:30\"}}\n   - SEPARATION: Meme evenement, jours differents → cartes separees\n   - Champs: title, date, city, location, url, match_type (requis) + timings, price_label, age_label (si disponibles)",
+
+    "rule_style": "**STYLE {name_upper}:** Chaleureux et enthousiaste !"
+  },
+
+  "filters": {
+    "city": " à **{value}**",
+    "month": " en **{value}**",
+    "category": " dans la catégorie **{value}**",
+    "applied_filters": "**Filtres appliqués:**",
+    "free": "gratuit"
+  },
+
+  "months": [
+    "", "janvier", "février", "mars", "avril", "mai", "juin",
+    "juillet", "août", "septembre", "octobre", "novembre", "décembre"
+  ],
+
+  "responses": {
+    "statistical": "J'ai trouvé **{count} événement(s)** correspondant à votre recherche{filters_desc}.\n\n{event_breakdown}",
+    "default_timeframe_notice": "\n\n📅 *Résultats filtrés sur les **30 prochains jours**.*",
+    "refinement_hint": "\n\n💡 *Précisez une date, un type d'événement, ou \"gratuit\" pour affiner.*",
+    "refinement_suggestions": "\n\n---\n💡 **Affiner votre recherche ?** Vous pouvez préciser :\n- 📆 Une **date** ou **période** (ex: \"ce week-end\", \"en février\")\n- 🎫 **Événements gratuits** (ex: \"gratuit\", \"entrée libre\")\n- 👨‍👩‍👧 **Public cible** (ex: \"pour enfants\", \"en famille\")\n- 🎭 **Type d'événement** (ex: \"concerts\", \"expositions\", \"théâtre\")",
+    "broadening_suggestion": "\n\n💡 *Peu de résultats ? Essayez d'élargir votre recherche : changez la date, la ville, ou simplifiez vos critères.*"
+  },
+
+  "errors": {
+    "model_loading": "**Modele en cours de chargement**\n\nLe modele IA demarre (cela peut prendre 20-30 secondes). Veuillez reessayer dans un moment.",
+    "rate_limit": "**Limite de requetes atteinte**\n\nTrop de requetes en meme temps. Veuillez reessayer dans quelques secondes.",
+    "timeout": "**Delai depasse**\n\nLa requete a pris trop de temps. Veuillez reessayer ou simplifier votre recherche.",
+    "generic": "**Erreur de traitement**\n\nUne erreur s'est produite lors du traitement de votre requete. Veuillez reessayer ou reformuler votre question."
+  },
+
+  "clarifications": {
+    "missing_city": {
+      "prefix": "Pour vous aider au mieux, j'ai besoin de quelques précisions :",
+      "questions": [
+        "Dans quelle ville cherchez-vous des événements ?",
+        "Souhaitez-vous des résultats dans toute l'Île-de-France ?"
+      ]
+    },
+    "missing_event_type": {
+      "prefix": "Quel type d'événement vous intéresse ?",
+      "questions": [
+        "Musique (concerts, opéra, jazz...) ?",
+        "Art (expositions, galeries...) ?",
+        "Théâtre ou spectacles ?",
+        "Festivals ou événements de rue ?"
+      ]
+    },
+    "missing_date": {
+      "prefix": "Pour quelle période cherchez-vous ?",
+      "questions": [
+        "Ce week-end ?",
+        "Ce mois-ci ?",
+        "Une date ou un mois spécifique ?"
+      ]
+    }
+  },
+
+  "ui": {
+    "sidebar_title": "Vos paramètres",
+    "session_label": "Session:",
+    "start_fresh": "🔄 Recommencer",
+    "quick_tips": "💡 Conseils rapides",
+    "tip_1": "- Soyez précis: *\"jazz à Paris ce week-end\"*",
+    "tip_2": "- Parlez en français ou en anglais",
+    "tip_3": "- Posez des questions de suivi: *\"dis-m'en plus sur le premier\"*",
+    "found_events": "Trouvé {count} événements:",
+    "venue": "Lieu:",
+    "more_info": "Plus d'infos",
+    "feedback_positive": "Merci pour votre retour positif !",
+    "feedback_negative": "Merci pour votre retour. Nous allons améliorer !",
+    "feedback_received": "Retour reçu. Merci !",
+    "how_to_improve": "Comment pouvons-nous améliorer ?",
+    "submit": "Envoyer",
+    "searching": "{name} recherche des événements...",
+    "feedback_error": "Erreur de retour: {error}",
+    "connection_error": "Échec de connexion au backend: {error}",
+    "unknown_event": "Événement inconnu",
+    "unknown_city": "Ville inconnue",
+    "unknown_date": "Date inconnue",
+    "unknown_price": "Prix inconnu",
+    "unknown_venue": "Lieu inconnu",
+    "unknown_age": "Tous âges"
+  }
+}

@@ -48,20 +48,13 @@ from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-    retry_if_exception,
-    before_sleep_log,
-    RetryError
-)
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception, before_sleep_log, RetryError
 
 from src.generation.llm import get_chat_llm
 from langchain_core.messages import HumanMessage, SystemMessage, BaseMessage
 
 from src.config import settings
-from src.retrieval.schemas import UnifiedAnalysisSchema, IntentEnum
+from src.retrieval.schemas import UnifiedAnalysisSchema
 import calendar
 import re
 
@@ -74,6 +67,7 @@ logger = logging.getLogger(__name__)
 # The Google Gemini API has strict rate limits that can cause 429 errors.
 # We implement exponential backoff retry specifically for these errors.
 
+
 def is_rate_limit_error(exception: Exception) -> bool:
     """Check if exception is a 429 rate limit error.
 
@@ -81,12 +75,12 @@ def is_rate_limit_error(exception: Exception) -> bool:
     """
     error_str = str(exception).lower()
     return (
-        "429" in error_str or
-        "resource_exhausted" in error_str or
-        "resource exhausted" in error_str or  # Google's plain text variant
-        ("rate" in error_str and "limit" in error_str) or
-        "too many requests" in error_str or
-        "quota" in error_str
+        "429" in error_str
+        or "resource_exhausted" in error_str
+        or "resource exhausted" in error_str
+        or ("rate" in error_str and "limit" in error_str)  # Google's plain text variant
+        or "too many requests" in error_str
+        or "quota" in error_str
     )
 
 
@@ -97,7 +91,7 @@ llm_rate_limit_retry = retry(
     wait=wait_exponential(multiplier=2, min=2, max=10),
     retry=retry_if_exception(is_rate_limit_error),
     before_sleep=before_sleep_log(logger, logging.WARNING),
-    reraise=True
+    reraise=True,
 )
 
 
@@ -167,6 +161,7 @@ CATEGORY_MAPPING = {
     "visite": "Patrimoine",
 }
 
+
 def map_category_to_db(category: str | None) -> str | None:
     """Map user-friendly category term to database category name.
 
@@ -214,12 +209,12 @@ def validate_and_correct_weekend(day_value: Any, month: int, year: int, timefram
     timeframe_lower = timeframe_raw.lower()
 
     # Check if this is a weekend query
-    weekend_match = re.search(r'(first|second|third|fourth|last|1st|2nd|3rd|4th)\s+weekend', timeframe_lower)
+    weekend_match = re.search(r"(first|second|third|fourth|last|1st|2nd|3rd|4th)\s+weekend", timeframe_lower)
     if not weekend_match:
         return day_value  # Not a weekend query, trust LLM
 
     ordinal = weekend_match.group(1)
-    ordinal_map = {'first': 1, '1st': 1, 'second': 2, '2nd': 2, 'third': 3, '3rd': 3, 'fourth': 4, '4th': 4, 'last': -1}
+    ordinal_map = {"first": 1, "1st": 1, "second": 2, "2nd": 2, "third": 3, "3rd": 3, "fourth": 4, "4th": 4, "last": -1}
     weekend_number = ordinal_map.get(ordinal, 1)
 
     # Calculate correct weekend using Python calendar
@@ -266,6 +261,7 @@ def validate_and_correct_weekend(day_value: Any, month: int, year: int, timefram
 
 class QueryIntent(Enum):
     """Possible user query intents (primary intent for compatibility)."""
+
     EVENT_SEARCH = "event_search"
     GREETING = "greeting"
     CHITCHAT = "chitchat"
@@ -278,17 +274,19 @@ class QueryIntent(Enum):
 @dataclass
 class QueryDimension:
     """A single dimension of query classification."""
-    name: str                    # Dimension name (greeting, typo, statistical, etc.)
-    detected: bool               # Whether this dimension was detected
+
+    name: str  # Dimension name (greeting, typo, statistical, etc.)
+    detected: bool  # Whether this dimension was detected
     value: Optional[str] = None  # Extracted value (e.g., corrected city name)
     original: Optional[str] = None  # Original value before correction
     action: Optional[str] = None  # Action to take (acknowledge, count, filter, etc.)
-    confidence: float = 1.0      # Confidence in this dimension
+    confidence: float = 1.0  # Confidence in this dimension
 
 
 @dataclass
 class UnifiedAnalysisResult:
     """Result from unified query analysis with multi-dimensional support."""
+
     # Primary intent (for backward compatibility)
     intent: QueryIntent
     intent_confidence: float
@@ -430,7 +428,7 @@ class UnifiedAnalyzer:
         if self.use_structured_output:
             try:
                 self.structured_llm = self.llm.with_structured_output(UnifiedAnalysisSchema)
-                logger.info(f"Initialized UnifiedAnalyzer with STRUCTURED OUTPUT (Gemini)")
+                logger.info("Initialized UnifiedAnalyzer with STRUCTURED OUTPUT (Gemini)")
             except Exception as e:
                 logger.warning(f"Failed to create structured output LLM: {e}. Using fallback JSON parsing.")
                 self.use_structured_output = False
@@ -444,6 +442,7 @@ class UnifiedAnalyzer:
         """Get or create Mistral LLM for fallback (lazy-loaded)."""
         if self._mistral_llm is None:
             from langchain_mistralai import ChatMistralAI
+
             self._mistral_llm = ChatMistralAI(
                 model="mistral-small-latest",
                 temperature=0.0,
@@ -473,7 +472,7 @@ class UnifiedAnalyzer:
             result = None
 
             # First, try to extract JSON from markdown code blocks
-            json_block_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', content, re.IGNORECASE)
+            json_block_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", content, re.IGNORECASE)
             if json_block_match:
                 try:
                     result = json.loads(json_block_match.group(1))
@@ -489,7 +488,7 @@ class UnifiedAnalyzer:
 
             # If still failed, try to find a JSON object anywhere in the content
             if result is None:
-                json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', content, re.DOTALL)
+                json_match = re.search(r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", content, re.DOTALL)
                 if json_match:
                     try:
                         result = json.loads(json_match.group())
@@ -545,13 +544,13 @@ class UnifiedAnalyzer:
             "filters": {},
             "is_complete": False,
             "missing": [],
-            "refined_query": query
+            "refined_query": query,
         }
 
         # Extract city from query using known patterns
         city_patterns = [
-            r'\b(?:à|a|in|at)\s+([A-Z][a-zéèêëàâäùûüôöîï]+(?:-[A-Z][a-zéèêëàâäùûüôöîï]+)?)\b',
-            r'\b(Paris|Versailles|Poissy|Montreuil|Pantin|Nanterre|Saint-Denis|Bobigny)\b'
+            r"\b(?:à|a|in|at)\s+([A-Z][a-zéèêëàâäùûüôöîï]+(?:-[A-Z][a-zéèêëàâäùûüôöîï]+)?)\b",
+            r"\b(Paris|Versailles|Poissy|Montreuil|Pantin|Nanterre|Saint-Denis|Bobigny)\b",
         ]
         for pattern in city_patterns:
             match = re.search(pattern, query, re.IGNORECASE)
@@ -563,15 +562,37 @@ class UnifiedAnalyzer:
 
         # Extract month (with support for multi-month queries)
         month_map = {
-            "janvier": 1, "january": 1, "février": 2, "fevrier": 2, "february": 2,
-            "mars": 3, "march": 3, "avril": 4, "april": 4, "mai": 5, "may": 5,
-            "juin": 6, "june": 6, "juillet": 7, "july": 7, "août": 8, "aout": 8, "august": 8,
-            "septembre": 9, "september": 9, "octobre": 10, "october": 10,
-            "novembre": 11, "november": 11, "décembre": 12, "decembre": 12, "december": 12
+            "janvier": 1,
+            "january": 1,
+            "février": 2,
+            "fevrier": 2,
+            "february": 2,
+            "mars": 3,
+            "march": 3,
+            "avril": 4,
+            "april": 4,
+            "mai": 5,
+            "may": 5,
+            "juin": 6,
+            "june": 6,
+            "juillet": 7,
+            "july": 7,
+            "août": 8,
+            "aout": 8,
+            "august": 8,
+            "septembre": 9,
+            "september": 9,
+            "octobre": 10,
+            "october": 10,
+            "novembre": 11,
+            "november": 11,
+            "décembre": 12,
+            "decembre": 12,
+            "december": 12,
         }
 
         # Check for multi-month patterns first (OR logic)
-        or_pattern = r'(\w+)\s+(?:or|ou)\s+(\w+)'
+        or_pattern = r"(\w+)\s+(?:or|ou)\s+(\w+)"
         match = re.search(or_pattern, query_lower, re.IGNORECASE)
         if match:
             month1_name = match.group(1).lower()
@@ -585,7 +606,7 @@ class UnifiedAnalyzer:
 
         # Check for date range patterns (May to August, June through September)
         if "month" not in result["filters"]:
-            range_pattern = r'(\w+)\s+(?:to|through|until|à|jusqu\'à)\s+(\w+)'
+            range_pattern = r"(\w+)\s+(?:to|through|until|à|jusqu\'à)\s+(\w+)"
             match = re.search(range_pattern, query_lower, re.IGNORECASE)
             if match:
                 start_month_name = match.group(1).lower()
@@ -627,15 +648,14 @@ class UnifiedAnalyzer:
             if not has_event_type:
                 result["missing"].append("event_type")
 
-        logger.info(f"[FALLBACK] Extracted: city={result['filters'].get('city')}, "
-                    f"month={result['filters'].get('month')}, event_type={result['entities'].get('event_type')}")
+        logger.info(
+            f"[FALLBACK] Extracted: city={result['filters'].get('city')}, "
+            f"month={result['filters'].get('month')}, event_type={result['entities'].get('event_type')}"
+        )
         return result
 
     def _build_result_from_dict(
-        self,
-        query: str,
-        result: Dict[str, Any],
-        known_cities: Optional[List[str]] = None
+        self, query: str, result: Dict[str, Any], known_cities: Optional[List[str]] = None
     ) -> "UnifiedAnalysisResult":
         """Build UnifiedAnalysisResult from a dict (from fallback or Mistral).
 
@@ -701,7 +721,7 @@ class UnifiedAnalyzer:
             missing_criteria=missing_criteria,
             filters=filters,
             refined_query=result.get("refined_query", query),
-            raw_response=result
+            raw_response=result,
         )
 
     def analyze(
@@ -709,7 +729,7 @@ class UnifiedAnalyzer:
         query: str,
         chat_history: List[BaseMessage] = None,
         known_cities: List[str] = None,
-        previous_events: list[dict] | None = None
+        previous_events: list[dict] | None = None,
     ) -> UnifiedAnalysisResult:
         """Analyze query in one unified LLM call with MULTI-DIMENSIONAL output.
 
@@ -782,30 +802,24 @@ class UnifiedAnalyzer:
                         },
                         "filters": structured_result.filters.model_dump(exclude_none=True),
                         "dimensions": {
-                            "greeting": {
-                                "detected": structured_result.is_greeting,
-                                "value": None
-                            },
+                            "greeting": {"detected": structured_result.is_greeting, "value": None},
                             "typo": {
                                 "detected": structured_result.has_typo,
                                 "original": structured_result.original_query,
-                                "corrected": structured_result.corrected_query
+                                "corrected": structured_result.corrected_query,
                             },
-                            "statistical": {
-                                "detected": structured_result.is_statistical,
-                                "type": None
-                            },
+                            "statistical": {"detected": structured_result.is_statistical, "type": None},
                             "scope": {
                                 "detected": structured_result.wants_all_events,
-                                "value": "all" if structured_result.wants_all_events else None
-                            }
+                                "value": "all" if structured_result.wants_all_events else None,
+                            },
                         },
                         "coreference": {
                             "references_previous": structured_result.coreference.references_previous,
                             "event_id": structured_result.coreference.event_id,
                             "event_name": structured_result.coreference.event_name,
-                            "reference_type": structured_result.coreference.reference_type
-                        }
+                            "reference_type": structured_result.coreference.reference_type,
+                        },
                     }
                     logger.info(f"[STRUCTURED] Successfully parsed structured output for intent={result['intent']}")
 
@@ -822,7 +836,7 @@ class UnifiedAnalyzer:
 
                 # Parse JSON response - handle markdown code blocks (```json ... ```)
                 # First, try to extract JSON from markdown code blocks
-                json_block_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', content, re.IGNORECASE)
+                json_block_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", content, re.IGNORECASE)
                 if json_block_match:
                     try:
                         result = json.loads(json_block_match.group(1))
@@ -838,7 +852,7 @@ class UnifiedAnalyzer:
 
                 # If still failed, try to find a JSON object anywhere in the content
                 if result is None:
-                    json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', content, re.DOTALL)
+                    json_match = re.search(r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", content, re.DOTALL)
                     if json_match:
                         try:
                             result = json.loads(json_match.group())
@@ -847,10 +861,10 @@ class UnifiedAnalyzer:
 
                 # If all parsing failed, try Mistral fallback before basic extraction
                 if result is None:
-                    logger.warning(f"[UNIFIED] Could not parse JSON from response, trying Mistral fallback...")
+                    logger.warning("[UNIFIED] Could not parse JSON from response, trying Mistral fallback...")
                     result = self._try_mistral_fallback(query, messages)
                     if result is None:
-                        logger.warning(f"[UNIFIED] Mistral fallback failed, using basic keyword extraction")
+                        logger.warning("[UNIFIED] Mistral fallback failed, using basic keyword extraction")
                         result = self._fallback_extraction(query, content)
 
             # Map intent to enum
@@ -886,10 +900,14 @@ class UnifiedAnalyzer:
                 logger.info(f"[FILTER-SYNC] Synced city to entities: '{filters['city']}'")
 
             # 2. DERIVE CATEGORY from event_type
-            # LLM extracts event_type (e.g., "jazz", "concert") but often leaves category=null
+            # TERMINOLOGY CLARIFICATION:
+            #   - event_type: User input term (informal, lowercase) e.g., "jazz", "concert", "théâtre"
+            #   - category: Database classification filter (formal) e.g., "Musique", "Théâtre / Spectacle"
+            # LLM extracts event_type from user query but often leaves category=null
+            # This logic bridges the gap: copy event_type → category for database filtering
             event_type = entities.get("event_type")
             if event_type and not filters.get("category"):
-                filters["category"] = event_type
+                filters["category"] = event_type  # User's informal term becomes database filter
                 logger.info(f"[FILTER-INFER] Derived category from event_type: '{event_type}'")
 
             # 3. DETECT FREE EVENTS from query keywords
@@ -898,7 +916,7 @@ class UnifiedAnalyzer:
             free_keywords = ["gratuit", "gratuitement", "free", "sans frais", "entrée libre"]
             if not filters.get("is_free") and any(kw in query_lower for kw in free_keywords):
                 filters["is_free"] = True
-                logger.info(f"[FILTER-INFER] Detected free event from keywords")
+                logger.info("[FILTER-INFER] Detected free event from keywords")
 
             # 4. DETECT AUDIENCE from query keywords
             # If LLM missed audience keywords, detect them
@@ -929,7 +947,7 @@ class UnifiedAnalyzer:
 
                     # Use word boundary matching to avoid partial matches
                     # e.g., "showcase" shouldn't match "show"
-                    pattern = r'\b' + re.escape(keyword) + r'\b'
+                    pattern = r"\b" + re.escape(keyword) + r"\b"
                     if re.search(pattern, query_lower):
                         filters["category"] = db_category
                         logger.info(f"[FILTER-INFER] Detected category '{db_category}' from keyword '{keyword}'")
@@ -943,10 +961,7 @@ class UnifiedAnalyzer:
             if filters.get("day") and filters.get("month") and timeframe_raw:
                 year = filters.get("year", date.today().year)
                 filters["day"] = validate_and_correct_weekend(
-                    day_value=filters["day"],
-                    month=filters["month"],
-                    year=year,
-                    timeframe_raw=timeframe_raw
+                    day_value=filters["day"], month=filters["month"], year=year, timeframe_raw=timeframe_raw
                 )
 
             # ========================================
@@ -968,7 +983,7 @@ class UnifiedAnalyzer:
                 name="greeting",
                 detected=greeting_data.get("detected", False),
                 value=greeting_data.get("value"),
-                action="prefix_response" if greeting_data.get("detected") else None
+                action="prefix_response" if greeting_data.get("detected") else None,
             )
 
             # Typo dimension
@@ -978,7 +993,7 @@ class UnifiedAnalyzer:
                 detected=typo_data.get("detected", False),
                 original=typo_data.get("original"),
                 value=typo_data.get("corrected"),
-                action="acknowledge_correction" if typo_data.get("detected") else None
+                action="acknowledge_correction" if typo_data.get("detected") else None,
             )
 
             # Statistical dimension
@@ -987,7 +1002,7 @@ class UnifiedAnalyzer:
                 name="statistical",
                 detected=stat_data.get("detected", False),
                 value=stat_data.get("type"),
-                action="return_count" if stat_data.get("detected") else None
+                action="return_count" if stat_data.get("detected") else None,
             )
 
             # Scope dimension
@@ -996,7 +1011,7 @@ class UnifiedAnalyzer:
                 name="scope",
                 detected=scope_data.get("detected", False),
                 value=scope_data.get("value"),
-                action="no_event_type_filter" if scope_data.get("value") == "all" else None
+                action="no_event_type_filter" if scope_data.get("value") == "all" else None,
             )
 
             # Determine completeness based on dimensions
@@ -1010,7 +1025,9 @@ class UnifiedAnalyzer:
                 # Normalize for comparison (lowercase)
                 known_cities_lower = [c.lower() for c in known_cities]
                 if city_normalized.lower() not in known_cities_lower:
-                    logger.warning(f"[MULTI-DIM] LLM hallucinated city '{city_normalized}' - not in known cities, setting to None")
+                    logger.warning(
+                        f"[MULTI-DIM] LLM hallucinated city '{city_normalized}' - not in known cities, setting to None"
+                    )
                     city_normalized = None
                     entities["city_normalized"] = None
 
@@ -1024,9 +1041,7 @@ class UnifiedAnalyzer:
 
             has_city = city_normalized is not None
             has_timeframe = (
-                filters.get("month") is not None or
-                filters.get("day") is not None or
-                filters.get("year") is not None
+                filters.get("month") is not None or filters.get("day") is not None or filters.get("year") is not None
             )
             has_event_type = entities.get("event_type") is not None
 
@@ -1092,13 +1107,11 @@ class UnifiedAnalyzer:
                 missing_criteria=missing_criteria,
                 filters=filters,
                 refined_query=result.get("refined_query", query),
-                raw_response=result
+                raw_response=result,
             )
 
             # Enhanced logging with dimensions
-            dim_summary = ", ".join([
-                f"{k}={v.detected}" for k, v in dimensions.items() if v.detected
-            ]) or "none"
+            dim_summary = ", ".join([f"{k}={v.detected}" for k, v in dimensions.items() if v.detected]) or "none"
             logger.info(
                 f"[MULTI-DIM] Query: '{query[:40]}...' → "
                 f"intent={analysis.intent.value}, "
@@ -1112,9 +1125,7 @@ class UnifiedAnalyzer:
 
         except RetryError as e:
             # All retry attempts exhausted for rate limit error
-            logger.error(
-                f"[UNIFIED] Analysis failed after all retries (rate limit): {e.last_attempt.exception()}"
-            )
+            logger.error(f"[UNIFIED] Analysis failed after all retries (rate limit): {e.last_attempt.exception()}")
 
             # Try Mistral fallback before returning empty defaults
             logger.info("[UNIFIED] Primary LLM exhausted, trying Mistral fallback...")
@@ -1122,10 +1133,7 @@ class UnifiedAnalyzer:
                 # Rebuild messages if needed (may have been built successfully)
                 today = date.today()
                 system_prompt = get_unified_analysis_prompt(today, known_cities or [])
-                fallback_messages = [
-                    SystemMessage(content=system_prompt),
-                    HumanMessage(content=f"Query: {query}")
-                ]
+                fallback_messages = [SystemMessage(content=system_prompt), HumanMessage(content=f"Query: {query}")]
                 result = self._try_mistral_fallback(query, fallback_messages)
                 if result:
                     # Use the Mistral result with basic processing
@@ -1151,10 +1159,7 @@ class UnifiedAnalyzer:
             try:
                 today = date.today()
                 system_prompt = get_unified_analysis_prompt(today, known_cities or [])
-                fallback_messages = [
-                    SystemMessage(content=system_prompt),
-                    HumanMessage(content=f"Query: {query}")
-                ]
+                fallback_messages = [SystemMessage(content=system_prompt), HumanMessage(content=f"Query: {query}")]
                 result = self._try_mistral_fallback(query, fallback_messages)
                 if result:
                     return self._build_result_from_dict(query, result, known_cities)
@@ -1191,7 +1196,7 @@ def unified_analyze(
     query: str,
     chat_history: List[BaseMessage] = None,
     known_cities: List[str] = None,
-    previous_events: list[dict] | None = None
+    previous_events: list[dict] | None = None,
 ) -> UnifiedAnalysisResult:
     """Convenience function for unified analysis with caching.
 
@@ -1225,30 +1230,37 @@ def unified_analyze(
     if chat_history and len(chat_history) >= 2:
         # Extract last 3-5 user queries (not assistant responses)
         recent_user_queries = [
-            msg.content for msg in chat_history[-10:]
-            if hasattr(msg, 'type') and msg.type == 'human'
-        ][-5:]  # Last 5 user queries
+            msg.content for msg in chat_history[-10:] if hasattr(msg, "type") and msg.type == "human"
+        ][
+            -5:
+        ]  # Last 5 user queries
 
         if len(recent_user_queries) >= 2:
             # Simple heuristic: Check for English vs French indicators
             english_count = sum(
-                1 for q in recent_user_queries
-                if any(word in q.lower() for word in [' in ', ' at ', ' on ', ' this ', ' what ', ' how ', ' the '])
+                1
+                for q in recent_user_queries
+                if any(word in q.lower() for word in [" in ", " at ", " on ", " this ", " what ", " how ", " the "])
             )
             french_count = sum(
-                1 for q in recent_user_queries
-                if any(word in q.lower() for word in [' à ', ' de ', ' le ', ' la ', ' les ', ' du ', ' en ', ' pour '])
+                1
+                for q in recent_user_queries
+                if any(word in q.lower() for word in [" à ", " de ", " le ", " la ", " les ", " du ", " en ", " pour "])
             )
 
             # If user has been consistently using English (>= 2 recent queries), override to English
             if english_count >= 2 and english_count > french_count:
                 if result.detected_language == "fr":
-                    logger.info(f"[LANGUAGE-CONSISTENCY] Overriding detected_language: fr → en (user pattern: {english_count} EN vs {french_count} FR)")
+                    logger.info(
+                        f"[LANGUAGE-CONSISTENCY] Overriding detected_language: fr → en (user pattern: {english_count} EN vs {french_count} FR)"
+                    )
                     result.detected_language = "en"
             # If user has been consistently using French, ensure it stays French
             elif french_count >= 2 and french_count > english_count:
                 if result.detected_language == "en":
-                    logger.info(f"[LANGUAGE-CONSISTENCY] Overriding detected_language: en → fr (user pattern: {french_count} FR vs {english_count} EN)")
+                    logger.info(
+                        f"[LANGUAGE-CONSISTENCY] Overriding detected_language: en → fr (user pattern: {french_count} FR vs {english_count} EN)"
+                    )
                     result.detected_language = "fr"
 
     # Store in cache (only for single-turn queries)

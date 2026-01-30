@@ -1,0 +1,126 @@
+{
+  "_metadata": {
+    "language": "English",
+    "language_code": "en",
+    "version": "1.0.0",
+    "last_updated": "2026-01-31"
+  },
+
+  "welcome": {
+    "title": "Hey there! I'm **{name}** 🎭 — Your Cultural Guide",
+    "intro": "I help you discover **1,000+ events** across Île-de-France (Jan 2026 - Jan 2027).",
+    "try_asking": "**Try asking:**",
+    "example_1": "\"Jazz concerts this weekend in Paris\"",
+    "example_2": "\"Free exhibitions near Versailles\"",
+    "languages": "🗣️ I speak **English & French** — tu peux me parler en français !",
+
+    "detailed_title": "What I Can Do",
+    "detailed_categories": "**What can I help you discover?**",
+    "category_music": "🎵 **Music** — Jazz nights, classical concerts, rock shows",
+    "category_art": "🎨 **Art** — Exhibitions, galleries, installations",
+    "category_theater": "🎭 **Theater** — Drama, comedy, musicals",
+    "category_festivals": "🎪 **Festivals** — Street fairs, cultural celebrations",
+    "good_to_know": "**Good to know:**",
+    "database_info": "📅 I know about **1,000+ events** from Jan 2026 to Jan 2027",
+    "nearby_info": "🔍 If I can't find exactly what you want, I'll suggest nearby alternatives"
+  },
+
+  "prompts": {
+    "rag_system_base": "You are **{name}**, {tagline}.",
+    "rag_system_date": "**TODAY'S DATE:** {today}",
+    "rag_system_results": "**RESULTS:** {k} events ({exact_count} in city, {nearby_count} nearby towns)",
+    "rag_system_filters": "**FILTERS:** {filters_applied}",
+    "rag_system_database": "**DATABASE:** {total_events} events, {date_range}",
+    "rag_system_sources": "**SOURCES:** \"Exact Match\" = requested city | \"Nearby Location\" = neighboring cities (by distance)",
+
+    "rule_grounding": "**GROUNDING (ZERO HALLUCINATION):**\n   - List ONLY events from SOURCES\n   - NEVER fabricate details (title, date, city, price, URL)\n   - If info missing in SOURCE, omit the field\n   - Count SOURCES: say \"Here are {k} events\"",
+
+    "rule_transparency": "**TRANSPARENCY:**\n   - Repeat query criteria (event type, date)\n   - Mention city ONLY if {exact_count} > 0\n   - Indicate {exact_count} vs {nearby_count} clearly\n   - If SYSTEM NOTE mentions alternative dates: tell user",
+
+    "rule_format": "**JSON FORMAT:**\n   {{\n     \"answer_text\": \"Here are {k} events...\",\n     \"events\": [EXACTLY {k} events]\n   }}\n   - Include ALL events from SOURCES\n   - CONSOLIDATION: Same event, same day, different times → ONE card with times_display\n     Example: {{\"title\": \"Jazz Night\", \"date\": \"2026-02-15\", \"times_display\": \"19:30, 21:30\"}}\n   - SEPARATION: Same event, different days → separate cards\n   - Fields: title, date, city, location, url, match_type (required) + timings, price_label, age_label (if available)",
+
+    "rule_style": "**STYLE {name_upper}:** Warm and enthusiastic!"
+  },
+
+  "filters": {
+    "city": " in **{value}**",
+    "month": " in **{value}**",
+    "category": " in category **{value}**",
+    "applied_filters": "**Applied filters:**",
+    "free": "free"
+  },
+
+  "months": [
+    "", "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ],
+
+  "responses": {
+    "statistical": "I found **{count} event(s)** matching your search{filters_desc}.\n\n{event_breakdown}",
+    "default_timeframe_notice": "\n\n📅 *Results filtered to the **next 30 days**.*",
+    "refinement_hint": "\n\n💡 *Specify a date, event type, or \"free\" to refine your search.*",
+    "refinement_suggestions": "\n\n---\n💡 **Want to refine your search?** You can specify:\n- 📆 A **date** or **period** (e.g., \"this weekend\", \"in February\")\n- 🎫 **Free events** (e.g., \"free\", \"no charge\")\n- 👨‍👩‍👧 **Target audience** (e.g., \"for kids\", \"family-friendly\")\n- 🎭 **Event type** (e.g., \"concerts\", \"exhibitions\", \"theater\")",
+    "broadening_suggestion": "\n\n💡 *Few results? Try broadening your search: change the date, city, or simplify your criteria.*"
+  },
+
+  "errors": {
+    "model_loading": "**Model Loading**\n\nThe AI model is starting up (this may take 20-30 seconds). Please try again in a moment.",
+    "rate_limit": "**Rate Limit Reached**\n\nToo many requests at once. Please try again in a few seconds.",
+    "timeout": "**Request Timeout**\n\nThe request took too long. Please try again or simplify your search.",
+    "generic": "**Processing Error**\n\nAn error occurred while processing your request. Please try again or rephrase your question."
+  },
+
+  "clarifications": {
+    "missing_city": {
+      "prefix": "To help you best, I need a few details:",
+      "questions": [
+        "Which city are you looking for events in?",
+        "Would you like results from all of Île-de-France?"
+      ]
+    },
+    "missing_event_type": {
+      "prefix": "What type of event interests you?",
+      "questions": [
+        "Music (concerts, opera, jazz...)?",
+        "Art (exhibitions, galleries...)?",
+        "Theater or shows?",
+        "Festivals or street events?"
+      ]
+    },
+    "missing_date": {
+      "prefix": "What time period are you looking for?",
+      "questions": [
+        "This weekend?",
+        "This month?",
+        "A specific date or month?"
+      ]
+    }
+  },
+
+  "ui": {
+    "sidebar_title": "Your Settings",
+    "session_label": "Session:",
+    "start_fresh": "🔄 Start Fresh",
+    "quick_tips": "💡 Quick Tips",
+    "tip_1": "- Be specific: *\"jazz in Paris this weekend\"*",
+    "tip_2": "- Ask in French or English",
+    "tip_3": "- Ask follow-ups: *\"tell me more about the first one\"*",
+    "found_events": "Found {count} events:",
+    "venue": "Venue:",
+    "more_info": "More Info",
+    "feedback_positive": "Thanks for your positive feedback!",
+    "feedback_negative": "Thanks for your feedback. We will improve!",
+    "feedback_received": "Feedback received. Thank you!",
+    "how_to_improve": "How can we improve?",
+    "submit": "Submit",
+    "searching": "{name} is searching for events...",
+    "feedback_error": "Feedback error: {error}",
+    "connection_error": "Failed to connect to backend: {error}",
+    "unknown_event": "Unknown Event",
+    "unknown_city": "Unknown City",
+    "unknown_date": "Unknown Date",
+    "unknown_price": "Unknown Price",
+    "unknown_venue": "Unknown Venue",
+    "unknown_age": "All Ages"
+  }
+}
