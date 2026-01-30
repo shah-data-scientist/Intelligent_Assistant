@@ -107,6 +107,8 @@ _ul-*/
 
 # Archived evaluation reports (keep latest only)
 data/evaluation/reports/_archived/
+data/evaluation/reports/_working/
+scripts/_working/
 
 # Intermediate/working files
 *_cleaned.json
