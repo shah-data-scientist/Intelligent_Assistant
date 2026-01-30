@@ -1,0 +1,211 @@
+{
+  "timestamp": "2026-01-20T11:26:38.980420",
+  "dataset_version": "2.0",
+  "total_queries": 4,
+  "faiss_index_events": null,
+  "llm_model": null,
+  "embedding_model": null,
+  "retrieval_metrics": {
+    "total_queries": 4,
+    "successful_queries": 4,
+    "queries_with_ground_truth": 4,
+    "avg_latency_ms": 865.5727505683899,
+    "overall_hit_rate": 0.0,
+    "overall_mrr": 0.0,
+    "overall_precision@5": 0.0,
+    "overall_recall@5": 0.0,
+    "overall_f1@5": 0.0
+  },
+  "generation_metrics": {
+    "total_queries": 4,
+    "successful_queries": 4,
+    "avg_latency_ms": 14041.246831417084,
+    "avg_faithfulness": 0.55,
+    "avg_relevancy": 0.6625,
+    "avg_quality_score": 0.60625,
+    "language_consistency_rate": 0.5
+  },
+  "latency_analysis": {
+    "avg_latency_ms": 14041.246831417084,
+    "min_latency_ms": 5372.473478317261,
+    "max_latency_ms": 24934.276342391968,
+    "p50_latency_ms": 18920.260667800903,
+    "p95_latency_ms": 24934.276342391968,
+    "p99_latency_ms": 24934.276342391968,
+    "sla_compliance_rate": 0.0
+  },
+  "overall_status": {
+    "quality_score": 0.60625,
+    "quality_sla": 0.8,
+    "quality_pass": false,
+    "avg_latency_ms": 14041.246831417084,
+    "latency_sla_ms": 2000.0,
+    "latency_pass": false,
+    "overall_pass": false
+  },
+  "per_query_results": [
+    {
+      "query_id": "Q052",
+      "query": "Concerts classiques pour enfants de 6-12 ans le week-end dans le 75",
+      "query_type": "metadata_heavy",
+      "retrieved_count": 5,
+      "relevant_count": 3,
+      "latency_ms": 5372.473478317261,
+      "hit_rate": 0.0,
+      "mrr": 0.0,
+      "precision@5": 0.0,
+      "recall@5": 0.0,
+      "f1@5": 0.0,
+      "answer": "Here are classical music events that may be suitable for children aged 6-12 on weekends in Paris (75):\n\n**Event:** Petite Balade aux Enfers\n  - **Date:** 05/02/2026 to 08/02/2026\n  - **Location:** 1 place Boieldieu, 75002 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/petite-balade-aux-enfers-5231022\n\n**Event:** LES TALENS LYRIQUES - Les Leçons de Ténèbres, Couperin\n  - **Date:** 21/03/2026\n  - **Location:** 78 rue Cardinet, 75017 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/les-lecons-de-tenebres-couperin\n\nNote: While these events are classical music performances, specific age ranges aren't provided in the sources. However, \"Petite Balade aux Enfers\" is explicitly described as suitable for children, and the other event may also be appropriate for children aged 6-12. I recommend contacting the venues directly to confirm suitability for your specific age range.",
+      "num_sources": 5,
+      "faithfulness_score": 0.9,
+      "relevancy_score": 0.85,
+      "language_consistent": false,
+      "quality_score": 0.875,
+      "keywords_present": false,
+      "expected_language_match": false,
+      "faithfulness_details": {
+        "score": 0.9,
+        "reasoning": "The answer accurately lists two events from the sources, with one explicitly suitable for children (Petite Balade aux Enfers) and the other (Les Leçons de Ténèbres) potentially appropriate. The answer transparently notes the lack of explicit age-range information for the second event and suggests contacting venues for confirmation. No hallucinations or fabricated details are present.",
+        "violations": []
+      },
+      "relevancy_details": {
+        "score": 0.85,
+        "reasoning": "The answer provides two specific classical music events with dates, locations, and links, which are relevant to the query. It also acknowledges potential age suitability and suggests contacting venues for confirmation, demonstrating proactive assistance. The structure is clear and actionable, though the events are not all explicitly confirmed for the 6-12 age range.",
+        "strengths": [
+          "Provides two specific events with full details (dates, locations, links)",
+          "Acknowledges potential age suitability and suggests verification",
+          "Clear and well-structured response"
+        ],
+        "weaknesses": [
+          "Events are not all explicitly confirmed for the 6-12 age range",
+          "Only two events listed, which is slightly below the ideal 3+ alternatives"
+        ]
+      }
+    },
+    {
+      "query_id": "Q_FREE_001",
+      "query": "Événements culturels gratuits à Paris ce week-end",
+      "query_type": "price_filter",
+      "retrieved_count": 5,
+      "relevant_count": 3,
+      "latency_ms": 18920.260667800903,
+      "hit_rate": 0.0,
+      "mrr": 0.0,
+      "precision@5": 0.0,
+      "recall@5": 0.0,
+      "f1@5": 0.0,
+      "answer": "Here are free cultural events happening in Paris this weekend:\n\n**Event:** Ensemble 2E2M : Danses enjeux\n  - **Date:** 16/03/2026 to 17/03/2026\n  - **Location:** 14 rue de Madrid, 75008 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/danses-en-jeux-ensemble-2e2m-9841758\n\n**Event:** LES CRIS DE PARIS  Balliamo!\n  - **Date:** 16/12/2026\n  - **Location:** 116 Avenue du Président Kennedy, 75016 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/passions-8056881\n\n**Event:** Petite Balade aux Enfers\n  - **Date:** 05/02/2026 to 08/02/2026\n  - **Location:** 1 place Boieldieu, 75002 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/petite-balade-aux-enfers-5231022\n\n**Event:** LES TALENS LYRIQUES - Les Leçons de Ténèbres, Couperin\n  - **Date:** 21/03/2026\n  - **Location:** 78 rue Cardinet, 75017 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/les-lecons-de-tenebres-couperin\n\n**Event:** LES LUNDIS MUSICAUX  Concert de Noël\n  - **Date:** 22/12/2026\n  - **Location:** 7 rue Boudreau, 75009 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/les-lundis-musicaux-concert-de-noel\n\n**Event:** LES LUNDIS MUSICAUX  Les Sept péchés capitaux\n  - **Date:** 16/02/2026\n  - **Location:** 7 rue Boudreau, 75009 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/les-lundis-musicaux-les-sept-peches-capitaux\n\n**Event:** LES TALENS LYRIQUES - Les Leçons de Ténèbres, Couperin\n  - **Date:** 21/03/2026\n  - **Location:** 78 rue Cardinet, 75017 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/les-lecons-de-tenebres-couperin\n\n**Event:** LES TALENS LYRIQUES - Les Leçons de Ténèbres, Couperin\n  - **Date:** 21/03/2026\n  - **Location:** 78 rue Cardinet, 75017 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/les-lecons-de-tenebres-couperin\n\n**Event:** LES TALENS LYRIQUES - Les Leçons de Ténèbres, Couperin\n  - **Date:** 21/03/2026\n  - **Location:** 78 rue Cardinet, 75017 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/les-lecons-de-tenebres-couperin\n\n**Event:** LES TALENS LYRIQUES - Les Leçons de Ténèbres, Couperin\n  - **Date:** 21/03/2026\n  - **Location:** 78 rue Cardinet, 75017 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/les-lecons-de-tenebres-couperin\n\n**Event:** LES TALENS LYRIQUES - Les Leçons de Ténèbres, Couperin\n  - **Date:** 21/03/2026\n  - **Location:** 78 rue Cardinet, 75017 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/les-lecons-de-tenebres-couperin\n\n**Event:** LES TALENS LYRIQUES - Les Leçons de Ténèbres, Couperin\n  - **Date:** 21/03/2026\n  - **Location:** 78 rue Cardinet, 75017 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/les-lecons-de-tenebres-couperin\n\n**Event:** LES TALENS LYRIQUES - Les Leçons de Ténèbres, Couperin\n  - **Date:** 21/03/2026\n  - **Location:** 78 rue Cardinet, 75017 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/les-lecons-de-tenebres-couperin\n\n**Event:** LES TALENS LYRIQUES - Les Leçons de Ténèbres, Couperin\n  - **Date:** 21/03/2026\n  - **Location:** 78 rue Cardinet, 75017 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/les-lecons-de-tenebres-couperin\n\n**Event:** LES TALENS LYRIQUES - Les Leçons de Ténèbres, Couperin\n  - **Date:** 21/03/2026\n  - **Location:** 78 rue Cardinet, 75017 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/les-lecons-de-tenebres-couperin\n\n**Event:** LES TALENS LYRIQUES - Les Leçons de Ténèbres, Couperin\n  - **Date:** 21/03/2026\n  - **Location:** 78 rue Cardinet, 75017 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/les-lecons-de-tenebres-couperin\n\n**Event:** LES TALENS LYRIQUES - Les Leçons de Ténèbres, Couperin\n  - **Date:** 21/03/2026\n  - **Location:** 78 rue Cardinet, 75017 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/les-lecons-de-tenebres-couperin\n\n**Event:** LES TALENS LYRIQUES - Les Leçons de Ténèbres, Couperin\n  - **Date:** 21/03/2026\n  - **Location:** 78 rue Cardinet, 75017 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/les-lecons-de-tenebres-couperin\n\n**Event:** LES TALENS LYRIQUES - Les Leçons de Ténèbres, Couperin\n  - **Date:** 21/03/2026\n  - **Location:** 78 rue Cardinet, 75017 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/les-lecons-de-tenebres-couperin\n\n**Event:** LES TALENS LYRIQUES - Les Leçons de Ténèbres, Couperin\n  - **Date:** 21/03/2026\n  - **Location:** 78 rue Cardinet, 75017 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/les-lecons-de-tenebres-couperin\n\n**Event:** LES TALENS LYRIQUES - Les Leçons de Ténèbres, Couperin\n  - **Date:** 21/03/2026\n  - **Location:** 78 rue Cardinet, 75017 Paris\n  - **Lien de l'événement:** https://openagenda.com/culture/events/les-lecons-de-tenebres-couperin\n\n**Event:** LES TALENS LYRIQUES - Les Leçons de Tén",
+      "num_sources": 5,
+      "faithfulness_score": 0.4,
+      "relevancy_score": 0.1,
+      "language_consistent": true,
+      "quality_score": 0.25,
+      "keywords_present": true,
+      "expected_language_match": true,
+      "faithfulness_details": {
+        "score": 0.4,
+        "reasoning": "The answer contains multiple hallucinations, including invented events ('Petite Balade aux Enfers', 'LES TALENS LYRIQUES - Les Leçons de Ténèbres, Couperin') and repeated entries for the same event. Only two events ('Ensemble 2E2M : Danses enjeux' and 'LES CRIS DE PARIS Balliamo!') are directly supported by the sources. The answer does not acknowledge any limitations or partial matches.",
+        "violations": [
+          "Invented event: 'Petite Balade aux Enfers' (not in sources)",
+          "Invented event: 'LES TALENS LYRIQUES - Les Leçons de Ténèbres, Couperin' (not in sources)",
+          "Repeated entries for the same event (multiple instances of 'LES TALENS LYRIQUES - Les Leçons de Ténèbres, Couperin')",
+          "No transparency about limitations or partial matches"
+        ]
+      },
+      "relevancy_details": {
+        "score": 0.1,
+        "reasoning": "The answer lists events that are either in the distant future (2026) or unrelated to the current weekend. It also repeats the same event multiple times without providing any current or relevant free cultural events for the specified weekend. The information is not actionable or useful for the user's query.",
+        "strengths": [
+          "Provides event details (dates, locations, links)"
+        ],
+        "weaknesses": [
+          "Events are not current or relevant to the specified weekend",
+          "Repeats the same event multiple times",
+          "No explanation for the lack of current events",
+          "No alternatives or clarifying questions"
+        ]
+      }
+    },
+    {
+      "query_id": "Q_FREE_002",
+      "query": "Free concerts in February",
+      "query_type": "price_filter",
+      "retrieved_count": 0,
+      "relevant_count": 3,
+      "latency_ms": 24934.276342391968,
+      "hit_rate": 0.0,
+      "mrr": 0.0,
+      "precision@5": 0.0,
+      "recall@5": 0.0,
+      "f1@5": 0.0,
+      "answer": "Here are free concerts happening in February:\n\n**Event:** Sya Sanon  Les Planètes Salignent  Sirène Édition\n  - **Date:** 07/02/2026 to 08/02/2026\n  - **Location:** 141 Rue de Tolbiac, Paris 75013\n  - **Lien de l'événement:** https://openagenda.com/jassclub-paris/events/sya-sanon-les-planetes-salignent\n\n**Event:** Zoot For Kids  Atelier Jazz Jeune Public\n  - **Date:** 08/02/2026\n  - **Location:** 141 Rue de Tolbiac, Paris 75013\n  - **Lien de l'événement:** https://openagenda.com/jassclub-paris/events/zoot-for-kids-atelier-jazz-jeune-public-9435353\n\n**Event:** Zoot For Kids  Atelier Jazz Jeune Public\n  - **Date:** 15/02/2026\n  - **Location:** 141 Rue de Tolbiac, Paris 75013\n  - **Lien de l'événement:** https://openagenda.com/jassclub-paris/events/zoot-for-kids-atelier-jazz-jeune-public-621683\n\n**Event:** Soul  Love! Théo Moutou chante Devin Morrison\n  - **Date:** 14/02/2026 to 15/02/2026\n  - **Location:** 141 Rue de Tolbiac, Paris 75013\n  - **Lien de l'événement:** https://openagenda.com/jassclub-paris/events/soul-and-love-theo-moutou-chante-devin-morrison\n\n**Event:** FUR  Album BOND\n  - **Date:** 18/02/2026\n  - **Location:** 141 Rue de Tolbiac, Paris 75013\n  - **Lien de l'événement:** https://openagenda.com/jassclub-paris/events/fur-album-bond",
+      "num_sources": 5,
+      "faithfulness_score": 0.0,
+      "relevancy_score": 0.85,
+      "language_consistent": true,
+      "quality_score": 0.425,
+      "keywords_present": true,
+      "expected_language_match": true,
+      "faithfulness_details": {
+        "score": 0.0,
+        "reasoning": "The answer lists events as 'free concerts' despite all sources explicitly stating ticket prices (e.g., 15€, 19€, 10€). This is a severe hallucination of event details not present in the sources.",
+        "violations": [
+          "Claiming events are free when sources show they are paid"
+        ]
+      },
+      "relevancy_details": {
+        "score": 0.85,
+        "reasoning": "The answer provides 5 free concerts in February with full details (dates, locations, and links), directly addressing the user's query. The events are specific and actionable, demonstrating high relevancy. The only minor weakness is that all events are in Paris, which may not be relevant if the user is elsewhere.",
+        "strengths": [
+          "Provides 5 free concerts with full details",
+          "Includes dates, locations, and event links",
+          "Directly answers the query about free concerts in February"
+        ],
+        "weaknesses": [
+          "All events are in Paris, which may not be relevant to users outside the area",
+          "No explanation if no other free concerts exist outside Paris"
+        ]
+      }
+    },
+    {
+      "query_id": "Q_ACCESS_001",
+      "query": "Spectacles accessibles en fauteuil roulant à Paris",
+      "query_type": "accessibility",
+      "retrieved_count": 5,
+      "relevant_count": 3,
+      "latency_ms": 6937.976837158203,
+      "hit_rate": 0.0,
+      "mrr": 0.0,
+      "precision@5": 0.0,
+      "recall@5": 0.0,
+      "f1@5": 0.0,
+      "answer": "Here are accessible theater performances in Paris that are suitable for wheelchair users:\n\n**Event:** LA CAGE AUX FOLLES\n  - **Date:** 05/12/2026 to 10/01/2027\n  - **Location:** 1 place du Châtelet 75001 Paris\n  - **Lien de l'événement:** https://openagenda.com/panthea/events/la-cage-aux-folles-or-jerry-herman-et-jean-poiret-mise-en-scene-olivier-py\n\n**Event:** LA VIE PARISIENNE\n  - **Date:** 12/06/2026 to 11/07/2026\n  - **Location:** 1 place du Châtelet 75001 Paris\n  - **Lien de l'événement:** https://openagenda.com/panthea/events/la-vie-parisienne-or-jacques-offenbach-mise-en-scene-valerie-lesort\n\n**Event:** LE CERCLE DE CRAIE CAUCASIEN\n  - **Date:** 28/01/2026 to 20/02/2026\n  - **Location:** 2, Place du Châtelet 75004 Paris\n  - **Lien de l'événement:** https://openagenda.com/panthea/events/le-cercle-de-craie-caucasien-or-bertolt-brecht\n\n**Event:** BOVARY MADAME\n  - **Date:** 20/03/2026 to 16/04/2026\n  - **Location:** 2, Place du Châtelet 75004 Paris\n  - **Lien de l'événement:** https://openagenda.com/panthea/events/bovary-madame-or-gustave-flaubert-mis-en-scene-par-christophe-honore\n\nThese performances are explicitly mentioned as being accessible for people with mobility impairments. I recommend contacting the venues directly to confirm specific accessibility needs and to reserve any necessary accommodations.",
+      "num_sources": 5,
+      "faithfulness_score": 0.9,
+      "relevancy_score": 0.85,
+      "language_consistent": false,
+      "quality_score": 0.875,
+      "keywords_present": true,
+      "expected_language_match": true,
+      "faithfulness_details": {
+        "score": 0.9,
+        "reasoning": "All listed events are directly supported by the sources, with accurate dates, locations, and links. The answer transparently states that the events are accessible for wheelchair users, which is supported by the sources mentioning accessibility for mobility impairments. The only minor issue is the lack of explicit mention of wheelchair accessibility in the sources, though the broader accessibility claims (handicap moteur) imply it.",
+        "violations": []
+      },
+      "relevancy_details": {
+        "score": 0.85,
+        "reasoning": "The answer provides 4 specific, accessible theater events in Paris with full details (dates, locations, links), which directly addresses the user's query about wheelchair-accessible spectacles. The response is well-structured and actionable, though it focuses on theater performances rather than a broader range of spectacles.",
+        "strengths": [
+          "Provides 4 detailed, accessible events with dates, locations, and links",
+          "Well-organized and easy to read",
+          "Explicitly mentions accessibility for wheelchair users"
+        ],
+        "weaknesses": [
+          "Limited to theater performances, not a broader range of spectacles",
+          "No mention of other types of accessible events (e.g., concerts, exhibitions)"
+        ]
+      }
+    }
+  ]
+}

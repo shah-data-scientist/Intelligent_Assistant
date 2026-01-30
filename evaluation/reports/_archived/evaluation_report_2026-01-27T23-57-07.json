@@ -1,0 +1,476 @@
+{
+  "timestamp": "2026-01-27T23:57:07.066024",
+  "dataset_version": "3.0",
+  "total_queries": 10,
+  "faiss_index_events": null,
+  "llm_model": null,
+  "embedding_model": null,
+  "retrieval_metrics": {
+    "total_queries": 10,
+    "successful_queries": 10,
+    "queries_with_ground_truth": 0,
+    "avg_latency_ms": 3469.8757886886597,
+    "overall_hit_rate": null,
+    "overall_mrr": null,
+    "overall_precision@5": null,
+    "overall_recall@5": null,
+    "overall_f1@5": null
+  },
+  "generation_metrics": {
+    "total_queries": 10,
+    "successful_queries": 10,
+    "avg_latency_ms": 13246.446561813354,
+    "avg_faithfulness": 0.41,
+    "avg_relevancy": 0.63,
+    "avg_quality_score": 0.52,
+    "language_consistency_rate": 0.6
+  },
+  "latency_analysis": {
+    "avg_latency_ms": 13246.446561813354,
+    "min_latency_ms": 86.54260635375977,
+    "max_latency_ms": 22700.05202293396,
+    "p50_latency_ms": 16513.885974884033,
+    "p95_latency_ms": 22700.05202293396,
+    "p99_latency_ms": 22700.05202293396,
+    "sla_compliance_rate": 0.1
+  },
+  "overall_status": {
+    "quality_score": 0.52,
+    "quality_sla": 0.8,
+    "quality_pass": false,
+    "avg_latency_ms": 13246.446561813354,
+    "latency_sla_ms": 2000.0,
+    "latency_pass": false,
+    "overall_pass": false
+  },
+  "per_query_results": [
+    {
+      "query_id": "conv_001_t1",
+      "query": "Concerts de jazz à Paris",
+      "query_type": "initial",
+      "retrieved_count": 5,
+      "relevant_count": 0,
+      "latency_ms": 86.54260635375977,
+      "exact_matches": 24,
+      "total_in_database": 57,
+      "hit_rate": null,
+      "mrr": null,
+      "precision@5": null,
+      "recall@5": null,
+      "f1@5": null,
+      "answer": "Excellent! To suggest relevant events:\n- What timeframe are you looking at? (This weekend, in February, a specific date...)",
+      "num_sources": 0,
+      "faithfulness_score": 1.0,
+      "relevancy_score": 0.75,
+      "language_consistent": false,
+      "quality_score": 0.875,
+      "keywords_present": false,
+      "expected_language_match": false,
+      "faithfulness_details": {
+        "score": 1.0,
+        "reasoning": "The answer does not make any factual claims about jazz concerts in Paris. It only asks for a timeframe, which is a reasonable request and does not introduce any unsupported information.",
+        "violations": []
+      },
+      "relevancy_details": {
+        "score": 0.75,
+        "reasoning": "The answer acknowledges the user's query and proactively asks for clarification to provide better recommendations. However, it does not list any specific events or alternatives, which would have increased the relevancy score.",
+        "strengths": [
+          "Proactively asks for clarification to better assist the user",
+          "Engages the user to refine the search"
+        ],
+        "weaknesses": [
+          "Does not provide any specific events or alternatives",
+          "Lacks actionable information (dates, locations, links)"
+        ]
+      }
+    },
+    {
+      "query_id": "conv_001_t2",
+      "query": "En février plutôt",
+      "query_type": "refinement",
+      "retrieved_count": 5,
+      "relevant_count": 0,
+      "latency_ms": 17961.347579956055,
+      "exact_matches": 24,
+      "total_in_database": 26,
+      "hit_rate": null,
+      "mrr": null,
+      "precision@5": null,
+      "recall@5": null,
+      "f1@5": null,
+      "answer": "Ooh, I found 108 **jazz concerts** in **Paris** in **February**! Here are my top picks:",
+      "num_sources": 8,
+      "faithfulness_score": 0.0,
+      "relevancy_score": 0.85,
+      "language_consistent": false,
+      "quality_score": 0.425,
+      "keywords_present": false,
+      "expected_language_match": false,
+      "faithfulness_details": {
+        "score": 0.0,
+        "reasoning": "The answer claims there are 108 jazz concerts in Paris in February, but the sources only list 8 events. The answer also does not provide any specific event details or top picks as claimed, making it entirely unsupported by the sources.",
+        "violations": [
+          "Claim of 108 jazz concerts not supported by sources",
+          "No specific event details or top picks provided"
+        ]
+      },
+      "relevancy_details": {
+        "score": 0.85,
+        "reasoning": "The answer directly addresses the user's query by providing specific jazz concert events in Paris for February, which is highly relevant. It offers a clear, actionable list of top picks, demonstrating proactive assistance. The response is well-structured and easy to understand, though it doesn't explicitly mention if these are the only events or if alternatives exist.",
+        "strengths": [
+          "Directly answers the query with specific events",
+          "Provides actionable information (jazz concerts in Paris in February)",
+          "Well-structured and easy to understand"
+        ],
+        "weaknesses": [
+          "Does not explain if these are the only events available",
+          "No links or additional details (prices, venues) provided"
+        ]
+      }
+    },
+    {
+      "query_id": "conv_001_t3",
+      "query": "Parle-moi du premier",
+      "query_type": "follow_up",
+      "retrieved_count": 5,
+      "relevant_count": 0,
+      "latency_ms": 16118.706464767456,
+      "exact_matches": 24,
+      "total_in_database": 500,
+      "hit_rate": null,
+      "mrr": null,
+      "precision@5": null,
+      "recall@5": null,
+      "f1@5": null,
+      "answer": "Ooh, I found 108 **jazz concerts** in **Paris** in **February**! Here are my top picks:",
+      "num_sources": 8,
+      "faithfulness_score": 0.0,
+      "relevancy_score": 0.2,
+      "language_consistent": false,
+      "quality_score": 0.1,
+      "keywords_present": true,
+      "expected_language_match": false,
+      "faithfulness_details": {
+        "score": 0.0,
+        "reasoning": "The answer claims there are 108 jazz concerts in Paris in February, but the sources only list 8 events. The answer also mentions 'top picks' without specifying any events, which is unsupported by the sources.",
+        "violations": [
+          "Claim of 108 jazz concerts in Paris in February is not supported by the sources (only 8 events listed)",
+          "Mention of 'top picks' without specifying any events from the sources"
+        ]
+      },
+      "relevancy_details": {
+        "score": 0.2,
+        "reasoning": "The answer completely misses the user's query about 'le premier' (likely referring to 'Le Premier' as a specific event, place, or concept) and instead provides unrelated jazz concert information. There is no attempt to clarify or address the original question.",
+        "strengths": [],
+        "weaknesses": [
+          "Completely unrelated to the query",
+          "No attempt to clarify or address the original question",
+          "No actionable or relevant information provided"
+        ]
+      }
+    },
+    {
+      "query_id": "conv_002_t1",
+      "query": "Jazz concerts in Paris this weekend",
+      "query_type": "initial",
+      "retrieved_count": 5,
+      "relevant_count": 0,
+      "latency_ms": 22700.05202293396,
+      "exact_matches": 24,
+      "total_in_database": 57,
+      "hit_rate": null,
+      "mrr": null,
+      "precision@5": null,
+      "recall@5": null,
+      "f1@5": null,
+      "answer": "Great question! I found 2 **jazz concerts** in **Paris** this weekend. Ooh, I also spotted **14 events** on other dates if you're flexible!",
+      "num_sources": 8,
+      "faithfulness_score": 0.8,
+      "relevancy_score": 0.65,
+      "language_consistent": true,
+      "quality_score": 0.7250000000000001,
+      "keywords_present": true,
+      "expected_language_match": true,
+      "faithfulness_details": {
+        "score": 0.8,
+        "reasoning": "The answer correctly identifies 2 jazz concerts in Paris this weekend, supported by Sources 1, 2, and 3. The mention of 14 other events is not directly supported by the sources, but it is a reasonable extrapolation since the sources list multiple events on other dates. No hallucinations of event details or unsupported claims are present.",
+        "violations": [
+          "Mention of 14 other events not directly supported by sources"
+        ]
+      },
+      "relevancy_details": {
+        "score": 0.65,
+        "reasoning": "The answer mentions 2 jazz concerts in Paris this weekend, which partially addresses the query. However, it lacks specific details (dates, locations, links) and only vaguely mentions 14 other events without any actionable information. The response is somewhat helpful but falls short of being fully actionable or detailed.",
+        "strengths": [
+          "Mentions exact number of events for the weekend",
+          "Acknowledges flexibility with other dates"
+        ],
+        "weaknesses": [
+          "Lacks specific details (dates, locations, links) for the 2 events",
+          "Does not provide concrete alternatives with full details",
+          "Vague mention of 14 other events without specifics"
+        ]
+      }
+    },
+    {
+      "query_id": "conv_002_t2",
+      "query": "Actually, what about theater shows in Versailles?",
+      "query_type": "topic_shift",
+      "retrieved_count": 5,
+      "relevant_count": 0,
+      "latency_ms": 12807.898998260498,
+      "exact_matches": 6,
+      "total_in_database": 6,
+      "hit_rate": null,
+      "mrr": null,
+      "precision@5": null,
+      "recall@5": null,
+      "f1@5": null,
+      "answer": "Great question! I found 8 **theater shows** in **Versailles**!",
+      "num_sources": 8,
+      "faithfulness_score": 1.0,
+      "relevancy_score": 0.75,
+      "language_consistent": true,
+      "quality_score": 0.875,
+      "keywords_present": true,
+      "expected_language_match": true,
+      "faithfulness_details": {
+        "score": 1.0,
+        "reasoning": "The answer accurately lists the 8 theater shows in Versailles as provided in the sources. It does not add any unsupported details, biographical information, or fabricated content. The phrasing is natural and grounded in the source data.",
+        "violations": []
+      },
+      "relevancy_details": {
+        "score": 0.75,
+        "reasoning": "The answer directly mentions 8 theater shows in Versailles, which partially addresses the query. However, it lacks specific details like dates, locations, or links, which would make it more actionable. The response is relevant but could be improved with more concrete information.",
+        "strengths": [
+          "Directly mentions theater shows in Versailles",
+          "Provides a specific number of shows"
+        ],
+        "weaknesses": [
+          "Lacks specific details (dates, locations, links)",
+          "No explanation or alternatives if exact matches aren't available"
+        ]
+      }
+    },
+    {
+      "query_id": "conv_003_t1",
+      "query": "events",
+      "query_type": "initial",
+      "retrieved_count": 5,
+      "relevant_count": 0,
+      "latency_ms": 4688.759803771973,
+      "exact_matches": 24,
+      "total_in_database": 500,
+      "hit_rate": null,
+      "mrr": null,
+      "precision@5": null,
+      "recall@5": null,
+      "f1@5": null,
+      "answer": "Great question! I found 1 **theater show** in **Versailles**! Ooh, I also spotted 7 events in nearby cities if you're flexible!",
+      "num_sources": 8,
+      "faithfulness_score": 0.5,
+      "relevancy_score": 0.75,
+      "language_consistent": true,
+      "quality_score": 0.625,
+      "keywords_present": true,
+      "expected_language_match": true,
+      "faithfulness_details": {
+        "score": 0.5,
+        "reasoning": "The answer mentions a theater show in Versailles, which is not present in any of the sources. The rest of the answer (7 events in nearby cities) is supported by the sources, but the hallucination of the Versailles event significantly reduces the score.",
+        "violations": [
+          "Mention of a theater show in Versailles, which is not in the sources"
+        ]
+      },
+      "relevancy_details": {
+        "score": 0.75,
+        "reasoning": "The answer provides a specific event in Versailles and mentions 7 events in nearby cities, showing proactive assistance. However, it lacks actionable details (dates, locations, links) for the alternatives, which would have increased the score.",
+        "strengths": [
+          "Provides a specific event in Versailles",
+          "Mentions nearby events as alternatives",
+          "Attempts to be helpful by suggesting flexibility"
+        ],
+        "weaknesses": [
+          "Lacks actionable details (dates, locations, links) for the 7 nearby events",
+          "No explanation for why exact matches might be limited",
+          "Could be more structured for clarity"
+        ]
+      }
+    },
+    {
+      "query_id": "conv_003_t2",
+      "query": "Art exhibitions in Paris",
+      "query_type": "clarification_response",
+      "retrieved_count": 5,
+      "relevant_count": 0,
+      "latency_ms": 6065.91534614563,
+      "exact_matches": 23,
+      "total_in_database": 23,
+      "hit_rate": null,
+      "mrr": null,
+      "precision@5": null,
+      "recall@5": null,
+      "f1@5": null,
+      "answer": "I encountered an error.",
+      "num_sources": 0,
+      "faithfulness_score": 0.0,
+      "relevancy_score": 0.0,
+      "language_consistent": true,
+      "quality_score": 0.0,
+      "keywords_present": false,
+      "expected_language_match": true,
+      "faithfulness_details": {
+        "score": 0.0,
+        "reasoning": "The answer is a placeholder error message ('I encountered an error') and does not provide any factual claims or information about art exhibitions in Paris. Since no content is generated, it cannot be evaluated for factual accuracy or grounding in the sources.",
+        "violations": [
+          "Placeholder error message instead of substantive content"
+        ]
+      },
+      "relevancy_details": {
+        "score": 0.0,
+        "reasoning": "The answer does not address the user's query at all, only states an error occurred. No relevant information, alternatives, or explanations are provided.",
+        "strengths": [],
+        "weaknesses": [
+          "No attempt to answer the query",
+          "No alternatives or explanations provided",
+          "Completely unhelpful to the user"
+        ]
+      }
+    },
+    {
+      "query_id": "conv_003_t3",
+      "query": "In March",
+      "query_type": "clarification_response",
+      "retrieved_count": 5,
+      "relevant_count": 0,
+      "latency_ms": 17006.934642791748,
+      "exact_matches": 6,
+      "total_in_database": 6,
+      "hit_rate": null,
+      "mrr": null,
+      "precision@5": null,
+      "recall@5": null,
+      "f1@5": null,
+      "answer": "Great question! I found 13 **events** in **Paris** in **March**! Ooh, I also spotted 13 events in nearby cities if you're flexible!",
+      "num_sources": 8,
+      "faithfulness_score": 0.8,
+      "relevancy_score": 0.75,
+      "language_consistent": true,
+      "quality_score": 0.775,
+      "keywords_present": false,
+      "expected_language_match": true,
+      "faithfulness_details": {
+        "score": 0.8,
+        "reasoning": "The answer correctly identifies 8 events in Paris in March 2026, which are all supported by the sources. However, it claims there are 13 events in Paris and 13 in nearby cities, which is not supported by the provided sources (only 8 events in Paris are listed). The mention of 'nearby cities' is a hallucination since no such events are referenced in the sources.",
+        "violations": [
+          "Claim of 13 events in Paris (only 8 are listed in sources)",
+          "Claim of 13 events in nearby cities (no such events in sources)"
+        ]
+      },
+      "relevancy_details": {
+        "score": 0.75,
+        "reasoning": "The answer provides a specific number of events in March in Paris and nearby cities, which is a proactive attempt to address the query. However, it lacks actionable details like dates, locations, or links, which would have increased the relevancy score.",
+        "strengths": [
+          "Provides a specific number of events in March",
+          "Offers nearby city alternatives",
+          "Attempts to be helpful with a proactive approach"
+        ],
+        "weaknesses": [
+          "Lacks actionable details (dates, locations, links)",
+          "Does not explain why exact matches might not be available",
+          "No concrete event details provided"
+        ]
+      }
+    },
+    {
+      "query_id": "conv_004_t1",
+      "query": "Expositions à Paris",
+      "query_type": "initial",
+      "retrieved_count": 5,
+      "relevant_count": 0,
+      "latency_ms": 16513.885974884033,
+      "exact_matches": 23,
+      "total_in_database": 23,
+      "hit_rate": null,
+      "mrr": null,
+      "precision@5": null,
+      "recall@5": null,
+      "f1@5": null,
+      "answer": "Great question! I found 14 **expositions** in **Paris** in **March**! Ooh, I also spotted 14 events in nearby cities if you're flexible!",
+      "num_sources": 8,
+      "faithfulness_score": 0.0,
+      "relevancy_score": 0.75,
+      "language_consistent": false,
+      "quality_score": 0.375,
+      "keywords_present": true,
+      "expected_language_match": false,
+      "faithfulness_details": {
+        "score": 0.0,
+        "reasoning": "The answer claims there are 14 expositions in Paris in March, but the sources only list 8 events (none explicitly labeled as 'expositions'). The answer also mentions 14 events in nearby cities, which is entirely unsupported by the sources. The answer hallucinates event details and locations not present in the provided sources.",
+        "violations": [
+          "Claim of 14 expositions in Paris in March (sources list 8 events, none explicitly as expositions)",
+          "Mention of 14 events in nearby cities (no such information in sources)",
+          "Hallucination of event details and locations not present in sources"
+        ]
+      },
+      "relevancy_details": {
+        "score": 0.75,
+        "reasoning": "The answer provides a direct response to the query by mentioning 14 expositions in Paris and 14 in nearby cities, which shows proactive assistance. However, it lacks specific details like dates, locations, or links, which would make the alternatives more actionable. The answer is well-structured but could be improved with more concrete information.",
+        "strengths": [
+          "Directly addresses the query with a count of expositions in Paris",
+          "Offers alternatives in nearby cities",
+          "Well-structured and easy to understand"
+        ],
+        "weaknesses": [
+          "Lacks specific details (dates, locations, links) for the expositions",
+          "No explanation for why exact matches might not be available",
+          "No concrete alternatives listed with full details"
+        ]
+      }
+    },
+    {
+      "query_id": "conv_004_t2",
+      "query": "Gratuites seulement",
+      "query_type": "refinement",
+      "retrieved_count": 5,
+      "relevant_count": 0,
+      "latency_ms": 18514.422178268433,
+      "exact_matches": 23,
+      "total_in_database": 23,
+      "hit_rate": null,
+      "mrr": null,
+      "precision@5": null,
+      "recall@5": null,
+      "f1@5": null,
+      "answer": "Great question! I found 17 **gratuites expositions** in **Paris** in **March**! Ooh, I also spotted 17 events in nearby cities if you're flexible!",
+      "num_sources": 8,
+      "faithfulness_score": 0.0,
+      "relevancy_score": 0.85,
+      "language_consistent": true,
+      "quality_score": 0.425,
+      "keywords_present": true,
+      "expected_language_match": false,
+      "faithfulness_details": {
+        "score": 0.0,
+        "reasoning": "The answer claims there are 17 'gratuites expositions' in Paris in March, but the sources do not mention any 'expositions' (exhibitions) or any events labeled as 'gratuites.' The sources only list specific events with titles, dates, and times, none of which are exhibitions. The answer also mentions 17 events in nearby cities, which is entirely unsupported by the sources, as all events listed are in Paris. The answer hallucinates the existence of exhibitions and additional events outside the provided sources.",
+        "violations": [
+          "Claim of 17 'gratuites expositions' in Paris in March is not supported by sources",
+          "Claim of 17 events in nearby cities is not supported by sources",
+          "Invented event details (exhibitions) not present in sources"
+        ]
+      },
+      "relevancy_details": {
+        "score": 0.85,
+        "reasoning": "The answer directly addresses the query by providing 17 free exhibitions in Paris for March, which is a strong match. It also proactively suggests 17 events in nearby cities, demonstrating effort to assist the user. However, it lacks specific details (dates, locations, links) for the events, which would have pushed the score higher.",
+        "strengths": [
+          "Directly answers the query with exact matches",
+          "Proactively suggests alternatives in nearby cities",
+          "Clear and well-structured response"
+        ],
+        "weaknesses": [
+          "Lacks specific details (dates, locations, links) for the events",
+          "No explanation if exact matches are limited"
+        ]
+      }
+    }
+  ]
+}

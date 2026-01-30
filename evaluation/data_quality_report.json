@@ -1,0 +1,138 @@
+{
+  "audit_metadata": {
+    "timestamp": "2026-01-24T19:16:46.420590",
+    "total_events": 1000,
+    "audit_version": "1.0"
+  },
+  "field_population": {
+    "title": 100.0,
+    "description": 100.0,
+    "scraped_content": 97.0,
+    "category": 100.0,
+    "location": 100.0,
+    "city": 99.8,
+    "coordinates": 0.0,
+    "start_date": 100.0,
+    "end_date": 100.0,
+    "tags": 100.0,
+    "organizer": 0.0,
+    "url": 100.0,
+    "image_url": 99.1,
+    "age_min": 40.5,
+    "age_max": 57.4,
+    "accessibility": 36.3,
+    "conditions": 54.0
+  },
+  "content_length_stats": {
+    "title": {
+      "avg_length": 33.3,
+      "median_length": 29.0,
+      "max_length": 138
+    },
+    "description": {
+      "avg_length": 1174.5,
+      "median_length": 965.0,
+      "max_length": 5556
+    },
+    "scraped_content": {
+      "avg_length": 2788.4,
+      "median_length": 2396.0,
+      "max_length": 10000,
+      "populated_count": 970
+    }
+  },
+  "distributions": {
+    "categories": {
+      "Théâtre / Spectacle": 591,
+      "Musique": 178,
+      "Formation / Emploi": 92,
+      "Art / Exposition": 38,
+      "Conférence / Débat": 28,
+      "Jeunesse / Famille": 27,
+      "Atelier / Workshop": 26,
+      "Sport / Loisirs": 12,
+      "Festival": 5,
+      "Patrimoine": 2,
+      "Vie associative": 1
+    },
+    "cities": {
+      "Paris": 442,
+      "Nanterre": 33,
+      "Saint-Prix": 26,
+      "Fontenay-Sous-Bois": 19,
+      "Montigny-Le-Bretonneux": 18,
+      "Saint-Denis": 15,
+      "Ivry-Sur-Seine": 14,
+      "Suresnes": 13,
+      "Versailles": 12,
+      "Lieusaint": 12,
+      "Neuilly-Sur-Seine": 11,
+      "Asnières-Sur-Seine": 11,
+      "Colombes": 9,
+      "Villeneuve-Saint-Georges": 9,
+      "Mitry-Mory": 9
+    },
+    "temporal": {
+      "years": {
+        "2027": 35,
+        "2026": 965
+      },
+      "months": {
+        "1": 125,
+        "11": 2,
+        "10": 2,
+        "6": 43,
+        "7": 6,
+        "5": 97,
+        "4": 206,
+        "3": 186,
+        "2": 333
+      }
+    }
+  },
+  "quality_gaps": [
+    {
+      "issue": "missing_scraped_content",
+      "severity": "high",
+      "count": 30,
+      "percentage": 3.0,
+      "impact": "Reduces content richness for semantic search",
+      "recommendation": "Use LLM to generate detailed descriptions from title + description + category"
+    },
+    {
+      "issue": "missing_coordinates",
+      "severity": "medium",
+      "count": 998,
+      "percentage": 99.8,
+      "impact": "Reduces geospatial search precision",
+      "recommendation": "Geocode city names to lat/lon coordinates"
+    },
+    {
+      "issue": "missing_age_ranges",
+      "severity": "low",
+      "count": 595,
+      "percentage": 59.5,
+      "impact": "Limits family-friendly event filtering",
+      "recommendation": "Infer age ranges from description text (family-friendly, children, adults)"
+    },
+    {
+      "issue": "short_descriptions",
+      "severity": "low",
+      "count": 17,
+      "percentage": 1.7,
+      "impact": "Insufficient semantic content for embeddings",
+      "recommendation": "Enrich with scraped_content or generate from title + category"
+    }
+  ],
+  "summary": {
+    "rag_critical_fields": {
+      "title": "100.0%",
+      "description": "100.0%",
+      "scraped_content": "97.0%",
+      "category": "100.0%",
+      "city": "99.8%"
+    },
+    "enrichment_opportunities": 4,
+    "high_severity_gaps": 1
+  }
+}

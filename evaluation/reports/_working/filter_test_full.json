@@ -1,0 +1,18 @@
+{
+  "test1": {
+    "answer": "Here are 0 events in Paris for March in the category Jeunesse / Famille.\n\n---\n💡 **Want to refine your search?** You can specify:\n- 📆 A **date** or **period** (e.g., \"this weekend\", \"in February\")\n- 🎫 **Free events** (e.g., \"free\", \"no charge\")\n- 👨‍👩‍👧 **Target audience** (e.g., \"for kids\", \"family-friendly\")\n- 🎭 **Event type** (e.g., \"concerts\", \"exhibitions\", \"theater\")\n\n---\n**Applied filters:** 📍 paris | 📅 18 March | 🎭 Jeunesse / Famille | 👥 kids",
+    "sources": [],
+    "structured_events": [],
+    "message_id": 6470,
+    "needs_clarification": false,
+    "clarifying_questions": []
+  },
+  "test2": {
+    "answer": "Here are 0 events in Paris for February in the category Jeunesse / Famille.\n\n---\n💡 **Want to refine your search?** You can specify:\n- 📆 A **date** or **period** (e.g., \"this weekend\", \"in February\")\n- 🎫 **Free events** (e.g., \"free\", \"no charge\")\n- 👨‍👩‍👧 **Target audience** (e.g., \"for kids\", \"family-friendly\")\n- 🎭 **Event type** (e.g., \"concerts\", \"exhibitions\", \"theater\")\n\n---\n**Applied filters:** 📍 paris | 📅 18 February | 🎭 Jeunesse / Famille | 👥 kids | 🔍 \"events for kids in Paris on March 18\" + \"events in February instead\"",
+    "sources": [],
+    "structured_events": [],
+    "message_id": 6472,
+    "needs_clarification": false,
+    "clarifying_questions": []
+  }
+}

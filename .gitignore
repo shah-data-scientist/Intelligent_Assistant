@@ -105,10 +105,16 @@ index_backups/
 _UL/
 _ul-*/
 
-# Archived evaluation reports (keep latest only)
-data/evaluation/reports/_archived/
-data/evaluation/reports/_working/
+# Archived folders (keep out of version control)
+# Pattern: Any directory ending with _archived or named _archived_*
+*_archived/
+_archived_*/
+**/*_archived/
+**/reports/_working/
 scripts/_working/
+
+# Security baseline (generated locally, do not commit)
+.secrets.baseline
 
 # Intermediate/working files
 *_cleaned.json

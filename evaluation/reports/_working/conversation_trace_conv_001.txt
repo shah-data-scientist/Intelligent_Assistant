@@ -1,0 +1,270 @@
+
+================================================================================
+  DETAILED CONVERSATION TRACE: conv_001
+================================================================================
+
+    Conversation: Classical Music Concert with Complex Date (French)
+    Turn 1: "Concerts de musique classique à Paris pour le 3ème mardi de mars avec mes amis"
+    Turn 2: "En février plutôt"
+
+    This trace shows EVERY step of the RAG pipeline.
+
+
+------------------------------------------------------------
+  INITIALIZATION
+------------------------------------------------------------
+  Loading RAGChain (FAISS index, BM25, LLM)...
+  Chain initialized in 4219 ms
+  Known cities: 7 (sample list)
+  Today's date: 2026-01-29
+
+================================================================================
+  TURN 1: 'Concerts de musique classique à Paris pour le 3ème mardi de mars avec mes amis'
+================================================================================
+
+------------------------------------------------------------
+  STEP 1: Unified Query Analysis (LLM Call #1)
+------------------------------------------------------------
+  Input: 'Concerts de musique classique à Paris pour le 3ème mardi de mars avec mes amis'
+  Chat History: (empty - first turn)
+
+  LLM Response Time: 6203 ms
+
+  Language Detection:
+    - Detected Language: fr
+    - Method: LLM-based (analyzes articles, prepositions, accents)
+
+  Intent Classification:
+    - Primary Intent: event_search
+    - Confidence: 1.00
+
+  Query Dimensions Detected:
+    - greeting: ✗ no
+    - typo: ✗ no
+    - statistical: ✗ no
+    - scope: ✓ YES
+
+  Extracted Filters (from LLM):
+    - city: paris
+    - month: 3
+    - day: 18
+    - year: 2026
+    - category: Musique
+    - audience: friends
+
+  Refined Query: 'Concerts de musique classique à Paris pour le 3ème mardi de mars avec mes amis'
+
+------------------------------------------------------------
+  STEP 2: Category Mapping
+------------------------------------------------------------
+  Raw category: 'Musique'
+  Mapped category: 'Musique'
+  DB Categories: Musique, Art / Exposition, Théâtre / Spectacle, etc.
+
+------------------------------------------------------------
+  STEPS 3-6: Full RAG Pipeline Execution
+------------------------------------------------------------
+  Running chain.query_with_metadata()...
+  This includes:
+    3. Session filter storage/retrieval
+    4. Hybrid search (FAISS semantic + BM25 keyword)
+    5. Context preparation (format sources for LLM)
+    6. RAG generation (LLM Call #2)
+
+  Total Pipeline Latency: 29770 ms
+  Events Retrieved: 1
+  Events in Structured Response: 1
+
+  >> Retrieved Sources (what LLM sees)
+  1. CANTABILE  Machado Novo Trio  Como as Flores
+     City: Paris, Date: 2026-03-18T20:00:00
+     Match: Exact Match
+
+  >> Full Response
+
+Voici 1 événement de musique à Paris pour le troisième mardi de mars, et d'autres dates sont disponibles !
+
+*NOTE: Cet événement est listé comme 'jazz', mais correspond à votre requête de 'musique classique'.*
+
+💡 *Précisez une date, un type d'événement, ou "gratuit" pour affiner.*
+
+💡 *Précisez une date, un type d'événement, ou "gratuit" pour affiner.*
+
+💡 *Peu de résultats ? Essayez d'élargir votre recherche : changez la date, la ville, ou simplifiez vos critères.*
+
+---
+**Filtres appliqués:** 📍 paris | 📅 18 mars | 🎭 Musique
+
+------------------------------------------------------------
+  Session State After Turn 1
+------------------------------------------------------------
+  Session ID: trace_conv_001
+  Stored Filters: {
+    "city": "paris",
+    "month": 3,
+    "day": 18,
+    "year": 2026,
+    "category": "Musique"
+}
+  Search Terms: ['Concerts de musique classique à Paris pour le 3ème mardi de mars avec mes amis']
+
+================================================================================
+  TURN 2: 'En février plutôt'
+================================================================================
+
+    This is a REFINEMENT query.
+    Expected behavior:
+    - INHERIT from Turn 1: city=Paris, category=Musique
+    - ADD from Turn 2: month=2 (February)
+
+
+------------------------------------------------------------
+  STEP 1: Unified Query Analysis (with Chat History)
+------------------------------------------------------------
+  Chat History Provided:
+    1. [USER]: Concerts de musique classique à Paris pour le 3ème mardi de mars avec mes amis...
+    2. [ASSISTANT]: Voici 1 événement de musique à Paris pour le troisième mardi de mars, et d'autres dates sont disponi...
+
+  LLM Response Time: 3076 ms
+
+  Language Detection:
+    - Detected Language: fr
+
+  Intent Classification:
+    - Primary Intent: event_search
+    - Confidence: 0.90
+
+  Extracted Filters (should inherit city/category, add month):
+    - city: paris (inherited)
+    - month: 2 (new)
+    - year: 2026 (new)
+
+  Refined Query: 'Concerts de musique classique à Paris en février'
+
+------------------------------------------------------------
+  STEP 2: Context Merge (Session + New)
+------------------------------------------------------------
+  Previous Session Filters: {'city': 'paris', 'month': 3, 'day': 18, 'year': 2026, 'category': 'Musique'}
+  New Filters from LLM: {'city': 'paris', 'month': 2, 'day': None, 'year': 2026, 'category': None, 'is_free': None, 'audience': None}
+
+------------------------------------------------------------
+  STEPS 3-6: Full RAG Pipeline Execution
+------------------------------------------------------------
+  Total Pipeline Latency: 23337 ms
+  Events Retrieved: 2
+  Events in Structured Response: 2
+
+  >> Retrieved Sources
+  1. FUR  Album BOND
+     City: Paris, Date: 2026-02-18T19:30:00
+  2. Le poids des choses
+     City: Pantin, Date: 2026-02-18T20:00:00
+
+  >> Full Response
+
+Voici 2 événements de musique à Paris en février. Il y a 1 événement à Paris et 1 dans les villes proches, et d'autres dates sont disponibles !
+
+💡 *Précisez une date, un type d'événement, ou "gratuit" pour affiner.*
+
+💡 *Peu de résultats ? Essayez d'élargir votre recherche : changez la date, la ville, ou simplifiez vos critères.*
+
+---
+**Filtres appliqués:** 📍 paris | 📅 18 février | 🎭 Musique | 🔍 "Concerts de musique classique à Paris pour le 3ème mardi de mars avec mes amis" + "Concerts de musique classique à Paris en février"
+
+------------------------------------------------------------
+  Final Session State
+------------------------------------------------------------
+  Final Filters: {
+    "city": "paris",
+    "month": 2,
+    "day": 18,
+    "year": 2026,
+    "category": "Musique"
+}
+
+================================================================================
+  CONVERSATION SUMMARY
+================================================================================
+
+    ┌─────────────────────────────────────────────────────────────────┐
+    │ TURN 1: "Concerts de musique classique à Paris pour le 3ème..."                                      │
+    ├─────────────────────────────────────────────────────────────────┤
+    │ Language: fr         Intent: event_search                │
+    │ Filters: {'city': 'paris', 'month': 3, 'day': 18, 'year': 2026, 'category': 'Musique'}
+    │ Results: 1 events retrieved                               │
+    └─────────────────────────────────────────────────────────────────┘
+
+    ┌─────────────────────────────────────────────────────────────────┐
+    │ TURN 2: "En février plutôt"                                     │
+    ├─────────────────────────────────────────────────────────────────┤
+    │ Language: fr         Intent: event_search                │
+    │ Filters: {'city': 'paris', 'month': 2, 'day': 18, 'year': 2026, 'category': 'Musique'}
+    │ Results: 2 events retrieved                               │
+    │ Context Inheritance: ✓ Successful                               │
+    └─────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+  FEEDBACK TEMPLATE
+================================================================================
+
+    Please provide feedback on the following:
+
+    ═══════════════════════════════════════════════════════════════════
+    TURN 1: Classical Music in Paris
+    ═══════════════════════════════════════════════════════════════════
+
+    1. FILTER EXTRACTION                              [  ] PASS  [  ] FAIL
+       - Did it correctly identify city=Paris?
+       - Did it correctly identify category=Musique?
+       - Did it correctly calculate 3rd Tuesday of March?
+       Notes: _________________________________________________
+
+    2. RETRIEVAL QUALITY                              [  ] PASS  [  ] FAIL
+       - Are retrieved events music-related?
+       - Are retrieved events in Paris?
+       Notes: _________________________________________________
+
+    3. RESPONSE QUALITY                               [  ] PASS  [  ] FAIL
+       - Is the response faithful to sources?
+       - Does it answer the user's question?
+       Notes: _________________________________________________
+
+    4. HALLUCINATIONS                                 [  ] NONE  [  ] FOUND
+       - Any invented event names?
+       - Any incorrect dates/locations?
+       Details: _______________________________________________
+
+    ═══════════════════════════════════════════════════════════════════
+    TURN 2: "En février plutôt"
+    ═══════════════════════════════════════════════════════════════════
+
+    5. CONTEXT INHERITANCE                            [  ] PASS  [  ] FAIL
+       - Did it keep city=Paris from Turn 1?
+       - Did it keep category=Musique from Turn 1?
+       Notes: _________________________________________________
+
+    6. REFINEMENT APPLICATION                         [  ] PASS  [  ] FAIL
+       - Did it correctly change month to February?
+       - Are results filtered to February?
+       Notes: _________________________________________________
+
+    7. OVERALL EXPERIENCE                             [  ] GOOD  [  ] POOR
+       - Was the conversation natural?
+       - Did the system understand the refinement?
+       Notes: _________________________________________________
+
+    ═══════════════════════════════════════════════════════════════════
+    TECHNICAL METRICS
+    ═══════════════════════════════════════════════════════════════════
+
+    Latency acceptable (<2s)?                         [  ] YES   [  ] NO
+    Language consistency?                             [  ] YES   [  ] NO
+
+    Additional comments:
+    ________________________________________________________________
+    ________________________________________________________________
+
+
+
+[Trace saved to: C:\Users\shahu\Documents\OneDrive\OPEN CLASSROOMS\PROJET 9\Intelligent_Assistant\data\evaluation\reports\conversation_trace_conv_001.txt]

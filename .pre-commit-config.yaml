@@ -1,0 +1,76 @@
+# Pre-commit hooks configuration
+# Install: poetry add --group dev pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # File Documentation & Comment Validation (GLOBAL_POLICY.md)
+  - repo: local
+    hooks:
+      - id: validate-changed-files
+        name: Validate Changed Files (Headers + Comments)
+        entry: python scripts/global_policy/validate_changed_files.py --staged-only
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+        exclude: ^scripts/global_policy/
+        description: Validates documentation headers and comment hygiene for staged files
+
+      - id: validate-file-locations
+        name: Validate File Locations
+        entry: python scripts/global_policy/validate_file_locations.py
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+        description: Enforces documentation and script placement rules
+
+      - id: check-orphaned-files
+        name: Check Orphaned Files (Warning)
+        entry: python scripts/global_policy/check_orphaned_files.py --verbose
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+        verbose: true
+        description: Warns about old debug scripts and orphaned files (non-blocking)
+
+  # Python Code Quality
+  - repo: https://github.com/psf/black
+    rev: 24.1.1
+    hooks:
+      - id: black
+        language_version: python3.11
+        args: [--line-length=120]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.14
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+
+  # Security Checks
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.6
+    hooks:
+      - id: bandit
+        args: [-r, src/, -ll]
+        description: Security vulnerability scanner
+
+  # Secrets Detection
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: []
+        exclude: package.lock.json
+
+  # File Hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: debug-statements
