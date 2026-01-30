@@ -998,6 +998,26 @@ class RAGChain:
         chat_memory = SQLiteChatMessageHistory(session_id=session_id, storage=self.chat_storage)
         return SimpleSummaryBufferMemory(llm=self.llm.llm, chat_memory=chat_memory)
 
+    def _get_previous_events(self, session_id: str) -> list[dict] | None:
+        """Extract retrieved events from the most recent assistant message.
+
+        Args:
+            session_id: Session identifier
+
+        Returns:
+            List of event dicts from the last assistant message, or None
+        """
+        try:
+            history = self.chat_storage.get_chat_history(session_id, limit=10)
+            # Find the most recent assistant message with retrieved_events
+            for entry in reversed(history):
+                if entry["role"] == "assistant" and entry.get("retrieved_events"):
+                    return entry["retrieved_events"]
+            return None
+        except Exception as e:
+            logger.warning(f"Failed to extract previous events: {e}")
+            return None
+
     def _store_session_filters(self, session_id: str, filters: Dict[str, Any], refined_query: str = None) -> None:
         """Store filters and refined_query from this turn for follow-up query merging.
 
@@ -1155,8 +1175,15 @@ class RAGChain:
             city_locator = get_city_locator()
             known_cities = list(city_locator.city_cache.keys())
 
+            # Extract previous events from chat history for coreference resolution
+            previous_events = None
+            if session_id:
+                previous_events = self._get_previous_events(session_id)
+                if previous_events:
+                    logger.info(f"[COREFERENCE] Found {len(previous_events)} events from previous turn")
+
             # ONE unified LLM call with multi-dimensional output
-            analysis = unified_analyze(question, chat_history, known_cities)
+            analysis = unified_analyze(question, chat_history, known_cities, previous_events=previous_events)
 
             # CRITICAL: Update language from analysis IMMEDIATELY (before any early returns)
             # This ensures all responses use the correct detected language
@@ -1632,10 +1659,6 @@ class RAGChain:
             # Mark this as an error response - DO NOT CACHE
             _is_error_response = True
 
-        # Save to persistent storage (user msg async, assistant sync for message_id)
-        _background_db_write(self.chat_storage.add_chat_message, session_id, "user", question)
-        message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_text)
-
         # Extract complete source metadata (including enrichment fields for cache)
         sources = []
         for d in result.get("context", []):
@@ -1661,6 +1684,27 @@ class RAGChain:
                 "address": meta.get("address"),
                 "postal_code": meta.get("postal_code"),
             })
+
+        # Prepare retrieved_events for coreference resolution (lightweight version)
+        retrieved_events = [
+            {
+                "event_id": s["event_id"],
+                "title": s["title"],
+                "city": s["city"],
+                "address": s.get("address"),
+                "category": s["category"],
+            }
+            for s in sources[:10]  # Limit to top 10 events to avoid bloating context
+        ] if sources else None
+
+        # Save to persistent storage (user msg async, assistant sync for message_id)
+        _background_db_write(self.chat_storage.add_chat_message, session_id, "user", question)
+        message_id = self.chat_storage.add_chat_message(
+            session_id,
+            "assistant",
+            answer_text,
+            retrieved_events=retrieved_events
+        )
 
         # Add retrieval stats with transparency counts
         retrieval_stats = result.get("retrieved_data", {})

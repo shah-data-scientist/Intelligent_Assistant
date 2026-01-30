@@ -1,5 +1,6 @@
 """SQLite storage layer for chat history and feedback."""
 
+import json
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -37,6 +38,7 @@ class ConversationRecord(ChatBase):
     session_id = Column(String(255), nullable=False, index=True)
     role = Column(String(50), nullable=False)  # "user" or "assistant"
     content = Column(Text, nullable=False)
+    retrieved_events = Column(Text, nullable=True)  # JSON string of retrieved events for context
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
 
@@ -84,10 +86,29 @@ class ChatStorage:
             conn.execute(text("PRAGMA journal_mode=WAL"))
             conn.commit()
 
+        # Migrate existing database: add retrieved_events column if it doesn't exist
+        self._migrate_add_retrieved_events()
+
         # Create session factory
         self.SessionLocal = sessionmaker(bind=self.engine)
 
         logger.info(f"Initialized ChatStorage at {self.db_path}")
+
+    def _migrate_add_retrieved_events(self) -> None:
+        """Add retrieved_events column to existing databases if it doesn't exist."""
+        try:
+            with self.engine.connect() as conn:
+                # Check if column exists
+                result = conn.execute(text("PRAGMA table_info(conversations)"))
+                columns = [row[1] for row in result]
+
+                if "retrieved_events" not in columns:
+                    logger.info("Migrating database: adding retrieved_events column")
+                    conn.execute(text("ALTER TABLE conversations ADD COLUMN retrieved_events TEXT"))
+                    conn.commit()
+                    logger.info("Migration complete")
+        except Exception as e:
+            logger.warning(f"Migration check failed (may be expected): {e}")
 
     def close(self) -> None:
         """Close database connections and dispose engine."""
@@ -102,22 +123,35 @@ class ChatStorage:
         """Context manager exit."""
         self.close()
 
-    def add_chat_message(self, session_id: str, role: str, content: str) -> int:
+    def add_chat_message(
+        self,
+        session_id: str,
+        role: str,
+        content: str,
+        retrieved_events: list[dict] | None = None
+    ) -> int:
         """Add a chat message to history and return its ID.
 
         Args:
             session_id: Session identifier
             role: "user" or "assistant"
             content: Message content
+            retrieved_events: Optional list of retrieved events for coreference resolution
 
         Returns:
             The ID of the inserted message record.
         """
         with self.SessionLocal() as session:
+            # Serialize retrieved_events to JSON if provided
+            events_json = None
+            if retrieved_events:
+                events_json = json.dumps(retrieved_events)
+
             record = ConversationRecord(
                 session_id=session_id,
                 role=role,
-                content=content
+                content=content,
+                retrieved_events=events_json
             )
             session.add(record)
             session.commit()
@@ -141,7 +175,7 @@ class ChatStorage:
             session.commit()
             logger.info(f"Added {'positive' if is_positive else 'negative'} feedback for message {message_id}")
 
-    def get_chat_history(self, session_id: str, limit: int = 50) -> list[dict[str, str]]:
+    def get_chat_history(self, session_id: str, limit: int = 50) -> list[dict[str, Any]]:
         """Get chat history for a session.
 
         Args:
@@ -149,7 +183,7 @@ class ChatStorage:
             limit: Maximum number of recent messages to retrieve
 
         Returns:
-            List of dicts with 'role' and 'content', ordered chronologically.
+            List of dicts with 'role', 'content', and optionally 'retrieved_events', ordered chronologically.
         """
         with self.SessionLocal() as session:
             # Fetch most recent messages
@@ -160,10 +194,22 @@ class ChatStorage:
                 .limit(limit)
             )
             records = session.execute(query).scalars().all()
-            
+
             # Reverse to return chronological order
             history = []
             for r in reversed(records):
-                history.append({"role": r.role, "content": r.content})
-            
+                entry = {"role": r.role, "content": r.content}
+
+                # Deserialize retrieved_events if present
+                if r.retrieved_events:
+                    try:
+                        entry["retrieved_events"] = json.loads(r.retrieved_events)
+                    except json.JSONDecodeError:
+                        logger.warning(f"Failed to decode retrieved_events for message {r.id}")
+                        entry["retrieved_events"] = None
+                else:
+                    entry["retrieved_events"] = None
+
+                history.append(entry)
+
             return history

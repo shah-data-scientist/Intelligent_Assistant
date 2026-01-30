@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     google_api_key: str = ""  # Optional if using Mistral
 
     # LLM Backend: "mistral", "google", "huggingface", or "ollama"
-    llm_backend: str = "ollama"  # Using local Ollama
+    llm_backend: str = "google"  # Using Google Gemini (override in .env if needed)
 
     # HuggingFace settings (for llm_backend="huggingface")
     hf_token: str | None = None  # Set HF_TOKEN env var or provide here

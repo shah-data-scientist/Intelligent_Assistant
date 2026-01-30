@@ -864,7 +864,8 @@ class UnifiedAnalyzer:
         self,
         query: str,
         chat_history: List[BaseMessage] = None,
-        known_cities: List[str] = None
+        known_cities: List[str] = None,
+        previous_events: list[dict] | None = None
     ) -> UnifiedAnalysisResult:
         """Analyze query in one unified LLM call with MULTI-DIMENSIONAL output.
 
@@ -872,6 +873,7 @@ class UnifiedAnalyzer:
             query: User's input query
             chat_history: Optional chat history for context
             known_cities: List of valid IDF cities for normalization
+            previous_events: Optional events from previous response (for coreference resolution)
 
         Returns:
             UnifiedAnalysisResult with all extracted information including dimensions
@@ -896,6 +898,16 @@ class UnifiedAnalyzer:
                         role = "User" if hasattr(msg, "type") and msg.type == "human" else "Assistant"
                         history_context += f"{role}: {msg.content[:100]}...\n"
                 messages.append(SystemMessage(content=history_context))
+
+            # Add previous events context for coreference resolution
+            if previous_events:
+                events_context = "\n**PREVIOUS RESULTS (for coreference resolution):**\n"
+                events_context += "The assistant just returned these events:\n"
+                for i, event in enumerate(previous_events[:5], 1):
+                    events_context += f"{i}. {event.get('title')} ({event.get('category')})\n"
+                    events_context += f"   Location: {event.get('address') or event.get('city')}\n"
+                events_context += "\nIf the user's query references these events (e.g., 'that concert', 'the last event', event name), classify as DIRECTIONS if asking how to get there.\n"
+                messages.append(SystemMessage(content=events_context))
 
             messages.append(HumanMessage(content=f"Query: {query}"))
 
@@ -1272,13 +1284,19 @@ _ANALYSIS_CACHE_TTL = 300  # 5 minutes
 _ANALYSIS_CACHE_MAX_SIZE = 100
 
 
-def unified_analyze(query: str, chat_history: List[BaseMessage] = None, known_cities: List[str] = None) -> UnifiedAnalysisResult:
+def unified_analyze(
+    query: str,
+    chat_history: List[BaseMessage] = None,
+    known_cities: List[str] = None,
+    previous_events: list[dict] | None = None
+) -> UnifiedAnalysisResult:
     """Convenience function for unified analysis with caching.
 
     Args:
         query: User's input query
         chat_history: Optional chat history for context
         known_cities: List of valid IDF cities
+        previous_events: Optional list of events from previous response (for coreference)
 
     Returns:
         UnifiedAnalysisResult with all extracted information
@@ -1286,8 +1304,8 @@ def unified_analyze(query: str, chat_history: List[BaseMessage] = None, known_ci
     # Create cache key from query (normalized)
     cache_key = query.lower().strip()
 
-    # Check cache (only for queries without chat history context)
-    if chat_history is None or len(chat_history) == 0:
+    # Check cache (only for queries without context or previous events)
+    if (chat_history is None or len(chat_history) == 0) and previous_events is None:
         if cache_key in _ANALYSIS_CACHE:
             cached_result, cached_time = _ANALYSIS_CACHE[cache_key]
             if time.time() - cached_time < _ANALYSIS_CACHE_TTL:
@@ -1298,7 +1316,7 @@ def unified_analyze(query: str, chat_history: List[BaseMessage] = None, known_ci
 
     # Cache miss - run analysis
     analyzer = get_unified_analyzer()
-    result = analyzer.analyze(query, chat_history, known_cities)
+    result = analyzer.analyze(query, chat_history, known_cities, previous_events=previous_events)
 
     # Language consistency check: Override if user has been consistently using one language
     if chat_history and len(chat_history) >= 2:
