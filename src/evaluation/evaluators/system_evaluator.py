@@ -186,7 +186,6 @@ class SystemEvaluator:
             "overall_pass": overall_pass,
         }
 
-        # Create evaluation report
         report = EvaluationReport(
             timestamp=datetime.now().isoformat(),
             dataset_version=golden_dataset.version,

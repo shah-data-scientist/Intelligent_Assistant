@@ -248,7 +248,6 @@ class EventProcessor:
                 parsed_timings = [{"begin": start_date.isoformat() if start_date else None, 
                                    "end": end_date.isoformat() if end_date else None}]
 
-            # 7. Create Granular Event Objects
             granular_events = []
             for idx, timing in enumerate(parsed_timings):
                 start_dt = self.parse_date(timing.get("begin"))

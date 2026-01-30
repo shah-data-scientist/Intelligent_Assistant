@@ -66,9 +66,7 @@ class TestGeoUtils:
     def test_find_closest_city_fuzzy(self, mock_db_data):
         with patch("sqlite3.connect", return_value=mock_db_data):
             locator = CityLocator(db_path="dummy.db")
-            # "Pari" should match "Paris"
             assert locator.find_closest_city("Pari") == "paris"
-            # "Possy" should match "Poissy"
             assert locator.find_closest_city("Possy") == "poissy"
             # "Xyz" should not match anything
             assert locator.find_closest_city("Xyz") is None
@@ -114,7 +112,6 @@ class TestKeywordUtils:
             assert match.implied_category == "Musique"
             
             # Fuzzy Match (Levenshtein)
-            # "jaz" should match "jazz"
             match = locator.detect_event_type("i like jaz")
             assert match.matched == "jazz"
             assert match.match_type == "fuzzy"

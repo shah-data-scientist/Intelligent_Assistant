@@ -279,7 +279,6 @@ class TestRequestTracing:
             trace_ids[thread_id] = get_trace_id()
             clear_trace_id()
 
-        # Create multiple threads
         threads = []
         for i in range(3):
             t = threading.Thread(target=set_and_retrieve, args=(i,))

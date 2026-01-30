@@ -239,7 +239,6 @@ class TestF1Score:
         relevant = ["evt_2", "evt_4"]
 
         f1 = RetrievalMetrics.f1_score(retrieved, relevant, k=4)
-        # Precision = 2/4 = 0.5, Recall = 2/2 = 1.0, F1 = 2*0.5*1.0/(0.5+1.0) = 0.667
         assert f1 == pytest.approx(0.667, rel=0.01)
 
     def test_f1_perfect(self):
@@ -264,7 +263,6 @@ class TestF1Score:
         relevant = ["evt_1", "evt_2", "evt_4", "evt_5"]
 
         f1 = RetrievalMetrics.f1_score(retrieved, relevant, k=2)
-        # Precision = 1/2 = 0.5, Recall = 1/4 = 0.25, F1 = 0.333
         assert f1 == pytest.approx(0.333, rel=0.01)
 
 

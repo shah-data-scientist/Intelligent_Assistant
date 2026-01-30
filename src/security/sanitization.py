@@ -20,7 +20,6 @@ class PIIDetector:
     DOB_PATTERN = r'\b(?:\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{4}[/-]\d{1,2}[/-]\d{1,2})\b'  # Date of birth (DD/MM/YYYY or YYYY-MM-DD)
     IP_PATTERN = r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'  # IPv4 addresses
     # Name pattern (DISABLED by default to avoid false positives with event organizers)
-    # NAME_PATTERN = r'\b[A-ZÀ-Ÿ][a-zà-ÿ]+(?:\s+[A-ZÀ-Ÿ][a-zà-ÿ]+){1,3}\b'
 
     def __init__(self, detect_names: bool = False):
         """Initialize PII detector.

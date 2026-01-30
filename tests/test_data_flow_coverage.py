@@ -157,7 +157,6 @@ class TestDataFlow:
         with patch("src.retrieval.chain.check_special_query", return_value=None), \
              patch("src.retrieval.chain.is_broad_query", return_value=(False, "")):
 
-            # Create 5 events with DIFFERENT titles to ensure they aren't deduplicated
             events_list = []
             for i in range(5):
                 events_list.append({
