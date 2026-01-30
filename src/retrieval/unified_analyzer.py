@@ -44,6 +44,7 @@ from src.generation.llm import get_chat_llm
 from langchain_core.messages import HumanMessage, SystemMessage, BaseMessage
 
 from src.config import settings
+from src.retrieval.schemas import UnifiedAnalysisSchema, IntentEnum
 import calendar
 import re
 
@@ -594,6 +595,20 @@ class UnifiedAnalyzer:
         )
         self.model = model or settings.llm_backend
         self._mistral_llm = None  # Lazy-loaded fallback LLM
+
+        # Create structured output LLM for Gemini (if using Google backend)
+        self.use_structured_output = self.model == "google"
+        if self.use_structured_output:
+            try:
+                self.structured_llm = self.llm.with_structured_output(UnifiedAnalysisSchema)
+                logger.info(f"Initialized UnifiedAnalyzer with STRUCTURED OUTPUT (Gemini)")
+            except Exception as e:
+                logger.warning(f"Failed to create structured output LLM: {e}. Using fallback JSON parsing.")
+                self.use_structured_output = False
+                self.structured_llm = None
+        else:
+            self.structured_llm = None
+
         logger.info(f"Initialized UnifiedAnalyzer with model: {self.model}")
 
     def _get_mistral_fallback_llm(self):
@@ -911,45 +926,103 @@ class UnifiedAnalyzer:
 
             messages.append(HumanMessage(content=f"Query: {query}"))
 
-            # Invoke LLM with retry for 429 rate limit errors
-            # Retries up to 5 times with exponential backoff (2s, 4s, 8s, 16s, 32s max 60s)
-            response = self._invoke_with_retry(messages)
-            content = response.content.strip()
-
-            # Parse JSON response - handle markdown code blocks (```json ... ```)
+            # ========================================
+            # PHASE 2: PYDANTIC STRUCTURED OUTPUT FOR GEMINI
+            # ========================================
             result = None
 
-            # First, try to extract JSON from markdown code blocks
-            json_block_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', content, re.IGNORECASE)
-            if json_block_match:
+            if self.use_structured_output:
+                # Use Gemini's structured output (returns Pydantic object directly)
                 try:
-                    result = json.loads(json_block_match.group(1))
-                except json.JSONDecodeError:
-                    pass
+                    logger.info("[STRUCTURED] Using Gemini with_structured_output")
+                    structured_result = self.structured_llm.invoke(messages)
 
-            # If that failed, try parsing the whole content as JSON
-            if result is None:
-                try:
-                    result = json.loads(content)
-                except json.JSONDecodeError:
-                    pass
+                    # Convert Pydantic object to dict format matching existing code
+                    result = {
+                        "intent": structured_result.intent.value,
+                        "intent_confidence": structured_result.intent_confidence,
+                        "detected_language": structured_result.detected_language,
+                        "refined_query": structured_result.refined_query,
+                        "is_complete": structured_result.is_complete,
+                        "missing": structured_result.missing_info,
+                        "entities": {
+                            "city_raw": structured_result.city,
+                            "city_normalized": structured_result.city_normalized,
+                            "event_type": structured_result.event_type,
+                            "timeframe_raw": structured_result.timeframe,
+                        },
+                        "filters": structured_result.filters.model_dump(exclude_none=True),
+                        "dimensions": {
+                            "greeting": {
+                                "detected": structured_result.is_greeting,
+                                "value": None
+                            },
+                            "typo": {
+                                "detected": structured_result.has_typo,
+                                "original": structured_result.original_query,
+                                "corrected": structured_result.corrected_query
+                            },
+                            "statistical": {
+                                "detected": structured_result.is_statistical,
+                                "type": None
+                            },
+                            "scope": {
+                                "detected": structured_result.wants_all_events,
+                                "value": "all" if structured_result.wants_all_events else None
+                            }
+                        },
+                        "coreference": {
+                            "references_previous": structured_result.coreference.references_previous,
+                            "event_id": structured_result.coreference.event_id,
+                            "event_name": structured_result.coreference.event_name,
+                            "reference_type": structured_result.coreference.reference_type
+                        }
+                    }
+                    logger.info(f"[STRUCTURED] Successfully parsed structured output for intent={result['intent']}")
 
-            # If still failed, try to find a JSON object anywhere in the content
+                except Exception as e:
+                    logger.warning(f"[STRUCTURED] Failed to use structured output: {e}. Falling back to JSON parsing.")
+                    result = None
+
+            # Fallback for non-Gemini backends or if structured output failed
             if result is None:
-                json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', content, re.DOTALL)
-                if json_match:
+                # Invoke LLM with retry for 429 rate limit errors
+                # Retries up to 5 times with exponential backoff (2s, 4s, 8s, 16s, 32s max 60s)
+                response = self._invoke_with_retry(messages)
+                content = response.content.strip()
+
+                # Parse JSON response - handle markdown code blocks (```json ... ```)
+                # First, try to extract JSON from markdown code blocks
+                json_block_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', content, re.IGNORECASE)
+                if json_block_match:
                     try:
-                        result = json.loads(json_match.group())
+                        result = json.loads(json_block_match.group(1))
                     except json.JSONDecodeError:
                         pass
 
-            # If all parsing failed, try Mistral fallback before basic extraction
-            if result is None:
-                logger.warning(f"[UNIFIED] Could not parse JSON from response, trying Mistral fallback...")
-                result = self._try_mistral_fallback(query, messages)
+                # If that failed, try parsing the whole content as JSON
                 if result is None:
-                    logger.warning(f"[UNIFIED] Mistral fallback failed, using basic keyword extraction")
-                    result = self._fallback_extraction(query, content)
+                    try:
+                        result = json.loads(content)
+                    except json.JSONDecodeError:
+                        pass
+
+                # If still failed, try to find a JSON object anywhere in the content
+                if result is None:
+                    json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', content, re.DOTALL)
+                    if json_match:
+                        try:
+                            result = json.loads(json_match.group())
+                        except json.JSONDecodeError:
+                            pass
+
+                # If all parsing failed, try Mistral fallback before basic extraction
+                if result is None:
+                    logger.warning(f"[UNIFIED] Could not parse JSON from response, trying Mistral fallback...")
+                    result = self._try_mistral_fallback(query, messages)
+                    if result is None:
+                        logger.warning(f"[UNIFIED] Mistral fallback failed, using basic keyword extraction")
+                        result = self._fallback_extraction(query, content)
 
             # Map intent to enum
             intent_str = result.get("intent", "event_search")
