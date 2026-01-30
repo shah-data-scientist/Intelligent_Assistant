@@ -4,7 +4,6 @@ import logging
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends, Request, Security
 from fastapi.security import APIKeyHeader
-from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from src.api.schemas import ChatRequest, ChatResponse, FeedbackRequest

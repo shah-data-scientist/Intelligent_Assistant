@@ -1558,3 +1558,167 @@ SUCCESS: ResponseBuilder integration working
 **Status:** ✅ **COMPLETE** (Commit: pending)
 
 ---
+
+## Phase 19: Codebase Cleanup - Dead Code & Import Optimization (2026-01-30)
+
+### Problem Statement
+
+After 18 phases of development, the codebase accumulated:
+1. **Dead modules** superseded by newer implementations (Phase 17)
+2. **Unused imports** across 24 files (40 total)
+3. **Legacy code** no longer referenced
+
+### Analysis Performed
+
+**Tool Created:** [analyze_codebase.py](analyze_codebase.py)
+- Automated AST-based analysis of all 51 Python files in `src/`
+- Detected unused imports, dead modules, and refactoring opportunities
+- Generated comprehensive report: [CODEBASE_CLEANUP_REPORT.md](CODEBASE_CLEANUP_REPORT.md)
+
+**Key Findings:**
+- 3 dead modules (0 references)
+- 40 unused imports across 24 files
+- 6 large files (>500 lines) - acceptable complexity
+
+### Changes Made
+
+#### 1. Dead Module Archival
+
+**Archived to `_archived_scripts/obsolete_modules/`:**
+
+1. **`src/retrieval/intent_classifier.py`** (SUPERSEDED)
+   - Rule-based intent classification
+   - Replaced by: `unified_analyze()` in Phase 17
+   - 0 imports, 0 references
+   - Functionality: Now part of UnifiedAnalyzer's single LLM call
+
+2. **`src/retrieval/entity_extractor.py`** (SUPERSEDED)
+   - LLM-based entity extraction (city, location, completeness)
+   - Replaced by: `UnifiedAnalysisResult` in Phase 17
+   - 0 imports, 0 references
+   - Functionality: Consolidated into unified_analyze()
+
+**Frontend Preserved:**
+- `src/frontend/app.py` - Initially flagged as dead but RESTORED
+- Streamlit UI is separate from FastAPI backend
+- Optional component, runs independently
+- Usage: `streamlit run src/frontend/app.py`
+
+#### 2. Unused Import Cleanup
+
+**Files Modified:**
+
+| File | Removed Imports | Impact |
+|------|-----------------|--------|
+| `src/retrieval/chain.py` | 5 imports | RunnableBranch, StrOutputParser, JsonOutputParser, HumanMessage, AIMessage |
+| `src/api/endpoints.py` | 1 import | JSONResponse |
+| `src/api/main.py` | 1 import | Request |
+| `src/retrieval/cache.py` | 1 import | json |
+
+**Total Removed:** 8 unused imports from critical files
+
+**Verification Method:**
+```python
+# Checked each import with:
+grep -n "ImportName" file.py | grep -v "^line_number:" | wc -l
+# Result: 0 = truly unused
+```
+
+#### 3. Architecture Evolution Context
+
+**Before Phase 17 (Multi-Step Analysis):**
+```
+Query → intent_classifier.classify_intent()  [Step 1]
+      → entity_extractor.extract_entities()  [Step 2]
+      → Filter extraction                    [Step 3]
+      → RAG retrieval                        [Step 4]
+      = 3-4 LLM calls or mixed rule/LLM approach
+```
+
+**After Phase 17 (Unified Analyzer):**
+```
+Query → unified_analyze()                    [Step 1 - SINGLE LLM call]
+          ├─ Intent classification
+          ├─ Entity extraction
+          ├─ Filter extraction
+          ├─ Language detection
+          ├─ Completeness check
+          └─ Multi-dimensional analysis
+      → RAG retrieval                        [Step 2]
+      = 2 LLM calls total (50% reduction)
+```
+
+**Why Modules Became Dead:**
+- Phase 17 consolidated multiple analysis steps into one
+- More efficient (fewer LLM calls)
+- More accurate (single coherent analysis)
+- Pydantic structured output (Phase 2) guarantees valid schema
+- No need for separate intent/entity extraction modules
+
+### Testing
+
+**Import Verification:**
+```bash
+python -c "
+from src.retrieval.chain import RAGChain
+from src.api.endpoints import router
+from src.api.main import app
+from src.retrieval.cache import QueryCache
+from src.retrieval.response_builder import ResponseBuilder
+"
+```
+**Result:** ✅ All imports working
+
+**Functional Test:**
+```bash
+python test_structured_output.py
+```
+**Result:** ✅ All 4 test queries passed
+- Event search: ✅
+- Directions intent: ✅
+- Greeting: ✅
+- Statistical query: ✅
+
+### Benefits Achieved
+
+| Metric | Before | After | Improvement |
+|--------|--------|-------|-------------|
+| Dead modules | 3 files | **0 files** | ✅ Cleaned |
+| Unused imports (critical files) | 8 | **0** | ✅ Removed |
+| Code clarity | Mixed | **Clean** | ✅ Better |
+| Import overhead | Higher | **Lower** | ✅ Faster load |
+
+### Files Modified
+
+**Archived:**
+- `_archived_scripts/obsolete_modules/intent_classifier.py`
+- `_archived_scripts/obsolete_modules/entity_extractor.py`
+
+**Cleaned (unused imports removed):**
+- [src/retrieval/chain.py](src/retrieval/chain.py)
+- [src/api/endpoints.py](src/api/endpoints.py)
+- [src/api/main.py](src/api/main.py)
+- [src/retrieval/cache.py](src/retrieval/cache.py)
+
+**New Files (analysis tools):**
+- [analyze_codebase.py](analyze_codebase.py) - Automated dead code detector
+- [CODEBASE_CLEANUP_REPORT.md](CODEBASE_CLEANUP_REPORT.md) - Comprehensive analysis report
+
+### Future Cleanup Opportunities (Not in Scope)
+
+Documented in [CODEBASE_CLEANUP_REPORT.md](CODEBASE_CLEANUP_REPORT.md):
+1. **Phase 3D** - Move `build_*` functions from chain.py to response_builder.py (~200 lines)
+2. **Constants Extraction** - Move dictionaries from chain.py to `constants.py` (~50 lines)
+3. **Test Coverage** - Add tests for response_builder.py, clarifications.py, sanitization.py
+4. **Standardization** - Consistent logging format, type hints, error messages
+
+### Backward Compatibility
+
+- **100% backward compatible** - No breaking changes
+- All functionality preserved
+- Dead modules archived (not deleted) - available if needed
+- Frontend remains available as optional component
+
+**Status:** ✅ **COMPLETE** (Commit: pending)
+
+---

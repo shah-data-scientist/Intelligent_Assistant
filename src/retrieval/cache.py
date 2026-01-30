@@ -1,7 +1,6 @@
 """Simple in-memory caching for query results."""
 
 import hashlib
-import json
 import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
