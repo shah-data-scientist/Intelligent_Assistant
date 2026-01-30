@@ -1,6 +1,23 @@
-"""Unified LLM analyzer with MULTI-DIMENSIONAL classification.
+"""
+FILE: unified_analyzer.py
+STATUS: Active
+RESPONSIBILITY: Multi-dimensional LLM-based query analysis with intent classification, entity extraction, and filter generation.
 
-This module consolidates multiple LLM calls into a SINGLE unified call:
+DEPENDENCIES (Who uses this file):
+- src/retrieval/chain.py: Calls unified_analyze() for query analysis
+- src/retrieval/response_builder.py: Uses UnifiedAnalysisResult for response composition
+- tests/e2e/test_structured_output.py: Tests structured output format
+- tests/integration/test_chat_history.py: Tests query analysis in conversation context
+
+IMPORTS (What this file needs):
+- src.generation.llm: get_chat_llm() for LLM instance
+- src.retrieval.schemas: UnifiedAnalysisSchema for structured LLM output
+- langchain_core.messages: Message types for LLM prompting
+- tenacity: Retry logic for rate limit handling (Google Gemini API)
+- src.config: LLM settings and configuration
+
+LAST MAJOR UPDATE: 2026-01-28 (Enhanced multi-dimensional classification with typo correction)
+MAINTAINER: Core Backend Team
 
 MULTI-DIMENSIONAL APPROACH:
 A single query can have MULTIPLE classifications that compose into a response:
@@ -355,53 +372,30 @@ def get_unified_analysis_prompt(today: date, known_cities: List[str]) -> str:
 
     return f"""You are a query analyzer for cultural events in Île-de-France.
 
-**TODAY:** {today.strftime('%Y-%m-%d')} ({today.strftime('%A')})
-**THIS WEEKEND:** {this_saturday.strftime('%B %d')} (Sat) and {this_sunday.strftime('%B %d')} (Sun)
+**TODAY:** {today.strftime('%Y-%m-%d')}
+**THIS WEEKEND:** {this_saturday.strftime('%B %d')} - {this_sunday.strftime('%B %d')}
 **KNOWN CITIES:** {cities_str}
 
-## PRIMARY INTENT
-- **event_search**: Looking FOR events (default)
-- **directions**: How to GET TO a place ("go from X to Y", "transport to", "comment y aller")
-- **greeting**: Hello/bonjour
-- **chitchat**: Off-topic conversation
-- **capability**: Asking about features
-- **abuse**: Inappropriate content
-- **off_topic**: Unrelated topics
+**PRIMARY INTENT:** event_search (default), directions, greeting, chitchat, capability, abuse, off_topic
 
-**CRITICAL:** "concerts in Paris" = event_search | "go to the concert" = directions
+**DIMENSIONS:** greeting, typo correction, statistical, scope (all events vs specific type)
 
-## DIMENSIONS (independent, can coexist)
-- **greeting**: Starts with hello/bonjour?
-- **typo**: Spelling error corrected? (Possy→Poissy)
-- **statistical**: Asking for count? ("how many", "combien")
-- **scope**: "all events" or specific type?
+**LANGUAGE:** Detect "fr" or "en" (default: "fr")
 
-## LANGUAGE DETECTION
-- "fr": French indicators (de, à, en, le, la, les, événements, é, è, à)
-- "en": English (in, the, events)
-- Default: "fr"
+**EVENT TYPE:** Extract category (concert, expo, théâtre, etc.), NOT theme
 
-## EVENT TYPE (category, NOT theme)
-Extract TYPE: concert, exposition, théâtre, danse, festival, atelier, conférence
-NOT theme: "jazz concert" → type="concert" (NOT "jazz")
+**COMPLETENESS (2/3 rule):** Query needs 2 of: city, timeframe, event_type
+Statistical queries always complete.
 
-## COMPLETENESS (2 out of 3)
-Complete if has 2+ of: city, timeframe, event_type
-- "concerts in Paris" → COMPLETE (city + type)
-- "events in Paris" → INCOMPLETE (only city)
-- Statistical queries are ALWAYS complete (wants count of ALL)
+**ENTITY EXTRACTION:**
+- City: Normalize to known cities
+- Dates: Calculate from TODAY (this weekend = [{this_saturday.day}, {this_sunday.day}])
+- Audience: kids, professional, family
+- Free: Detect "gratuit/free"
 
-## ENTITY EXTRACTION
-- **City**: Normalize to known cities list
-- **Dates**: Calculate from TODAY (this weekend = [{this_saturday.day}, {this_sunday.day}])
-- **Audience**: "kids/enfants" → "kids", "professional" → "professional"
-- **Free**: "gratuit/free" → is_free=true
+**CONTEXT:** Carry forward filters from previous conversation unless explicitly changed.
 
-## CONTEXT CARRYOVER
-If PREVIOUS CONVERSATION exists, carry forward unchanged filters.
-Only replace what user explicitly mentions.
-
-Analyze ALL dimensions. Return structured output."""
+Return structured output with all dimensions."""
 
 
 class UnifiedAnalyzer:

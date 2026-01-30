@@ -1,4 +1,36 @@
-"RAG orchestration chain for cultural events with history."
+"""
+FILE: chain.py
+STATUS: Active
+RESPONSIBILITY: RAG orchestration chain coordinating query analysis, retrieval, generation, and response building.
+
+DEPENDENCIES (Who uses this file):
+- src/api/endpoints.py: Uses RAGChain.query_with_metadata() for chat endpoint
+- src/api/main.py: Initializes RAGChain in app state at startup
+- tests/integration/test_rag_chain.py: Integration tests for full RAG pipeline
+- tests/integration/test_advanced_retrieval.py: Tests advanced retrieval scenarios
+- tests/integration/test_chat_history.py: Tests conversation history integration
+- tests/e2e/test_conversational_behavior.py: End-to-end conversation tests
+- tests/e2e/test_coreference.py: Tests coreference resolution in conversations
+- src/evaluation/evaluators/system_evaluator.py: System-level evaluation
+- src/evaluation/evaluators/generation_evaluator.py: Generation quality evaluation
+
+IMPORTS (What this file needs):
+- langchain_core: LangChain LCEL for chain composition and output parsing
+- src.models.vector_store: EventVectorStore for hybrid search (FAISS + BM25)
+- src.generation.llm: MistralLLM for answer generation
+- src.generation.prompts: RAG prompt templates
+- src.retrieval.manager: RetrievalManager for multi-stage search
+- src.retrieval.unified_analyzer: Query analysis and intent classification
+- src.retrieval.response_builder: Response formatting and filter echo
+- src.retrieval.cache: QueryCache for caching frequent queries
+- src.data.chat_history: SQLiteChatMessageHistory for conversation context
+- src.data.chat_storage: ChatStorage for feedback and analytics
+- src.security.guardrails: Security checks for user input
+- src.utils.geo: CityLocator for location normalization
+
+LAST MAJOR UPDATE: 2026-01-28 (Added RobustJsonParser for HuggingFace model compatibility)
+MAINTAINER: Core Backend Team
+"""
 
 import logging
 import re
@@ -21,7 +53,6 @@ from src.data.storage import EventStorage
 from src.data.chat_storage import ChatStorage
 from src.security.guardrails import check_safety
 from src.utils.geo import CityLocator
-from src.utils.keywords import get_keyword_locator
 from src.retrieval.unified_analyzer import unified_analyze, QueryIntent as UnifiedIntent, UnifiedAnalysisResult, QueryDimension, map_category_to_db
 from src.retrieval.response_builder import (
     ResponseBuilder,
@@ -29,6 +60,7 @@ from src.retrieval.response_builder import (
     build_statistical_response,
     build_refinement_suffix,
     apply_default_timeframe,
+    should_apply_default_timeframe,
     BROADENING_SUGGESTION
 )
 from src.config import settings
