@@ -1031,6 +1031,7 @@ class UnifiedAnalyzer:
                 "greeting": QueryIntent.GREETING,
                 "chitchat": QueryIntent.CHITCHAT,
                 "capability": QueryIntent.CAPABILITY,
+                "directions": QueryIntent.DIRECTIONS,  # FIX: Add missing directions mapping
                 "abuse": QueryIntent.ABUSE,
                 "off_topic": QueryIntent.OFF_TOPIC,
             }
@@ -1238,8 +1239,8 @@ class UnifiedAnalyzer:
                 logger.info("[MULTI-DIM] 'All events' scope with city is COMPLETE (special case)")
 
             # SPECIAL CASE: Non-event intents are COMPLETE (no clarification needed)
-            # Greetings, capability questions, off-topic, etc. should NOT trigger clarification
-            if intent_str in ["greeting", "chitchat", "capability", "off_topic", "abuse"]:
+            # Greetings, capability questions, directions, off-topic, etc. should NOT trigger clarification
+            if intent_str in ["greeting", "chitchat", "capability", "directions", "off_topic", "abuse"]:
                 is_complete = True
                 missing_criteria = []
                 logger.info(f"[MULTI-DIM] Non-event intent '{intent_str}' is COMPLETE (no clarification needed)")
