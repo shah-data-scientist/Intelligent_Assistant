@@ -1,6 +1,6 @@
 # RAG Pipeline Data Flow (January 2026)
 
-This document describes the complete data flow from user query to response.
+This document describes the complete data flow from user query to response, including Phase 1 (coreference resolution) and Phase 2 (structured output) improvements.
 
 ---
 
@@ -25,12 +25,22 @@ USER QUERY
     │
     ▼
 ┌─────────────────────────────────────────┐
-│ 3. UNIFIED ANALYSIS (LLM Call #1)       │
+│ 3. PREVIOUS EVENTS EXTRACTION (NEW)     │
+│    - Extract events from last response  │
+│    - For coreference resolution         │
+└─────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────┐
+│ 4. UNIFIED ANALYSIS (LLM Call #1)       │
+│    - **Gemini: Pydantic structured      │
+│      output (Phase 2)**                 │
 │    - Language detection (fr/en)         │
 │    - Intent classification              │
 │    - Multi-dimensional analysis         │
 │    - Entity extraction                  │
 │    - Filter extraction                  │
+│    - **Coreference detection (Phase 1)**│
 │    - Completeness check                 │
 └─────────────────────────────────────────┘
     │
@@ -38,14 +48,14 @@ USER QUERY
     │
     ▼
 ┌─────────────────────────────────────────┐
-│ 4. SESSION FILTER MERGE (chain.py)      │
+│ 5. SESSION FILTER MERGE (chain.py)      │
 │    - Merge with previous turn filters   │
 │    - Accumulate search terms            │
 └─────────────────────────────────────────┘
     │
     ▼
 ┌─────────────────────────────────────────┐
-│ 5. MULTI-STAGE RETRIEVAL (manager.py)   │
+│ 6. MULTI-STAGE RETRIEVAL (manager.py)   │
 │    - Stage 1: Exact match (FAISS+BM25)  │
 │    - Stage 2: Nearby locations fallback │
 │    - Stage 3: Alternative dates check   │
@@ -53,16 +63,17 @@ USER QUERY
     │
     ▼
 ┌─────────────────────────────────────────┐
-│ 6. RESPONSE GENERATION (LLM Call #2)    │
+│ 7. RESPONSE GENERATION (LLM Call #2)    │
 │    - Language-aware prompt (fr/en)      │
 │    - Grounded on retrieved sources      │
 └─────────────────────────────────────────┘
     │
     ▼
 ┌─────────────────────────────────────────┐
-│ 7. PERSISTENCE (chat_storage.py)        │
+│ 8. PERSISTENCE (chat_storage.py)        │
 │    - User message (async)               │
 │    - Assistant message (sync)           │
+│    - **Store retrieved_events (Phase 1)**│
 └─────────────────────────────────────────┘
     │
     ▼
@@ -102,22 +113,72 @@ def chat(request: Request, chat_request: ChatRequest):
 
 ---
 
-### 3. Unified Analysis (LLM Call #1)
+### 3. Previous Events Extraction (Phase 1 - NEW)
+
+**File:** `src/retrieval/chain.py` → `_get_previous_events()`
+
+**Purpose:** Extract events from previous assistant response for coreference resolution.
+
+**Process:**
+1. Fetch chat history for current session
+2. Find last assistant message
+3. Extract `retrieved_events` field (JSON array)
+4. Return event metadata (id, title, city, address, category)
+
+**Example:**
+```python
+previous_events = [
+    {
+        "event_id": "14551589",
+        "title": "Art of the Trio - Brad Mehldau",
+        "city": "Paris",
+        "address": "38 Rue Geoffroy-l'Asnier",
+        "category": "Musique"
+    }
+]
+```
+
+**Why This Matters:**
+Without previous context, queries like "go from porte de pantin to Art of the Trio" would be misclassified as EVENT_SEARCH. With previous events, the LLM sees that "Art of the Trio" was a recent result and correctly classifies as DIRECTIONS.
+
+---
+
+### 4. Unified Analysis (LLM Call #1)
 
 **File:** `src/retrieval/unified_analyzer.py` → `unified_analyze()`
 
-This is a single LLM call that extracts everything including language:
+This is a single LLM call that extracts everything including language.
+
+**Phase 2 Enhancement: Pydantic Structured Output**
+
+When using Gemini (Google backend), the analyzer now uses `with_structured_output()`:
+
+```python
+# Gemini backend
+self.structured_llm = self.llm.with_structured_output(UnifiedAnalysisSchema)
+response = self.structured_llm.invoke(messages)  # Returns Pydantic object
+
+# Non-Gemini backends (Mistral, Ollama)
+response = self.llm.invoke(messages)  # Parse JSON manually
+```
+
+**Benefits:**
+- ✅ Guaranteed valid responses (Pydantic validation)
+- ✅ No JSON parsing errors or malformed outputs
+- ✅ Reduced latency (no markdown extraction needed)
+- ✅ Cleaner code (remove extensive fallback parsing)
 
 **Input:**
 - User query
 - Chat history (for context carryover)
 - Known cities list (for normalization)
+- **Previous events** (Phase 1 - for coreference resolution)
 
 **Output (`UnifiedAnalysisResult`):**
 ```python
 @dataclass
 class UnifiedAnalysisResult:
-    intent: QueryIntent              # event_search, greeting, chitchat, etc.
+    intent: QueryIntent              # event_search, greeting, chitchat, directions, etc.
     intent_confidence: float         # 0.0 - 1.0
     dimensions: Dict[str, QueryDimension]  # greeting, typo, statistical, scope
     detected_language: str           # "fr" or "en" (LLM-detected)
@@ -129,6 +190,52 @@ class UnifiedAnalysisResult:
     missing_criteria: List[str]      # What's missing
     filters: Dict[str, Any]          # city, month, day, year, category, etc.
     refined_query: str               # Typo-corrected query
+```
+
+**Pydantic Schema (Phase 2):**
+```python
+class UnifiedAnalysisSchema(BaseModel):
+    intent: IntentEnum
+    intent_confidence: float
+    city: Optional[str]
+    city_normalized: Optional[str]
+    event_type: Optional[str]
+    timeframe: Optional[str]
+    filters: StructuredFilters
+    refined_query: str
+    detected_language: Literal["fr", "en"]
+    is_greeting: bool
+    has_typo: bool
+    original_query: Optional[str]
+    corrected_query: Optional[str]
+    is_statistical: bool
+    wants_all_events: bool
+    coreference: CoreferenceInfo  # NEW in Phase 1
+    is_complete: bool
+    missing_info: list[str]
+    reasoning: str
+```
+
+**Coreference Detection (Phase 1):**
+The LLM prompt includes previous events context:
+```
+**PREVIOUS RESULTS (for coreference resolution):**
+The assistant just returned these events:
+1. Art of the Trio - Brad Mehldau (Musique)
+   Location: 38 Rue Geoffroy-l'Asnier, Paris
+
+If the user's query references these events (e.g., 'that concert',
+'the last event', event name), classify as DIRECTIONS if asking
+how to get there.
+```
+
+**Coreference Info:**
+```python
+class CoreferenceInfo(BaseModel):
+    references_previous: bool
+    event_id: Optional[str]
+    event_name: Optional[str]
+    reference_type: Literal["event", "venue", "last_result", "none"]
 ```
 
 **Language Detection:**
@@ -173,6 +280,7 @@ CATEGORY_MAPPING = {
 | greeting | Welcome message |
 | chitchat | Friendly redirect |
 | capability | Help description |
+| directions | Directions guidance (if coreference detected) |
 | abuse | Polite response |
 | off_topic | Decline with suggestion |
 | out_of_scope_city | Coverage message |
@@ -180,7 +288,7 @@ CATEGORY_MAPPING = {
 
 ---
 
-### 4. Session Filter Merge
+### 5. Session Filter Merge
 
 **File:** `src/retrieval/chain.py` → `_merge_with_previous_filters()`
 
@@ -201,7 +309,7 @@ Turn 2: "En février plutôt"
 
 ---
 
-### 5. Multi-Stage Retrieval
+### 6. Multi-Stage Retrieval
 
 **File:** `src/retrieval/manager.py` → `RetrievalManager.execute_search()`
 
@@ -241,7 +349,7 @@ class SearchIntent:
 
 ---
 
-### 6. Response Generation (LLM Call #2)
+### 7. Response Generation (LLM Call #2)
 
 **File:** `src/generation/prompts.py` → `get_rag_prompt()`
 
@@ -280,16 +388,53 @@ The system prompt is selected based on `detected_language`:
 
 ---
 
-### 7. Persistence
+### 8. Persistence (Phase 1 Enhancement)
 
 **File:** `src/data/chat_storage.py`
 
+**Database Schema (Updated):**
+```sql
+CREATE TABLE conversations (
+    id INTEGER PRIMARY KEY,
+    session_id TEXT,
+    role TEXT,              -- "user" or "assistant"
+    content TEXT,
+    retrieved_events TEXT,  -- NEW: JSON array of event metadata
+    timestamp DATETIME
+);
+```
+
+**Storage Process:**
 - **User message:** Written async (fire-and-forget)
 - **Assistant message:** Written sync (need message_id for feedback)
+  - **NEW:** Includes `retrieved_events` (top 10 results)
 
 ```python
-_async_db_write(chat_storage.add_chat_message, session_id, "user", question)
-message_id = chat_storage.add_chat_message(session_id, "assistant", answer_text)
+# Store lightweight event metadata for coreference
+retrieved_events = [
+    {
+        "event_id": s["event_id"],
+        "title": s["title"],
+        "city": s["city"],
+        "address": s.get("address"),
+        "category": s["category"],
+    }
+    for s in sources[:10]
+]
+
+message_id = chat_storage.add_chat_message(
+    session_id,
+    "assistant",
+    answer_text,
+    retrieved_events=retrieved_events  # NEW
+)
+```
+
+**Retrieval Process:**
+```python
+history = chat_storage.get_chat_history(session_id, limit=10)
+# Returns: [{"role": "user", "content": "...", "retrieved_events": None},
+#          {"role": "assistant", "content": "...", "retrieved_events": [...]}, ...]
 ```
 
 ---
@@ -319,25 +464,63 @@ message_id = chat_storage.add_chat_message(session_id, "assistant", answer_text)
 | File | Responsibility |
 |------|----------------|
 | `src/api/endpoints.py` | API entry point, rate limiting |
-| `src/retrieval/chain.py` | Main orchestration, session management |
-| `src/retrieval/unified_analyzer.py` | LLM-based query analysis + language detection |
+| `src/retrieval/chain.py` | Main orchestration, session management, **previous events extraction** |
+| `src/retrieval/unified_analyzer.py` | LLM-based query analysis + language detection, **Pydantic structured output** |
+| `src/retrieval/schemas.py` | **Pydantic models for structured output (Phase 2)** |
 | `src/retrieval/manager.py` | Multi-stage retrieval |
 | `src/generation/prompts.py` | LLM prompt templates (FR/EN) |
 | `src/security/guardrails.py` | Safety checks |
-| `src/data/chat_storage.py` | Conversation persistence |
+| `src/data/chat_storage.py` | Conversation persistence, **retrieved_events storage** |
 | `src/models/vector_store.py` | FAISS + BM25 hybrid search |
 
 ---
 
 ## LLM Calls Summary
 
-| Call | Purpose | Includes | Latency |
-|------|---------|----------|---------|
-| #1 Unified Analysis | Intent + entities + filters | Language detection | ~2-3s |
-| #2 Response Generation | Grounded answer | Language-aware prompt | ~3-5s |
+| Call | Purpose | Includes | Backend | Latency |
+|------|---------|----------|---------|---------|
+| #1 Unified Analysis | Intent + entities + filters | Language detection, **coreference**, **Pydantic output (Gemini)** | Gemini 2.0 Flash | ~2-3s |
+| #2 Response Generation | Grounded answer | Language-aware prompt | Gemini 2.0 Flash | ~3-5s |
 
 **Total typical latency:** 5-10s for complete queries.
 
 ---
 
-*Last updated: January 29, 2026*
+## Recent Improvements
+
+### Phase 1: Coreference Resolution (January 30, 2026)
+**Problem:** Query "go from porte de pantin to Art of the Trio" was misclassified as EVENT_SEARCH instead of DIRECTIONS because the LLM had no context that "Art of the Trio" was from previous results.
+
+**Solution:**
+- Store `retrieved_events` in chat history (lightweight metadata)
+- Extract previous events from last assistant message
+- Pass to unified analyzer in prompt context
+- LLM sees previous results and correctly classifies coreference queries
+
+**Files Modified:**
+- `src/data/chat_storage.py` (add retrieved_events column, migration)
+- `src/retrieval/chain.py` (_get_previous_events, pass to analyzer, store events)
+- `src/retrieval/unified_analyzer.py` (accept previous_events, add to prompt)
+- `src/retrieval/schemas.py` (CoreferenceInfo model)
+
+### Phase 2: Pydantic Structured Output (January 30, 2026)
+**Problem:** JSON parsing errors from LLM responses (markdown code blocks, malformed JSON, missing fields).
+
+**Solution:**
+- Use Gemini's `with_structured_output(UnifiedAnalysisSchema)`
+- Returns validated Pydantic object (guaranteed schema compliance)
+- Fallback to JSON parsing for non-Gemini backends (Mistral, Ollama)
+
+**Benefits:**
+- ✅ No more JSON parsing errors
+- ✅ Reduced latency (no multi-step parsing attempts)
+- ✅ Cleaner code (remove extensive fallback chain)
+- ✅ Backward compatible (non-Gemini backends unchanged)
+
+**Files Modified:**
+- `src/retrieval/unified_analyzer.py` (structured_llm, conditional invoke)
+- `test_structured_output.py` (validation tests)
+
+---
+
+*Last updated: January 30, 2026*
