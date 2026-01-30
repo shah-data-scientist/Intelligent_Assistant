@@ -350,223 +350,58 @@ def get_unified_analysis_prompt(today: date, known_cities: List[str]) -> str:
     this_sunday = this_saturday + timedelta(days=1)
 
     # Sample of known cities for prompt (avoid token overflow)
-    cities_sample = known_cities[:100] if len(known_cities) > 100 else known_cities
+    cities_sample = known_cities[:30] if len(known_cities) > 30 else known_cities
     cities_str = ", ".join(cities_sample)
 
-    return f"""You are a query analyzer using MULTI-DIMENSIONAL classification.
+    return f"""You are a query analyzer for cultural events in Île-de-France.
 
-A query can have MULTIPLE dimensions simultaneously. Analyze ALL dimensions independently.
-
----
-
-## DIMENSION ANALYSIS
-
-Analyze the query across these INDEPENDENT dimensions:
-
-### 1. PRIMARY INTENT (required)
-| Intent | Description |
-|--------|-------------|
-| greeting | Saying hello (hi, bonjour, salut) |
-| chitchat | Casual conversation NOT about events (how are you, ça va) |
-| capability | Asking what you can do (help, what can you do) |
-| directions | **How to GET TO an event** - transport, directions, "how do I go", "comment y aller", "go from X to Y", "transport to", "how do I get there", "reach the event" |
-| abuse | Insults or inappropriate content |
-| off_topic | Unrelated to events (weather, math) |
-| event_search | Wants cultural events |
-
-**CRITICAL DISTINCTION - DIRECTIONS vs EVENT_SEARCH:**
-- ❌ event_search: "concerts in Paris" (looking FOR events)
-- ✅ directions: "How do I go to the concert?" (asking HOW TO GET THERE)
-- ❌ event_search: "events at the Louvre" (looking FOR events)
-- ✅ directions: "transport to the Louvre" (asking HOW TO GET THERE)
-- ❌ event_search: "shows in Pantin" (looking FOR events)
-- ✅ directions: "go from Pantin to the show" (asking HOW TO GET THERE)
-
-### 2. GREETING DIMENSION
-Does the query START with a greeting? (can coexist with event_search)
-- "hello, I'm looking for concerts" → greeting=true, intent=event_search
-
-### 3. TYPO DIMENSION
-Did the user make a spelling error that you corrected?
-- "Possy" → corrected to "Poissy"
-- "Versaille" → corrected to "Versailles"
-
-### 4. STATISTICAL DIMENSION
-Is the user asking for a COUNT or statistics?
-Keywords: "how many", "combien", "count", "total", "number of"
-- If statistical=true, user wants ALL matching events counted, not a specific type
-
-### 5. SCOPE DIMENSION
-Does the user want ALL events or a specific type?
-- "all events", "any events", "everything", "tous les événements", "n'importe quel événement" → scope="all"
-- "if there are any events", "are there events", "y a-t-il des événements" → scope="all"
-- "concerts", "jazz", "expositions" → scope="specific"
-- If statistical=true AND no event_type specified → scope="all" (user wants total count)
-- If NO specific event type mentioned → scope="all"
-
-### 6. LANGUAGE DETECTION (required)
-Detect the PRIMARY language of the query:
-- "fr" = French (e.g., "Concerts de jazz à Paris", "Bonjour", "événements en février")
-- "en" = English (e.g., "Jazz concerts in Paris", "Hello", "events in February")
-
-Look for:
-- French articles/prepositions: de, à, en, la, le, les, du, des, pour, dans, avec
-- French greetings: bonjour, salut, bonsoir
-- French question words: où, quand, combien, qu'est-ce
-- Accented characters: é, è, ê, à, ù, ç, œ
-
-Default to "fr" if ambiguous (this is a French cultural events assistant).
-
-### 7. EVENT TYPE EXTRACTION (CRITICAL)
-Extract the EVENT CATEGORY, NOT the theme/subject:
-- event_type = TYPE of event: concert, exposition, théâtre, danse, festival, atelier, conférence
-- event_type ≠ theme/subject: jazz, photographie, rock, contemporain, classique
-
-**Examples:**
-- "Expositions de photographie contemporaine" → event_type = "exposition" (NOT "photographie contemporaine")
-- "Concerts de jazz à Paris" → event_type = "concert" (NOT "jazz")
-- "Festival de rock" → event_type = "festival" (NOT "rock")
-- "Théâtre classique" → event_type = "théâtre" (NOT "classique")
-
----
-
-**TODAY'S DATE:** {today.strftime('%Y-%m-%d')} ({today.strftime('%A')})
+**TODAY:** {today.strftime('%Y-%m-%d')} ({today.strftime('%A')})
 **THIS WEEKEND:** {this_saturday.strftime('%B %d')} (Sat) and {this_sunday.strftime('%B %d')} (Sun)
-**KNOWN IDF CITIES:** {cities_str}
+**KNOWN CITIES:** {cities_str}
 
----
+## PRIMARY INTENT
+- **event_search**: Looking FOR events (default)
+- **directions**: How to GET TO a place ("go from X to Y", "transport to", "comment y aller")
+- **greeting**: Hello/bonjour
+- **chitchat**: Off-topic conversation
+- **capability**: Asking about features
+- **abuse**: Inappropriate content
+- **off_topic**: Unrelated topics
 
-## OUTPUT FORMAT (JSON only):
+**CRITICAL:** "concerts in Paris" = event_search | "go to the concert" = directions
 
-```json
-{{
-  "intent": "greeting|chitchat|capability|directions|abuse|off_topic|event_search",
-  "intent_confidence": 0.0-1.0,
-  "detected_language": "fr|en",
+## DIMENSIONS (independent, can coexist)
+- **greeting**: Starts with hello/bonjour?
+- **typo**: Spelling error corrected? (Possy→Poissy)
+- **statistical**: Asking for count? ("how many", "combien")
+- **scope**: "all events" or specific type?
 
-  "dimensions": {{
-    "greeting": {{
-      "detected": true/false,
-      "value": "the greeting phrase" or null
-    }},
-    "typo": {{
-      "detected": true/false,
-      "original": "what user typed" or null,
-      "corrected": "corrected value" or null
-    }},
-    "statistical": {{
-      "detected": true/false,
-      "type": "count|total|summary" or null
-    }},
-    "scope": {{
-      "detected": true/false,
-      "value": "all|specific" or null
-    }}
-  }},
+## LANGUAGE DETECTION
+- "fr": French indicators (de, à, en, le, la, les, événements, é, è, à)
+- "en": English (in, the, events)
+- Default: "fr"
 
-  "entities": {{
-    "city_raw": "what user said" or null,
-    "city_normalized": "official city name" or null,
-    "event_type": "concert|exposition|théâtre|danse|festival|atelier|conférence" or null,
-    "timeframe_raw": "what user said" or null,
-    "timeframe_resolved": {{"month": 1-12, "day": int/list, "year": int}}
-  }},
+## EVENT TYPE (category, NOT theme)
+Extract TYPE: concert, exposition, théâtre, danse, festival, atelier, conférence
+NOT theme: "jazz concert" → type="concert" (NOT "jazz")
 
-  "is_complete": true/false,
-  "missing": ["city", "event_type", "timeframe"],
+## COMPLETENESS (2 out of 3)
+Complete if has 2+ of: city, timeframe, event_type
+- "concerts in Paris" → COMPLETE (city + type)
+- "events in Paris" → INCOMPLETE (only city)
+- Statistical queries are ALWAYS complete (wants count of ALL)
 
-  "filters": {{
-    "city": "normalized city" or null,
-    "month": int or null,
-    "day": int or [list] or null,
-    "year": int or null,
-    "category": null,
-    "is_free": true or null,
-    "audience": "kids|family|professional" or null
-  }},
+## ENTITY EXTRACTION
+- **City**: Normalize to known cities list
+- **Dates**: Calculate from TODAY (this weekend = [{this_saturday.day}, {this_sunday.day}])
+- **Audience**: "kids/enfants" → "kids", "professional" → "professional"
+- **Free**: "gratuit/free" → is_free=true
 
-  "refined_query": "typo-corrected search query"
-}}
-```
+## CONTEXT CARRYOVER
+If PREVIOUS CONVERSATION exists, carry forward unchanged filters.
+Only replace what user explicitly mentions.
 
----
-
-## CRITICAL RULES:
-
-1. **GREETING + EVENT_SEARCH CAN COEXIST:**
-   - "good morning, any concerts in Paris?" → intent=event_search, dimensions.greeting.detected=true
-
-2. **STATISTICAL QUERIES ARE COMPLETE:**
-   - "how many events in Poissy in January" → is_complete=true (no event_type needed!)
-   - User wants COUNT of ALL events, don't ask for event type
-
-3. **TYPO CORRECTION:**
-   - "Possy" → city_raw="Possy", city_normalized="Poissy", dimensions.typo.detected=true
-
-4. **NON-EVENT INTENTS (greeting, chitchat, capability, abuse, off_topic):**
-   - Set is_complete=false, missing=[], dimensions as detected
-
-4b. **DIRECTIONS INTENT (CRITICAL):**
-   If the query asks HOW TO GET TO / REACH / TRAVEL TO an event or location, classify as DIRECTIONS:
-   - "How do I go to the concert?" → intent=directions (NOT event_search)
-   - "transport to the last event" → intent=directions (NOT event_search)
-   - "go from X to Y" → intent=directions (NOT event_search)
-   - "comment y aller" → intent=directions (NOT event_search)
-   - DO NOT extract city filters or do event search for DIRECTIONS queries
-   - Set is_complete=false, missing=[]
-
-5. **COMPLETENESS FOR EVENT_SEARCH (2 out of 3 rule):**
-   A query is COMPLETE if it has **at least 2 of these 3 criteria**:
-   - city (location specified)
-   - timeframe (date/month/period specified by user)
-   - event_type (what kind of event: concert, exhibition, theater, etc.)
-
-   Examples:
-   - "concerts in Paris" → city + event_type → COMPLETE
-   - "events in March in Paris" → city + timeframe → COMPLETE
-   - "concerts in February" → event_type + timeframe → COMPLETE
-   - "events in Paris" → only city → INCOMPLETE (ask for timeframe or event_type)
-
-6. **CONTEXT CARRYOVER (CRITICAL for follow-up queries):**
-   If there is PREVIOUS CONVERSATION, carry forward filters that are NOT explicitly changed:
-   - User says "Poissy would be better" → REPLACE city, but KEEP timeframe and audience from context
-   - User says "maybe jazz instead" → REPLACE event_type, but KEEP city and timeframe from context
-   - User says "make it this weekend" → REPLACE timeframe, but KEEP city and event_type from context
-
-   **Rule:** Only replace what the user explicitly mentions. Preserve everything else from the previous query.
-
-   Example:
-   - Previous: "events in Paris for second weekend of March for professional reasons"
-   - Follow-up: "Poissy would be better. Maybe jazz!"
-   - Result: city=Poissy (changed), event_type=jazz (added), timeframe=second weekend of March (PRESERVED), audience=professional (PRESERVED)
-
----
-
-## ENTITY EXTRACTION RULES:
-
-1. **CITY NORMALIZATION:** Normalize to official names from the known cities list
-2. **AUDIENCE:** "for kids/enfants" → audience="kids", "professional" → audience="professional"
-3. **RELATIVE DATE CALCULATION:**
-   Use TODAY'S DATE above to calculate any relative date expression:
-   - "this weekend", "next weekend", "second weekend of March"
-   - "next Tuesday", "this Friday", "coming Monday"
-   - "first Monday of May", "last day of the month"
-   - "in 2 weeks", "next month"
-
-   **RULES:**
-   - A weekend = Saturday + Sunday (2 consecutive days)
-   - Return day as a single int OR a list [day1, day2] for date ranges
-
-4. **OTHER DATES:**
-   - "today" → month={today.month}, day={today.day}
-   - "this weekend" → month={this_saturday.month}, day=[{this_saturday.day}, {this_sunday.day}]
-   - "in January" → month=1
-   - "next week" → calculate actual dates
-
----
-
-**REMEMBER:** A query can have MULTIPLE dimensions. Analyze each independently.
-"""
+Analyze ALL dimensions. Return structured output."""
 
 
 class UnifiedAnalyzer:

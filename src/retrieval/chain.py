@@ -24,6 +24,7 @@ from src.security.guardrails import check_safety
 from src.utils.geo import CityLocator
 from src.utils.keywords import get_keyword_locator
 from src.retrieval.unified_analyzer import unified_analyze, QueryIntent as UnifiedIntent, UnifiedAnalysisResult, QueryDimension, map_category_to_db
+from src.retrieval.response_builder import ResponseBuilder
 from src.config import settings
 
 # ========================================
@@ -1526,46 +1527,47 @@ class RAGChain:
                         category_breakdown=category_counts,
                         language=language
                     )
-                    answer_text = response_prefix + stat_response
+                    answer_text = stat_response
                     logger.info(f"[MULTI-DIM] Built statistical response for {total_count} events")
 
-            # Add response prefix for non-statistical queries
-            elif response_prefix:
-                answer_text = response_prefix + answer_text
+            # ========================================
+            # COMPOSE FINAL RESPONSE USING BUILDER PATTERN (Phase 3B)
+            # ========================================
+            # Clean, maintainable composition replacing scattered string concatenation
+            builder = ResponseBuilder(language=language)
 
-            # ========================================
-            # ADD FILTER ECHO & REFINEMENT SUGGESTIONS
-            # ========================================
+            # Set main content (automatically strips existing suffix markers)
+            builder.set_main_content(answer_text)
+
+            # Add prefix for greetings, typo acknowledgments
+            if response_prefix:
+                builder.add_prefix(response_prefix)
+
+            # Add filter-related suffixes if filters were applied
             if pre_filters:
                 result_count = len(structured_events)
                 has_results = result_count > 0 or len(result.get("context", [])) > 0
 
-                # Strip any existing suffix text to avoid duplicates
-                # (can happen with cached responses or LLM-generated suggestions)
-                for marker in ["📅 *Results filtered", "💡 *Specify", "💡 **Want to refine", "**Applied filters:**", "---\n**Applied"]:
-                    if marker in answer_text:
-                        answer_text = answer_text.split(marker)[0].rstrip()
-                        break
-
-                # 1. Add refinement suffix (default timeframe notice, hints)
+                # Add refinement suffix (default timeframe notice, hints)
                 refinement_suffix = build_refinement_suffix(
                     filters=pre_filters,
                     has_results=has_results,
                     language=language
                 )
-                answer_text = answer_text + refinement_suffix
+                builder.add_refinement_suffix(refinement_suffix)
 
-                # 2. Add broadening suggestion if < 8 results
-                if result_count < 8 and result_count > 0:
-                    answer_text = answer_text + BROADENING_SUGGESTION.get(language, BROADENING_SUGGESTION["en"])
-                    logger.info(f"[BROADENING] Added broadening suggestion ({result_count} < 8 results)")
+                # Add broadening suggestion if < 8 results
+                builder.add_broadening_suggestion(result_count, threshold=8)
 
-                # 3. Echo applied filters and search terms for transparency
+                # Echo applied filters and search terms for transparency
                 search_terms = pre_filters.get("_search_terms", [])
-                filter_echo = build_filter_echo(pre_filters, search_terms, language)
-                answer_text = answer_text + filter_echo
+                builder.add_filter_echo(pre_filters, search_terms)
 
                 logger.info(f"[REFINEMENT] Added refinement (has_results={has_results}, count={result_count})")
+
+            # Build final composed response
+            answer_text = builder.build()
+            logger.info(f"[RESPONSE-BUILDER] Final response composed ({len(answer_text)} chars)")
 
         except Exception as e:
             error_str = str(e).lower()
