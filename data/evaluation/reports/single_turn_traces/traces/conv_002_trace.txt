@@ -1,0 +1,86 @@
+================================================================================
+  CONVERSATION TRACE: conv_002
+================================================================================
+
+Description: Topic shift: User starts with jazz, shifts to theater completely
+Test Focus: ['context_retention', 'topic_shift_detection']
+Language: en
+Total Turns: 2
+
+------------------------------------------------------------
+  TURN 1: initial
+------------------------------------------------------------
+Query: "Jazz concerts in Paris this weekend"
+Turn Type: initial
+Expected Filters: {"city": "Paris", "category": "Musique"}
+Expected Behavior: {"should_ask_clarification": false}
+
+  [Step 1] Security Check
+    Time: 1.1ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 2762.6ms
+    Language: en
+    Intent: event_search
+    Is Complete: True
+    Filters: {
+      "city": "Paris",
+      "month": 1,
+      "day": [
+            31,
+            1
+      ],
+      "year": 2026,
+      "category": "Musique",
+      "is_free": null,
+      "audience": null
+}
+
+  [Step 3] RAG Chain Execution
+    Time: 22033.1ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+------------------------------------------------------------
+  TURN 2: topic_shift
+------------------------------------------------------------
+Query: "Actually, what about theater shows in Versailles?"
+Turn Type: topic_shift
+Expected Filters: {"city": "Versailles", "category": "Théâtre / Spectacle"}
+Expected Behavior: {"should_use_context": false, "should_reset_filters": true, "reason": "Completely different topic (theater vs jazz, Versailles vs Paris)"}
+
+  [Step 1] Security Check
+    Time: 0.8ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 3554.2ms
+    Language: en
+    Intent: event_search
+    Is Complete: True
+    Filters: {
+      "city": "Versailles",
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": "Théâtre / Spectacle",
+      "is_free": null,
+      "audience": null
+}
+
+  [Step 3] RAG Chain Execution
+    Time: 32879.7ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+================================================================================
+  CONVERSATION SUMMARY
+================================================================================
+Status: WARN
+Total Issues: 2
+  - [MEDIUM] Turn 1: Latency exceeds SLA (24797ms > 5000ms)
+  - [MEDIUM] Turn 2: Latency exceeds SLA (36435ms > 5000ms)
+
+Total Latency: 61232ms
+Avg Turn Latency: 30616ms
+
+[Trace saved: conv_002_trace.txt]

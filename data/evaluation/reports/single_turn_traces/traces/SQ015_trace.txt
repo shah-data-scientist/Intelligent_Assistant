@@ -1,0 +1,71 @@
+================================================================================
+  TRACE: SQ015
+================================================================================
+
+Query: "What can you help me with?"
+Query Type: meta
+Expected Language: en
+Expected Filters: {}
+Expected Behavior: {
+  "should_explain_capabilities": true
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 1 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 14 ms
+  Detected Language: fr
+  Intent: event_search
+  Intent Confidence: 0.50
+  Refined Query: "What can you help me with?"
+  Extracted Filters:
+
+  Completeness Check:
+    - Is Complete: False
+    - Missing Criteria: ['city', 'event_type']
+    - Should Ask Clarification: True
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline Execution
+------------------------------------------------------------
+  RAG Pipeline Time: 16 ms
+  Events Retrieved: 0
+  Events in Response: 0
+
+  Response Preview (first 500 chars):
+  Pour t'aider, j'ai besoin de quelques precisions :
+- Dans quelle zone ? (Paris, Versailles, ou toute l'Ile-de-France...)
+- Quel type d'evenement ? (Concert, expo, theatre...)...
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: FAILED
+  Issues Found: 2
+    [HIGH] Clarification behavior mismatch
+    [MEDIUM] Language detection mismatch
+
+  Metrics:
+    - security_time_ms: 0.69
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 13.93
+    - is_complete: False
+    - missing_criteria: ['city', 'event_type']
+    - should_clarify: True
+    - detected_language: fr
+    - intent: event_search
+    - extracted_filters: {}
+    - rag_time_ms: 16.15
+    - total_latency_ms: 30.08
+    - events_retrieved: 0
+    - events_in_response: 0
+
+[Trace saved: SQ015_trace.txt]

@@ -1,0 +1,87 @@
+================================================================================
+  CONVERSATION TRACE: conv_007
+================================================================================
+
+Description: Bilingual conversation - user switches language mid-conversation
+Test Focus: ['language_detection', 'context_retention', 'language_consistency']
+Language: mixed
+Total Turns: 2
+
+------------------------------------------------------------
+  TURN 1: initial
+------------------------------------------------------------
+Query: "Spectacles de danse à Paris"
+Turn Type: initial
+Expected Filters: {"city": "Paris", "category": "Danse"}
+Expected Behavior: {"should_ask_clarification": true, "clarification_topics": ["date"]}
+
+  [Step 1] Security Check
+    Time: 0.5ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 2463.7ms
+    Language: fr
+    Intent: event_search
+    Is Complete: True
+    Filters: {
+      "city": "Paris",
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": "Danse",
+      "is_free": null,
+      "audience": null
+}
+
+  [Step 3] RAG Chain Execution
+    Time: 15808.8ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+------------------------------------------------------------
+  TURN 2: refinement
+------------------------------------------------------------
+Query: "In February please"
+Turn Type: refinement
+Expected Filters: {"city": "Paris", "category": "Danse", "month": 2}
+Expected Behavior: {"should_use_context": true, "language_switch": true, "inherited_filters": ["city", "category"], "new_filters": {"month": 2}}
+
+  [Step 1] Security Check
+    Time: 0.6ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 3672.2ms
+    Language: en
+    Intent: event_search
+    Is Complete: False
+    Filters: {
+      "city": null,
+      "month": 2,
+      "day": null,
+      "year": 2026,
+      "category": null,
+      "is_free": null,
+      "audience": null
+}
+    ! ISSUE: [HIGH] Turn 2: Missing filter 'city' (expected: Paris)
+    ! ISSUE: [HIGH] Turn 2: Missing filter 'category' (expected: Danse)
+
+  [Step 3] RAG Chain Execution
+    Time: 28239260.1ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+================================================================================
+  CONVERSATION SUMMARY
+================================================================================
+Status: FAIL
+Total Issues: 4
+  - [MEDIUM] Turn 1: Latency exceeds SLA (18273ms > 5000ms)
+  - [HIGH] Turn 2: Missing filter 'city' (expected: Paris)
+  - [HIGH] Turn 2: Missing filter 'category' (expected: Danse)
+  - [MEDIUM] Turn 2: Latency exceeds SLA (28242933ms > 5000ms)
+
+Total Latency: 28261206ms
+Avg Turn Latency: 14130603ms
+
+[Trace saved: conv_007_trace.txt]

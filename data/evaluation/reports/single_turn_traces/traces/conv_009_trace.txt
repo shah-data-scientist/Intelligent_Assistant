@@ -1,0 +1,85 @@
+================================================================================
+  CONVERSATION TRACE: conv_009
+================================================================================
+
+Description: Result-based refinement - user reacts to what they see
+Test Focus: ['context_retention', 'adaptive_search']
+Language: fr
+Total Turns: 2
+
+------------------------------------------------------------
+  TURN 1: initial
+------------------------------------------------------------
+Query: "Événements culturels à Nanterre ce mois-ci"
+Turn Type: initial
+Expected Filters: {"city": "Nanterre", "month": 1}
+Expected Behavior: {"should_ask_clarification": false}
+
+  [Step 1] Security Check
+    Time: 0.9ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 7515.7ms
+    Language: fr
+    Intent: event_search
+    Is Complete: True
+    Filters: {
+      "city": "Nanterre",
+      "month": 1,
+      "day": null,
+      "year": 2026,
+      "category": null,
+      "is_free": null,
+      "audience": null
+}
+
+  [Step 3] RAG Chain Execution
+    Time: 38012.5ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+------------------------------------------------------------
+  TURN 2: refinement
+------------------------------------------------------------
+Query: "Il n'y en a pas beaucoup... et aux alentours?"
+Turn Type: refinement
+Expected Filters: {"month": 1}
+Expected Behavior: {"should_use_context": true, "expand_geographic_scope": true, "kept_filters": ["month", "category"]}
+
+  [Step 1] Security Check
+    Time: 1.4ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 19092.6ms
+    Language: fr
+    Intent: event_search
+    Is Complete: False
+    Filters: {
+      "city": null,
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": null,
+      "is_free": null,
+      "audience": null
+}
+    ! ISSUE: [HIGH] Turn 2: Missing filter 'month' (expected: 1)
+
+  [Step 3] RAG Chain Execution
+    Time: 49167.9ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+================================================================================
+  CONVERSATION SUMMARY
+================================================================================
+Status: FAIL
+Total Issues: 3
+  - [MEDIUM] Turn 1: Latency exceeds SLA (45529ms > 5000ms)
+  - [HIGH] Turn 2: Missing filter 'month' (expected: 1)
+  - [MEDIUM] Turn 2: Latency exceeds SLA (68262ms > 5000ms)
+
+Total Latency: 113791ms
+Avg Turn Latency: 56896ms
+
+[Trace saved: conv_009_trace.txt]

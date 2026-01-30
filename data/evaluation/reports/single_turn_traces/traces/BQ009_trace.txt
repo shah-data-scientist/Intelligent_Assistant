@@ -1,0 +1,83 @@
+================================================================================
+  TRACE: BQ009
+================================================================================
+
+Query: "Show me all events in Paris"
+Query Type: broad_intent_bypass
+Expected Language: en
+Expected Filters: {
+  "city": "Paris"
+}
+Expected Behavior: {
+  "should_ask_clarification": false,
+  "should_refuse_gracefully": false,
+  "expected_response_type": "event_results",
+  "expected_llm_calls": 2
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 0 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 4166 ms
+  Detected Language: en
+  Intent: event_search
+  Intent Confidence: 0.95
+  Refined Query: "Show me all events in Paris"
+  Extracted Filters:
+    - city: Paris
+
+  Completeness Check:
+    - Is Complete: True
+    - Missing Criteria: None
+    - Scope: "all" (action: no_event_type_filter)
+    - Broad Intent Bypass: YES (user explicitly asked for 'all')
+    - Should Ask Clarification: False
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline Execution
+------------------------------------------------------------
+  RAG Pipeline Time: 23367 ms
+  Events Retrieved: 8
+  Events in Response: 8
+
+  Response Preview (first 500 chars):
+  Here are 8 events in Paris. There are also other dates available!
+
+📅 *Results filtered to the **next 30 days**.*
+
+💡 *Specify a date, event type, or "free" to refine your search.*
+
+---
+**Applied filters:** 📍 paris...
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: WARNING
+  Issues Found: 1
+    [MEDIUM] Latency exceeds SLA
+
+  Metrics:
+    - security_time_ms: 0.32
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 4166.01
+    - is_complete: True
+    - missing_criteria: []
+    - should_clarify: False
+    - detected_language: en
+    - intent: event_search
+    - extracted_filters: {'city': 'Paris'}
+    - rag_time_ms: 23366.90
+    - total_latency_ms: 27532.91
+    - events_retrieved: 8
+    - events_in_response: 8
+
+[Trace saved: BQ009_trace.txt]

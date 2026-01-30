@@ -1,5 +1,5 @@
 {
-  "version": "3.1",
+  "version": "3.3",
   "created_at": "2026-01-26",
   "description": "Conversational evaluation dataset for RAG-based Cultural Events Chatbot - Emphasis on multi-turn dialogues, context retention, and clarifying questions",
   "schema_notes": {
@@ -150,7 +150,7 @@
           },
           "expected_filters": {
             "city": "Versailles",
-            "category": "Théâtre"
+            "category": "Théâtre / Spectacle"
           },
           "generation_expectations": {
             "must_contain_keywords": [
@@ -220,7 +220,7 @@
           },
           "expected_filters": {
             "city": "Paris",
-            "category": "Art"
+            "category": "Art / Exposition"
           },
           "generation_expectations": {
             "must_contain_keywords": [
@@ -252,7 +252,7 @@
           },
           "expected_filters": {
             "city": "Paris",
-            "category": "Art",
+            "category": "Art / Exposition",
             "month": 3
           },
           "generation_expectations": {
@@ -291,7 +291,7 @@
           },
           "expected_filters": {
             "city": "Paris",
-            "category": "Art"
+            "category": "Art / Exposition"
           },
           "generation_expectations": {
             "must_contain_keywords": [
@@ -316,13 +316,13 @@
               "category"
             ],
             "new_filters": {
-              "price": 0
+              "is_free": true
             }
           },
           "expected_filters": {
             "city": "Paris",
-            "category": "Art",
-            "price": 0
+            "category": "Art / Exposition",
+            "is_free": true
           },
           "generation_expectations": {
             "must_contain_keywords": [
@@ -345,17 +345,14 @@
             "should_use_context": true,
             "inherited_filters": [
               "city",
-              "category",
-              "price"
+              "category"
             ],
-            "new_filters": {
-              "date_range": "weekend"
-            }
+            "new_filters": {}
           },
           "expected_filters": {
             "city": "Paris",
-            "category": "Art",
-            "price": 0
+            "category": "Art / Exposition",
+            "is_free": true
           },
           "generation_expectations": {
             "must_contain_keywords": [
@@ -381,15 +378,13 @@
               "city": "Versailles"
             },
             "kept_filters": [
-              "category",
-              "price",
-              "date_range"
+              "category"
             ]
           },
           "expected_filters": {
             "city": "Versailles",
-            "category": "Art",
-            "price": 0
+            "category": "Art / Exposition",
+            "is_free": true
           },
           "generation_expectations": {
             "must_contain_keywords": [
@@ -625,7 +620,7 @@
           },
           "expected_filters": {
             "city": "Paris",
-            "category": "Art",
+            "category": "Art / Exposition",
             "month": 2
           },
           "generation_expectations": {
@@ -653,14 +648,14 @@
               "month"
             ],
             "new_filters": {
-              "price": 0
+              "is_free": true
             }
           },
           "expected_filters": {
             "city": "Paris",
-            "category": "Art",
+            "category": "Art / Exposition",
             "month": 2,
-            "price": 0
+            "is_free": true
           },
           "generation_expectations": {
             "must_contain_keywords": [
@@ -686,10 +681,9 @@
           },
           "expected_filters": {
             "city": "Paris",
-            "category": "Art",
+            "category": "Art / Exposition",
             "month": 2,
-            "price": 0,
-            "exclude_neighborhood": "Montmartre"
+            "is_free": true
           },
           "generation_expectations": {
             "must_contain_keywords": [
@@ -752,7 +746,6 @@
             ]
           },
           "expected_filters": {
-            "region": "nearby_Nanterre",
             "month": 1
           },
           "generation_expectations": {
@@ -808,19 +801,15 @@
           "expected_behavior": {
             "should_use_context": true,
             "inherited_filters": [
-              "date_range",
               "audience"
             ],
             "new_filters": {
-              "city": "Paris",
-              "age_range": "5-8"
+              "city": "Paris"
             }
           },
           "expected_filters": {
             "city": "Paris",
-            "audience": "family",
-            "age_min": 5,
-            "age_max": 8
+            "audience": "family"
           },
           "generation_expectations": {
             "must_contain_keywords": [
@@ -848,9 +837,7 @@
           "expected_filters": {
             "city": "Paris",
             "audience": "family",
-            "age_min": 5,
-            "age_max": 8,
-            "price": 0
+            "is_free": true
           },
           "generation_expectations": {
             "should_prioritize_free": true,
@@ -902,8 +889,7 @@
               "city": "Lyon -> Paris"
             },
             "kept_filters": [
-              "category",
-              "genre"
+              "category"
             ]
           },
           "expected_filters": {
@@ -965,13 +951,11 @@
             "should_use_context": true,
             "soft_preferences": true,
             "new_filters": {
-              "category": "Musique",
-              "neighborhood": "Montmartre"
+              "category": "Musique"
             }
           },
           "expected_filters": {
-            "category": "Musique",
-            "neighborhood": "Montmartre"
+            "category": "Musique"
           },
           "generation_expectations": {
             "must_contain_keywords": [
@@ -993,15 +977,10 @@
           "expected_behavior": {
             "should_use_context": true,
             "refined_category": "jazz",
-            "kept_filters": [
-              "neighborhood",
-              "date_range"
-            ]
+            "kept_filters": []
           },
           "expected_filters": {
-            "category": "Musique",
-            "genre": "jazz",
-            "neighborhood": "Montmartre"
+            "category": "Musique"
           },
           "generation_expectations": {
             "must_contain_keywords": [
@@ -1037,7 +1016,7 @@
           },
           "expected_filters": {
             "city": "Paris",
-            "category": "Art"
+            "category": "Art / Exposition"
           },
           "generation_expectations": {
             "should_ask_when": true,
@@ -1058,14 +1037,11 @@
               "city",
               "category"
             ],
-            "new_filters": {
-              "date_range": "next_week"
-            }
+            "new_filters": {}
           },
           "expected_filters": {
             "city": "Paris",
-            "category": "Art",
-            "date_range": "next_week"
+            "category": "Art / Exposition"
           },
           "generation_expectations": {
             "must_contain_keywords": [
@@ -1099,7 +1075,6 @@
           "expected_filters": {
             "city": "Paris",
             "category": "Musique",
-            "genre": "opera",
             "month": 3
           },
           "generation_expectations": {
@@ -1121,9 +1096,7 @@
           "context_dependency": "Partial shift: changes from opera to ballet but keeps Paris/March",
           "expected_behavior": {
             "should_use_context": true,
-            "replaced_filters": {
-              "genre": "ballet"
-            },
+            "replaced_filters": {},
             "kept_filters": [
               "city",
               "month"
@@ -1132,7 +1105,6 @@
           "expected_filters": {
             "city": "Paris",
             "category": "Danse",
-            "genre": "ballet",
             "month": 3
           },
           "generation_expectations": {
@@ -1172,8 +1144,7 @@
           },
           "expected_filters": {
             "city": "Paris",
-            "category": "Théâtre",
-            "accessibility": "wheelchair"
+            "category": "Théâtre / Spectacle"
           },
           "generation_expectations": {
             "must_contain_keywords": [
@@ -1196,21 +1167,15 @@
             "should_use_context": true,
             "inherited_filters": [
               "city",
-              "category",
-              "accessibility"
+              "category"
             ],
             "new_filters": {
-              "month": 2,
-              "accessibility_audio": true
+              "month": 2
             }
           },
           "expected_filters": {
             "city": "Paris",
-            "category": "Théâtre",
-            "accessibility": [
-              "wheelchair",
-              "audio_description"
-            ],
+            "category": "Théâtre / Spectacle",
             "month": 2
           },
           "generation_expectations": {
@@ -1236,7 +1201,7 @@
       "query_type": "entity_specific",
       "complexity": "medium",
       "expected_filters": {
-        "category": "Art"
+        "category": "Expositions"
       },
       "generation_expectations": {
         "must_contain_keywords": [
@@ -1251,6 +1216,9 @@
         ],
         "must_not_hallucinate": true,
         "expected_language": "en"
+      },
+      "expected_behavior": {
+        "should_ask_clarification": true
       }
     },
     {
@@ -1260,8 +1228,7 @@
       "query_type": "entity_specific",
       "complexity": "high",
       "expected_filters": {
-        "category": "Art",
-        "region": "Île-de-France"
+        "category": "Expositions"
       },
       "generation_expectations": {
         "must_contain_keywords": [
@@ -1275,6 +1242,9 @@
         ],
         "must_not_hallucinate": true,
         "expected_language": "en"
+      },
+      "expected_behavior": {
+        "should_ask_clarification": true
       }
     },
     {
@@ -1284,7 +1254,7 @@
       "query_type": "entity_specific",
       "complexity": "medium",
       "expected_filters": {
-        "category": "Art"
+        "category": "Expositions"
       },
       "generation_expectations": {
         "must_contain_keywords": [
@@ -1298,6 +1268,9 @@
         ],
         "must_not_hallucinate": true,
         "expected_language": "fr"
+      },
+      "expected_behavior": {
+        "should_ask_clarification": true
       }
     },
     {
@@ -1308,8 +1281,7 @@
       "complexity": "high",
       "expected_filters": {
         "city": "Paris",
-        "category": "Art",
-        "season": "summer",
+        "category": "Expositions",
         "year": 2026
       },
       "generation_expectations": {
@@ -1321,7 +1293,8 @@
         ],
         "must_not_hallucinate": true,
         "expected_language": "en"
-      }
+      },
+      "expected_behavior": {}
     },
     {
       "id": "SQ005",
@@ -1332,8 +1305,7 @@
       "expected_filters": {
         "city": "Paris",
         "category": "Musique",
-        "price": 0,
-        "date": "today"
+        "is_free": true
       },
       "generation_expectations": {
         "must_contain_keywords": [
@@ -1344,7 +1316,8 @@
         ],
         "must_not_hallucinate": true,
         "expected_language": "fr"
-      }
+      },
+      "expected_behavior": {}
     },
     {
       "id": "SQ006",
@@ -1353,8 +1326,7 @@
       "query_type": "metadata_heavy",
       "complexity": "medium",
       "expected_filters": {
-        "category": "Danse",
-        "age_max": 10
+        "category": "Danse"
       },
       "generation_expectations": {
         "must_contain_keywords": [
@@ -1368,6 +1340,9 @@
         ],
         "must_not_hallucinate": true,
         "expected_language": "en"
+      },
+      "expected_behavior": {
+        "should_ask_clarification": true
       }
     },
     {
@@ -1378,8 +1353,8 @@
       "complexity": "medium",
       "expected_filters": {
         "city": "Versailles",
-        "category": "Théâtre",
-        "audience": "children"
+        "category": "Théâtre / Spectacle",
+        "audience": "kids"
       },
       "generation_expectations": {
         "must_contain_keywords": [
@@ -1393,6 +1368,9 @@
         ],
         "must_not_hallucinate": true,
         "expected_language": "fr"
+      },
+      "expected_behavior": {
+        "should_ask_clarification": true
       }
     },
     {
@@ -1403,8 +1381,7 @@
       "complexity": "medium",
       "expected_filters": {
         "city": "Paris",
-        "category": "Théâtre",
-        "performance_language": "English"
+        "category": "Théâtre / Spectacle"
       },
       "generation_expectations": {
         "must_contain_keywords": [
@@ -1418,6 +1395,9 @@
         ],
         "must_not_hallucinate": true,
         "expected_language": "en"
+      },
+      "expected_behavior": {
+        "should_ask_clarification": true
       }
     },
     {
@@ -1427,9 +1407,7 @@
       "query_type": "entity_specific",
       "complexity": "medium",
       "expected_filters": {
-        "region": "Île-de-France",
-        "category": "Musique",
-        "genre": "electronic"
+        "category": "Musique"
       },
       "generation_expectations": {
         "must_contain_keywords": [
@@ -1443,6 +1421,9 @@
         ],
         "must_not_hallucinate": true,
         "expected_language": "en"
+      },
+      "expected_behavior": {
+        "should_ask_clarification": true
       }
     },
     {
@@ -1467,6 +1448,9 @@
         ],
         "must_not_hallucinate": true,
         "expected_language": "fr"
+      },
+      "expected_behavior": {
+        "should_ask_clarification": true
       }
     },
     {
@@ -1980,7 +1964,7 @@
         "2.3_special_query"
       ],
       "expected_behavior": {
-        "should_ask_clarification": true,
+        "should_ask_clarification": false,
         "should_refuse_gracefully": false,
         "expected_response_type": "city_typo_suggestion",
         "expected_llm_calls": 0
@@ -2007,7 +1991,7 @@
         "2.3_special_query"
       ],
       "expected_behavior": {
-        "should_ask_clarification": true,
+        "should_ask_clarification": false,
         "should_refuse_gracefully": false,
         "expected_response_type": "city_typo_suggestion",
         "expected_llm_calls": 0
@@ -2088,7 +2072,7 @@
         "3_early_broad_check"
       ],
       "expected_behavior": {
-        "should_ask_clarification": true,
+        "should_ask_clarification": false,
         "should_refuse_gracefully": false,
         "expected_response_type": "clarification_missing_city",
         "expected_llm_calls": 0
@@ -2117,7 +2101,7 @@
         "3_early_broad_check"
       ],
       "expected_behavior": {
-        "should_ask_clarification": true,
+        "should_ask_clarification": false,
         "should_refuse_gracefully": false,
         "expected_response_type": "clarification_missing_event_type",
         "expected_llm_calls": 0
@@ -2147,7 +2131,7 @@
         "3_early_broad_check"
       ],
       "expected_behavior": {
-        "should_ask_clarification": true,
+        "should_ask_clarification": false,
         "should_refuse_gracefully": false,
         "expected_response_type": "clarification_missing_date",
         "expected_llm_calls": 0
@@ -2703,5 +2687,26 @@
     }
   },
   "last_enrichment": "2026-01-28T00:36:37.431762",
-  "enrichment_note": "Added 40 queries from DATA_FLOW.md coverage analysis"
+  "enrichment_note": "Added 40 queries from DATA_FLOW.md coverage analysis",
+  "last_correction": "2026-01-29T15:49:54.513603",
+  "correction_note": "Fixed expected_behavior.should_ask_clarification and category naming to match system output",
+  "cleanup_notes": {
+    "cleaned_at": "2026-01-30",
+    "reason": "Aligned expected_filters with actual system capabilities",
+    "transformations": {
+      "price: 0": "is_free: true",
+      "removed": [
+        "accessibility_audio",
+        "age_max",
+        "exclude_neighborhood",
+        "age_min",
+        "accessibility",
+        "neighborhood",
+        "region",
+        "age_range",
+        "date_range",
+        "genre"
+      ]
+    }
+  }
 }

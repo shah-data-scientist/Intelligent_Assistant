@@ -30,10 +30,10 @@ class StructuredEvent(BaseModel):
     city: str
     location: Optional[str] = None
     url: Optional[str] = None
-    price_label: str = "Unknown"
-    age_label: str = "Unknown"
+    price_label: Optional[str] = "Unknown"
+    age_label: Optional[str] = "Unknown"
     times: List[str] = Field(default_factory=list, description="List of available times if event has multiple showings")
-    times_display: str = Field(default="", description="Formatted times for display (e.g., '19:30, 21:30')")
+    times_display: Optional[str] = Field(default="", description="Formatted times for display (e.g., '19:30, 21:30')")
 
 class ChatResponse(BaseModel):
     """Response model for chat endpoint."""

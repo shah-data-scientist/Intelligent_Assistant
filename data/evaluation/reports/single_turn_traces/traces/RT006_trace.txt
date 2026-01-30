@@ -1,0 +1,89 @@
+================================================================================
+  TRACE: RT006
+================================================================================
+
+Query: "Theatre shows in Vincennes on February 29th 2024"
+Query Type: retrieval_no_results
+Expected Language: en
+Expected Filters: {
+  "city": "Vincennes",
+  "month": 2,
+  "day": 29,
+  "year": 2024
+}
+Expected Behavior: {
+  "should_ask_clarification": false,
+  "should_refuse_gracefully": false,
+  "expected_response_type": "no_results",
+  "expected_llm_calls": 2
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 1 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 16609 ms
+  Detected Language: en
+  Intent: event_search
+  Intent Confidence: 0.95
+  Refined Query: "Theatre shows in Vincennes on February 29th 2024"
+  Extracted Filters:
+    - city: Vincennes
+    - month: 2
+    - day: 29
+    - year: 2024
+    - category: Théâtre / Spectacle
+
+  Completeness Check:
+    - Is Complete: True
+    - Missing Criteria: None
+    - Scope: "specific" (action: None)
+    - Should Ask Clarification: False
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline Execution
+------------------------------------------------------------
+  RAG Pipeline Time: 3696 ms
+  Events Retrieved: 0
+  Events in Response: 0
+
+  Response Preview (first 500 chars):
+  I'm sorry, but **Vincennes** is outside my coverage area.
+
+I specialize in cultural events in the **Ile-de-France** region (Paris and its surroundings).
+
+Would you like me to search for events in an Ile-de-France city? For example:
+- Paris, Versailles, Saint-Denis
+- Boulogne-Billancourt, Montreuil, Nanterre
+- Fontainebleau, Meaux, Pontoise...
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: WARNING
+  Issues Found: 1
+    [MEDIUM] Latency exceeds SLA
+
+  Metrics:
+    - security_time_ms: 0.53
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 16608.83
+    - is_complete: True
+    - missing_criteria: []
+    - should_clarify: False
+    - detected_language: en
+    - intent: event_search
+    - extracted_filters: {'city': 'Vincennes', 'month': 2, 'day': 29, 'year': 2024, 'category': 'Théâtre / Spectacle'}
+    - rag_time_ms: 3695.62
+    - total_latency_ms: 20304.45
+    - events_retrieved: 0
+    - events_in_response: 0
+
+[Trace saved: RT006_trace.txt]

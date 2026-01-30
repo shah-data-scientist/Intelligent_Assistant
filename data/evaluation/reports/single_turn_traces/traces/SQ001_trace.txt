@@ -1,0 +1,80 @@
+================================================================================
+  TRACE: SQ001
+================================================================================
+
+Query: "Finnish art exhibitions"
+Query Type: entity_specific
+Expected Language: en
+Expected Filters: {
+  "category": "Expositions"
+}
+Expected Behavior: {
+  "should_ask_clarification": true
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 0 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 2214 ms
+  Detected Language: en
+  Intent: event_search
+  Intent Confidence: 0.90
+  Refined Query: "Finnish art exhibitions"
+  Extracted Filters:
+    - category: Art / Exposition
+
+  Completeness Check:
+    - Is Complete: False
+    - Missing Criteria: ['city', 'timeframe']
+    - Scope: "specific" (action: None)
+    - Should Ask Clarification: True
+    - Expected Clarification: True
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline Execution
+------------------------------------------------------------
+  RAG Pipeline Time: 35570 ms
+  Events Retrieved: 8
+  Events in Response: 8
+
+  Response Preview (first 500 chars):
+  Here are 8 **art / exposition** events.
+
+📅 *Results filtered to the **next 30 days**.*
+
+💡 *Specify a date, event type, or "free" to refine your search.*
+
+---
+**Applied filters:** 🎭 Art / Exposition...
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: FAILED
+  Issues Found: 2
+    [HIGH] Filter extraction mismatch: category
+    [MEDIUM] Latency exceeds SLA
+
+  Metrics:
+    - security_time_ms: 0.39
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 2214.34
+    - is_complete: False
+    - missing_criteria: ['city', 'timeframe']
+    - should_clarify: True
+    - detected_language: en
+    - intent: event_search
+    - extracted_filters: {'category': 'Art / Exposition'}
+    - rag_time_ms: 35569.94
+    - total_latency_ms: 37784.28
+    - events_retrieved: 8
+    - events_in_response: 8
+
+[Trace saved: SQ001_trace.txt]

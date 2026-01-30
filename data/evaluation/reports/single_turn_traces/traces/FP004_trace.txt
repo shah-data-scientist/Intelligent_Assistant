@@ -1,0 +1,62 @@
+================================================================================
+  TRACE: FP004
+================================================================================
+
+Query: "Aide-moi, que peux-tu faire?"
+Query Type: capability
+Expected Language: fr
+Expected Filters: {}
+Expected Behavior: {
+  "should_ask_clarification": false,
+  "should_refuse_gracefully": false,
+  "expected_response_type": "capability_response",
+  "expected_llm_calls": 0
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 0 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 3130 ms
+  Detected Language: fr
+  Intent: capability
+  Intent Confidence: 0.95
+  Refined Query: "Aide-moi, que peux-tu faire?"
+  Extracted Filters:
+
+  Completeness Check:
+    - Is Complete: False
+    - Missing Criteria: ['city', 'timeframe', 'event_type']
+    - Should Ask Clarification: True
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline SKIPPED
+------------------------------------------------------------
+  Reason: Expected 0 LLM calls (special query path)
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: FAILED
+  Issues Found: 1
+    [HIGH] Clarification behavior mismatch
+
+  Metrics:
+    - security_time_ms: 0.31
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 3129.67
+    - is_complete: False
+    - missing_criteria: ['city', 'timeframe', 'event_type']
+    - should_clarify: True
+    - detected_language: fr
+    - intent: capability
+    - extracted_filters: {}
+
+[Trace saved: FP004_trace.txt]

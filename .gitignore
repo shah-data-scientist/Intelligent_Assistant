@@ -77,3 +77,39 @@ Thumbs.db
 *.tmp
 *.temp
 *.cache
+nul
+temp_*.txt
+check_*.py
+
+# SQLite temporary files
+*.db-shm
+*.db-wal
+*.db-journal
+
+# Database backups
+*_backup_*.db
+*.backup
+*.bak
+*.bak2
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
+test_reports/
+
+# Index backups
+index_backups/
+
+# Temporary directories
+_UL/
+_ul-*/
+
+# Archived evaluation reports (keep latest only)
+data/evaluation/reports/_archived/
+
+# Intermediate/working files
+*_cleaned.json
+*_enrichment.yaml
+*_review.yaml
+review_batch*.yaml

@@ -1,0 +1,71 @@
+================================================================================
+  TRACE: SQ012
+================================================================================
+
+Query: "hello"
+Query Type: greeting
+Expected Language: en
+Expected Filters: {}
+Expected Behavior: {
+  "should_respond_with_greeting": true,
+  "should_offer_help": true
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 0 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 0 ms
+  Detected Language: en
+  Intent: greeting
+  Intent Confidence: 1.00
+  Refined Query: "Hello"
+  Extracted Filters:
+
+  Completeness Check:
+    - Is Complete: False
+    - Missing Criteria: ['city', 'timeframe', 'event_type']
+    - Should Ask Clarification: True
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline Execution
+------------------------------------------------------------
+  RAG Pipeline Time: 32 ms
+  Events Retrieved: 0
+  Events in Response: 0
+
+  Response Preview (first 500 chars):
+  Pour t'aider, j'ai besoin de quelques precisions :
+- Dans quelle zone ? (Paris, Versailles, ou toute l'Ile-de-France...)
+- Quel type d'evenement ? (Concert, expo, theatre...)...
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: FAILED
+  Issues Found: 1
+    [HIGH] Clarification behavior mismatch
+
+  Metrics:
+    - security_time_ms: 0.29
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 0.02
+    - is_complete: False
+    - missing_criteria: ['city', 'timeframe', 'event_type']
+    - should_clarify: True
+    - detected_language: en
+    - intent: greeting
+    - extracted_filters: {}
+    - rag_time_ms: 32.31
+    - total_latency_ms: 32.33
+    - events_retrieved: 0
+    - events_in_response: 0
+
+[Trace saved: SQ012_trace.txt]

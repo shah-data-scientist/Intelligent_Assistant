@@ -4,9 +4,10 @@ This module provides intelligent entity extraction using an LLM to handle
 cases where keyword/regex matching fails:
 - City name normalization (Plessis → Plessis-Robinson)
 - Location extraction from varied prepositions (near, around, close to)
-- Query completeness analysis (replaces brittle is_broad_query)
+- Query completeness analysis
 
 These LLM calls are FALLBACKS - only invoked when simpler methods fail.
+Note: Primary entity extraction is handled by UnifiedAnalyzer.
 """
 
 import json
@@ -199,9 +200,10 @@ def extract_location_from_query(query: str) -> Tuple[Optional[str], Optional[str
 
 
 # ========================================
-# LLM QUERY COMPLETENESS ANALYZER
+# LLM QUERY COMPLETENESS ANALYZER (FALLBACK)
 # ========================================
-# Replaces: is_broad_query() keyword matching (substring false positives)
+# Note: Primary completeness check is done by UnifiedAnalyzer (2-out-of-3 rule)
+# This is a fallback for edge cases where UnifiedAnalyzer fails
 
 COMPLETENESS_ANALYZER_PROMPT = """Analyze this cultural event search query for completeness.
 
@@ -229,11 +231,10 @@ Respond with ONLY a JSON object:
 
 
 def analyze_query_completeness(query: str, chat_history: List[Any] = None) -> Dict[str, Any]:
-    """Analyze query completeness using LLM (replaces keyword matching).
+    """Analyze query completeness using LLM (FALLBACK).
 
-    This REPLACES is_broad_query() which has issues:
-    - "Paris" substring matches in "comparison"
-    - Doesn't understand semantic meaning
+    Note: Primary completeness analysis is done by UnifiedAnalyzer.
+    This function is a fallback for edge cases.
 
     Args:
         query: The user's query

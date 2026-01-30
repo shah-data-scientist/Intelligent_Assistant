@@ -1,0 +1,80 @@
+================================================================================
+  TRACE: SQ002
+================================================================================
+
+Query: "VR immersive digital art experiences in Île-de-France"
+Query Type: entity_specific
+Expected Language: en
+Expected Filters: {
+  "category": "Expositions"
+}
+Expected Behavior: {
+  "should_ask_clarification": true
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 1 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 2810 ms
+  Detected Language: en
+  Intent: event_search
+  Intent Confidence: 0.90
+  Refined Query: "VR immersive digital art experiences in Île-de-France"
+  Extracted Filters:
+    - category: Art / Exposition
+
+  Completeness Check:
+    - Is Complete: False
+    - Missing Criteria: ['city', 'timeframe']
+    - Scope: "specific" (action: None)
+    - Should Ask Clarification: True
+    - Expected Clarification: True
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline Execution
+------------------------------------------------------------
+  RAG Pipeline Time: 2360 ms
+  Events Retrieved: 0
+  Events in Response: 0
+
+  Response Preview (first 500 chars):
+  Je suis desole, mais **Île-De-France** est en dehors de ma zone de couverture.
+
+Je suis specialisee dans les evenements culturels de la region **Ile-de-France** (Paris et ses environs).
+
+Voulez-vous que je cherche des evenements dans une ville d'Ile-de-France ? Par exemple :
+- Paris, Versailles, Saint-Denis
+- Boulogne-Billancourt, Montreuil, Nanterre
+- Fontainebleau, Meaux, Pontoise...
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: FAILED
+  Issues Found: 2
+    [HIGH] Filter extraction mismatch: category
+    [MEDIUM] Latency exceeds SLA
+
+  Metrics:
+    - security_time_ms: 0.50
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 2810.18
+    - is_complete: False
+    - missing_criteria: ['city', 'timeframe']
+    - should_clarify: True
+    - detected_language: en
+    - intent: event_search
+    - extracted_filters: {'category': 'Art / Exposition'}
+    - rag_time_ms: 2359.54
+    - total_latency_ms: 5169.72
+    - events_retrieved: 0
+    - events_in_response: 0
+
+[Trace saved: SQ002_trace.txt]

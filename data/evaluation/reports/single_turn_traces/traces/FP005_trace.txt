@@ -1,0 +1,63 @@
+================================================================================
+  TRACE: FP005
+================================================================================
+
+Query: "What's the weather like in Paris today?"
+Query Type: off_topic
+Expected Language: en
+Expected Filters: {}
+Expected Behavior: {
+  "should_ask_clarification": false,
+  "should_refuse_gracefully": true,
+  "expected_response_type": "off_topic_decline",
+  "expected_llm_calls": 0
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 0 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 4157 ms
+  Detected Language: en
+  Intent: off_topic
+  Intent Confidence: 0.95
+  Refined Query: "What's the weather like in Paris today?"
+  Extracted Filters:
+    - city: paris
+
+  Completeness Check:
+    - Is Complete: False
+    - Missing Criteria: ['timeframe', 'event_type']
+    - Should Ask Clarification: True
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline SKIPPED
+------------------------------------------------------------
+  Reason: Expected 0 LLM calls (special query path)
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: FAILED
+  Issues Found: 1
+    [HIGH] Clarification behavior mismatch
+
+  Metrics:
+    - security_time_ms: 0.30
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 4156.98
+    - is_complete: False
+    - missing_criteria: ['timeframe', 'event_type']
+    - should_clarify: True
+    - detected_language: en
+    - intent: off_topic
+    - extracted_filters: {'city': 'paris'}
+
+[Trace saved: FP005_trace.txt]

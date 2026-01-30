@@ -1,0 +1,66 @@
+================================================================================
+  TRACE: BQ004
+================================================================================
+
+Query: "Ce week-end"
+Query Type: broad_query
+Expected Language: fr
+Expected Filters: {}
+Expected Behavior: {
+  "should_ask_clarification": true,
+  "should_refuse_gracefully": false,
+  "expected_response_type": "clarification_missing_city+event_type",
+  "expected_llm_calls": 0
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 0 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 4088 ms
+  Detected Language: fr
+  Intent: event_search
+  Intent Confidence: 0.90
+  Refined Query: "Ce week-end"
+  Extracted Filters:
+    - month: 1
+    - day: [31, 1]
+    - year: 2026
+
+  Completeness Check:
+    - Is Complete: False
+    - Missing Criteria: ['city', 'event_type']
+    - Scope: "all" (action: no_event_type_filter)
+    - Broad Intent Bypass: YES (user explicitly asked for 'all')
+    - Should Ask Clarification: True
+    - Expected Clarification: True
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline SKIPPED
+------------------------------------------------------------
+  Reason: Expected 0 LLM calls (special query path)
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: PASSED
+  Issues Found: 0
+
+  Metrics:
+    - security_time_ms: 0.17
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 4088.48
+    - is_complete: False
+    - missing_criteria: ['city', 'event_type']
+    - should_clarify: True
+    - detected_language: fr
+    - intent: event_search
+    - extracted_filters: {'month': 1, 'day': [31, 1], 'year': 2026}
+
+[Trace saved: BQ004_trace.txt]

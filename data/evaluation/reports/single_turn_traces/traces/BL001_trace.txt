@@ -1,0 +1,91 @@
+================================================================================
+  TRACE: BL001
+================================================================================
+
+Query: "Free jazz concerts in Paris this weekend"
+Query Type: bilingual_pair
+Expected Language: en
+Expected Filters: {
+  "city": "Paris",
+  "is_free": true
+}
+Expected Behavior: {
+  "should_ask_clarification": false,
+  "should_refuse_gracefully": false,
+  "expected_response_type": "event_results",
+  "expected_llm_calls": 2
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 1 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 5236 ms
+  Detected Language: en
+  Intent: event_search
+  Intent Confidence: 0.95
+  Refined Query: "Free jazz concerts in Paris this weekend"
+  Extracted Filters:
+    - city: Paris
+    - month: 1
+    - day: [31, 1]
+    - year: 2026
+    - category: Musique
+    - is_free: True
+
+  Completeness Check:
+    - Is Complete: True
+    - Missing Criteria: None
+    - Scope: "specific" (action: None)
+    - Should Ask Clarification: False
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline Execution
+------------------------------------------------------------
+  RAG Pipeline Time: 15718 ms
+  Events Retrieved: 0
+  Events in Response: 0
+
+  Response Preview (first 500 chars):
+  I found nothing matching your request for **free jazz concerts** in **Paris** for **this weekend**. Here are 0 events in Paris and 0 in nearby towns.
+
+---
+💡 **Want to refine your search?** You can specify:
+- 📆 A **date** or **period** (e.g., "this weekend", "in February")
+- 🎫 **Free events** (e.g., "free", "no charge")
+- 👨‍👩‍👧 **Target audience** (e.g., "for kids", "family-friendly")
+- 🎭 **Event type** (e.g., "concerts", "exhibitions", "theater")
+
+---
+**Applied filters:** 📍 paris | 📅 31-1 Januar...
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: WARNING
+  Issues Found: 1
+    [MEDIUM] Latency exceeds SLA
+
+  Metrics:
+    - security_time_ms: 0.56
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 5236.00
+    - is_complete: True
+    - missing_criteria: []
+    - should_clarify: False
+    - detected_language: en
+    - intent: event_search
+    - extracted_filters: {'city': 'Paris', 'month': 1, 'day': [31, 1], 'year': 2026, 'category': 'Musique', 'is_free': True}
+    - rag_time_ms: 15718.16
+    - total_latency_ms: 20954.17
+    - events_retrieved: 0
+    - events_in_response: 0
+
+[Trace saved: BL001_trace.txt]

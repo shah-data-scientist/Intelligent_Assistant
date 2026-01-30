@@ -1,0 +1,72 @@
+================================================================================
+  TRACE: SQ014
+================================================================================
+
+Query: "Can you write me a poem?"
+Query Type: off_topic
+Expected Language: en
+Expected Filters: {}
+Expected Behavior: {
+  "should_redirect_to_cultural_events": true,
+  "should_not_write_poem": true
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 0 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 10 ms
+  Detected Language: fr
+  Intent: event_search
+  Intent Confidence: 0.50
+  Refined Query: "Can you write me a poem?"
+  Extracted Filters:
+
+  Completeness Check:
+    - Is Complete: False
+    - Missing Criteria: ['city', 'event_type']
+    - Should Ask Clarification: True
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline Execution
+------------------------------------------------------------
+  RAG Pipeline Time: 38 ms
+  Events Retrieved: 0
+  Events in Response: 0
+
+  Response Preview (first 500 chars):
+  Pour t'aider, j'ai besoin de quelques precisions :
+- Dans quelle zone ? (Paris, Versailles, ou toute l'Ile-de-France...)
+- Quel type d'evenement ? (Concert, expo, theatre...)...
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: FAILED
+  Issues Found: 2
+    [HIGH] Clarification behavior mismatch
+    [MEDIUM] Language detection mismatch
+
+  Metrics:
+    - security_time_ms: 0.22
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 10.18
+    - is_complete: False
+    - missing_criteria: ['city', 'event_type']
+    - should_clarify: True
+    - detected_language: fr
+    - intent: event_search
+    - extracted_filters: {}
+    - rag_time_ms: 37.63
+    - total_latency_ms: 47.81
+    - events_retrieved: 0
+    - events_in_response: 0
+
+[Trace saved: SQ014_trace.txt]

@@ -1,0 +1,68 @@
+================================================================================
+  TRACE: BQ006
+================================================================================
+
+Query: "Paris"
+Query Type: broad_query
+Expected Language: en
+Expected Filters: {
+  "city": "Paris"
+}
+Expected Behavior: {
+  "should_ask_clarification": true,
+  "should_refuse_gracefully": false,
+  "expected_response_type": "clarification_missing_event_type+date",
+  "expected_llm_calls": 0
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 0 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 6220 ms
+  Detected Language: fr
+  Intent: event_search
+  Intent Confidence: 0.90
+  Refined Query: "Paris"
+  Extracted Filters:
+    - city: Paris
+
+  Completeness Check:
+    - Is Complete: True
+    - Missing Criteria: None
+    - Scope: "all" (action: no_event_type_filter)
+    - Broad Intent Bypass: YES (user explicitly asked for 'all')
+    - Should Ask Clarification: False
+    - Expected Clarification: True
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline SKIPPED
+------------------------------------------------------------
+  Reason: Expected 0 LLM calls (special query path)
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: FAILED
+  Issues Found: 2
+    [HIGH] Clarification behavior mismatch
+    [MEDIUM] Language detection mismatch
+
+  Metrics:
+    - security_time_ms: 0.20
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 6219.65
+    - is_complete: True
+    - missing_criteria: []
+    - should_clarify: False
+    - detected_language: fr
+    - intent: event_search
+    - extracted_filters: {'city': 'Paris'}
+
+[Trace saved: BQ006_trace.txt]

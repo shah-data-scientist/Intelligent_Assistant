@@ -1,507 +1,343 @@
-# Complete RAG Pipeline Data Flow (Production - January 2026)
+# RAG Pipeline Data Flow (January 2026)
 
-## Overview
-
-This document describes the complete data flow from user query to response, including all validation, retrieval, and generation steps. **All optimizations are ACTIVE in production code.**
-
-**Key Optimizations (ALL ACTIVE):**
-- Pre-compiled regex patterns (~10% faster matching)
-- **Early broad query detection BEFORE LLM calls** (saves ~5-8s for vague queries)
-- **Early city validation with fuzzy matching BEFORE LLM calls**
-- **Statistical query handling merged into fast path** (no LLM)
-- **Async database writes** (fire-and-forget for user messages)
-- Strict 3-criteria requirement (city + event_type + date)
-- Fuzzy city matching for typo tolerance (Levenshtein distance)
-- Centralized clarification templates
-- Unified query understanding (1 LLM call instead of 3)
-- **Database-backed keyword detection** (333 event keywords, 78 date keywords with fuzzy matching)
-- **Lazy FAISS index loading** (delay load until first query)
-- **Eliminated redundant function calls** (is_broad_query, language detection reuse)
-- **Pre-computed display labels** (`price_label`, `age_label` in database - no runtime enrichment)
-- **Database deduplication** (no runtime consolidation needed)
+This document describes the complete data flow from user query to response.
 
 ---
 
-## 1. Entry Point: API Endpoint
-
-**File:** `src/api/endpoints.py` → `chat()` function
+## Overview Diagram
 
 ```
-User Query (ChatRequest)
+USER QUERY
     │
-    ├── session_id: str
-    ├── question: str
-    └── language: Optional[str]
+    ▼
+┌─────────────────────────────────────────┐
+│ 1. API ENDPOINT (endpoints.py)          │
+│    - API key validation                 │
+│    - Rate limiting (20/min)             │
+└─────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────┐
+│ 2. SECURITY CHECK (guardrails.py)       │
+│    - Prompt injection detection         │
+│    - Profanity filtering                │
+└─────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────┐
+│ 3. UNIFIED ANALYSIS (LLM Call #1)       │
+│    - Language detection (fr/en)         │
+│    - Intent classification              │
+│    - Multi-dimensional analysis         │
+│    - Entity extraction                  │
+│    - Filter extraction                  │
+│    - Completeness check                 │
+└─────────────────────────────────────────┘
+    │
+    ├── [Special Query] → Early Response
+    │
+    ▼
+┌─────────────────────────────────────────┐
+│ 4. SESSION FILTER MERGE (chain.py)      │
+│    - Merge with previous turn filters   │
+│    - Accumulate search terms            │
+└─────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────┐
+│ 5. MULTI-STAGE RETRIEVAL (manager.py)   │
+│    - Stage 1: Exact match (FAISS+BM25)  │
+│    - Stage 2: Nearby locations fallback │
+│    - Stage 3: Alternative dates check   │
+└─────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────┐
+│ 6. RESPONSE GENERATION (LLM Call #2)    │
+│    - Language-aware prompt (fr/en)      │
+│    - Grounded on retrieved sources      │
+└─────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────┐
+│ 7. PERSISTENCE (chat_storage.py)        │
+│    - User message (async)               │
+│    - Assistant message (sync)           │
+└─────────────────────────────────────────┘
+    │
+    ▼
+RESPONSE
 ```
-
-**Checks performed:**
-- API key validation (middleware)
-- Rate limiting (slowapi)
-- Request validation (Pydantic schema)
 
 ---
 
-## 2. RAG Chain Entry: `query_with_metadata()`
+## Step-by-Step Details
 
-**File:** `src/retrieval/chain.py` → `RAGChain.query_with_metadata()` (line 710)
+### 1. API Entry Point
 
-### Step 2.1: Safety Check
-```
-question → check_safety(question)
-```
-**File:** `src/security/guardrails.py` (line 153)
-
-**Checks (PRE-COMPILED patterns for ~10% speedup):**
-| Check | Patterns | Method |
-|-------|----------|--------|
-| Prompt Injection | 20+ patterns (MALICIOUS_PATTERNS) | Pre-compiled regex |
-| Profanity | Word-boundary phrases (PROFANITY_PHRASES) | Pre-compiled + Unicode normalization |
-
-**Unicode Normalization:**
-- Homoglyph detection: `fuсk` (Cyrillic с) → `fuck`
-- Leetspeak: `f4ck` → `fack`
-- Accented chars: `fück` → `fuck`
-
-**Result:** Raises `SecurityException` if unsafe, otherwise continues.
-
----
-
-### Step 2.2: Language Detection
-```
-language → detect_language_from_query(question)
-```
-**File:** `src/retrieval/chain.py` (line 213)
-
-**Logic:**
-- Checks for French indicator words
-- Returns "fr" if ≥1 French word found, else "en"
-
----
-
-### Step 2.3: Special Query Detection (FAST PATH - No LLM)
-```
-question + language → check_special_query()
-```
-**File:** `src/retrieval/chain.py` (line 431)
-
-**OPTIMIZATIONS MERGED HERE:**
-1. **Statistical query detection** - Previously separate, now integrated
-2. **Early fuzzy city matching** - Typo correction before marking out-of-scope
-
-**Checks (in order, ALL PRE-COMPILED):**
-
-| Check | Response | LLM Used? | Query Type |
-|-------|----------|-----------|------------|
-| Greeting | Welcome message | **NO** | `greeting` |
-| Capability | Help description | **NO** | `capability` |
-| Off-topic | Polite decline | **NO** | `off_topic` |
-| **Statistical** | Polite redirect | **NO** | `statistical` |
-| City typo (fuzzy match) | Suggestion message | **NO** | `city_typo_suggestion` |
-| Out-of-scope city | Coverage message | **NO** | `out_of_scope_city` |
-
-**Early City Validation with Fuzzy Matching:**
-`detect_out_of_scope_city()` now returns `(city, suggested_city)` tuple:
-- `("Possy", "Poissy")` → Typo detected, suggest correction
-- `("Delhi", None)` → Out of scope, no suggestion
-- `(None, None)` → City is valid or no city mentioned
-
----
-
-### Step 2.4: Cache Check
-```
-(question, session_id) → cache.get()
-```
-**File:** `src/retrieval/cache.py`
-
-**Result:** If cached → Return cached response with re-enrichment.
-
----
-
-## 3. EARLY BROAD QUERY CHECK (OPTIMIZATION - BEFORE LLM)
-
-**File:** `src/retrieval/chain.py` (line 758)
+**File:** `src/api/endpoints.py` → `chat()`
 
 ```python
-# OPTIMIZATION: EARLY BROAD QUERY CHECK
-# Check if query is missing required criteria BEFORE calling LLM
-# This saves ~5-8s and API costs for vague queries
-is_broad, broad_reason = is_broad_query(question, chat_history)  # line 334
-if is_broad:
-    # Return clarification immediately - NO LLM CALL
-    return clarification_response
+@router.post("/chat")
+def chat(request: Request, chat_request: ChatRequest):
+    # Input: session_id, question, language (optional)
+    # Calls: chain.query_with_metadata()
 ```
 
-### Database-Backed Keyword Detection (KeywordLocator)
-
-**File:** `src/utils/keywords.py` → `KeywordLocator` class
-
-**Database Table:** `search_keywords` (404 total entries)
-| Keyword Type | Count | Examples |
-|--------------|-------|----------|
-| Date keywords | 78 | janvier, février, today, weekend, prochain |
-| Event keywords | 333 | concert, jazz, exposition, vernissage, ballet |
-
-**Detection Methods:**
-1. **Exact match** - keyword in database
-2. **Known typo match** - from pre-defined typo lists in `typos` column
-3. **Fuzzy match** - Levenshtein distance (SequenceMatcher, threshold 0.80)
-4. **Date format patterns** - Regex for DD/MM/YYYY, "15 janvier", etc.
-
-**Typo Examples Handled:**
-- `wekend` → `weekend` (fuzzy match, 0.95 confidence)
-- `febrier` → `février` (typo match, 0.95 confidence)
-- `expostion` → `exposition` (fuzzy match, 0.91 confidence)
-
-**Event Keywords → Category Mapping:**
-- `jazz`, `rock`, `classical` → `Musique`
-- `exposition`, `vernissage` → `Art`
-- `ballet`, `chorégraphie` → `Danse`
-- `atelier`, `workshop` → `Atelier`
+**Checks:**
+- API key validation via `X-API-Key` header
+- Rate limiting: 20 requests/minute per IP
 
 ---
 
-**STRICT 3-CRITERIA CHECK:**
-| Criterion | Detection Method | Examples |
-|-----------|------------------|----------|
-| City | CityLocator (geo.py) | Paris, Versailles, île-de-france |
-| Event Type | **KeywordLocator** (keywords.py) | concerts, jazz, expositions + 330 more |
-| Date/Timeframe | **KeywordLocator** (keywords.py) | ce week-end, février, today + patterns |
+### 2. Security Check
 
-**If ANY criterion missing → Return clarification from `clarifications.py` (NO LLM)**
+**File:** `src/security/guardrails.py` → `check_safety()`
 
-**Possible reasons (from query OR conversation history):**
-- `missing_city`
-- `missing_event_type`
-- `missing_date`
-- `missing_city+event_type`
-- `missing_city+date`
-- `missing_event_type+date`
-- `missing_city+event_type+date`
+**Detections:**
+- Prompt injection patterns (20+ patterns)
+- Profanity (with Unicode normalization for evasion attempts)
 
-**EXCEPTION:** Explicit broad intent words bypass check:
-`all, everything, anything, tous, tout, toutes, n'importe, whatever, any`
+**Result:** Raises `SecurityException` if unsafe.
 
 ---
 
-## 4. RAG Chain Invocation (Only if query is complete)
+### 3. Unified Analysis (LLM Call #1)
 
-**File:** `src/retrieval/chain.py` → `self.rag_chain.invoke()` (line 785)
+**File:** `src/retrieval/unified_analyzer.py` → `unified_analyze()`
 
-### Step 4.1: Unified Query Understanding (1 LLM Call)
+This is a single LLM call that extracts everything including language:
 
+**Input:**
+- User query
+- Chat history (for context carryover)
+- Known cities list (for normalization)
+
+**Output (`UnifiedAnalysisResult`):**
+```python
+@dataclass
+class UnifiedAnalysisResult:
+    intent: QueryIntent              # event_search, greeting, chitchat, etc.
+    intent_confidence: float         # 0.0 - 1.0
+    dimensions: Dict[str, QueryDimension]  # greeting, typo, statistical, scope
+    detected_language: str           # "fr" or "en" (LLM-detected)
+    city: str                        # Raw city from user
+    city_normalized: str             # Normalized to official name
+    event_type: str                  # concert, exhibition, etc.
+    timeframe: str                   # "this weekend", "February", etc.
+    is_complete: bool                # Has 2 of 3 criteria?
+    missing_criteria: List[str]      # What's missing
+    filters: Dict[str, Any]          # city, month, day, year, category, etc.
+    refined_query: str               # Typo-corrected query
 ```
-question + chat_history → unified_understanding_chain.invoke()
-```
-**File:** `src/generation/prompts.py` → `get_query_understanding_prompt()`
 
-**OPTIMIZATION:** Previously 3 LLM calls (~15-24s), now 1 call (~5-8s)
+**Language Detection:**
+The LLM detects language by analyzing:
+- French articles/prepositions: de, à, en, la, le, les, du, des, pour, dans, avec
+- French greetings: bonjour, salut, bonsoir
+- French question words: où, quand, combien, qu'est-ce
+- Accented characters: é, è, ê, à, ù, ç, œ
 
-**LLM extracts:**
-```json
-{
-  "refined_query": "corrected and expanded query",
-  "filters": {
-    "city": "Paris",
-    "month": 2,
-    "category": "Musique"
-  },
-  "needs_clarification": false,
-  "clarifying_questions": []
+Example:
+- "Concerts de jazz à Paris" → `detected_language: "fr"`
+- "Jazz concerts in Paris" → `detected_language: "en"`
+
+**Multi-Dimensional Analysis:**
+| Dimension | Description |
+|-----------|-------------|
+| greeting | Query starts with hello/bonjour |
+| typo | Spelling correction applied |
+| statistical | Asking "how many" or "combien" |
+| scope | All events vs specific type |
+
+**Completeness Rule (2 out of 3):**
+A query is complete if it has at least 2 of:
+- city
+- timeframe
+- event_type
+
+**Category Mapping:**
+```python
+CATEGORY_MAPPING = {
+    "concert": "Musique",
+    "jazz": "Musique",
+    "exposition": "Art / Exposition",
+    "theatre": "Théâtre / Spectacle",
+    ...
 }
 ```
 
+**Early Responses (no RAG needed):**
+| Intent | Response |
+|--------|----------|
+| greeting | Welcome message |
+| chitchat | Friendly redirect |
+| capability | Help description |
+| abuse | Polite response |
+| off_topic | Decline with suggestion |
+| out_of_scope_city | Coverage message |
+| incomplete query | Clarification questions |
+
 ---
 
-### Step 4.2: Intent Parsing
-```
-raw_filters → retrieval_manager.parse_intent()
-```
-**File:** `src/retrieval/manager.py` (line 38)
+### 4. Session Filter Merge
 
-**Note:** `manager.py` IS the active production code (no orchestrator.py exists).
+**File:** `src/retrieval/chain.py` → `_merge_with_previous_filters()`
+
+For multi-turn conversations, preserves context:
+- Filters not explicitly changed are carried over
+- Search terms accumulate across turns
+
+**Example:**
+```
+Turn 1: "Concerts de jazz à Paris"
+  → Stored: {city: "Paris", category: "Musique"}
+
+Turn 2: "En février plutôt"
+  → Previous: {city: "Paris", category: "Musique"}
+  → New: {month: 2}
+  → Merged: {city: "Paris", category: "Musique", month: 2}
+```
 
 ---
 
-### Step 4.3: Multi-Stage Retrieval
-```
-refined_query + intent → retrieval_manager.execute_search()
-```
-**File:** `src/retrieval/manager.py` (line 85)
+### 5. Multi-Stage Retrieval
 
-**Stages:**
+**File:** `src/retrieval/manager.py` → `RetrievalManager.execute_search()`
 
-#### Stage 1: Exact Match Search
+**Stage 1: Exact Match**
 ```
 FAISS semantic search + BM25 keyword search → RRF fusion
-Apply all filters: city, month, day, year, date_min, date_max, category, period
+Apply filters: city, month, day, year, category, is_free, audience
 ```
 
-#### Stage 2: Nearby Location Fallback
-If results < k AND city specified:
+**Stage 2: Nearby Locations (if < k results)**
 ```
-Keep date strict, remove city filter
-Search all Île-de-France, sort by haversine distance from target city
+Remove city filter, keep date strict
+Search all Île-de-France
+Sort by haversine distance from target city
 ```
 
-#### Stage 3: Alternative Dates Check (Metadata Only)
-If city specified AND date filter present:
+**Stage 3: Alternative Dates Check**
 ```
-Count events in same city within ±7 days window
-Add SYSTEM_NOTE to inform user of alternatives
+Count events in same city within ±7 days
+Add SYSTEM_NOTE if alternatives exist
+```
+
+**SearchIntent Structure:**
+```python
+@dataclass
+class SearchIntent:
+    city: Optional[str]
+    month: Optional[int]
+    day: List[int]
+    year: int = 2026
+    date_min: Optional[date]
+    date_max: Optional[date]
+    category: Optional[str]
+    is_free: Optional[bool]
+    audience: Optional[str]
 ```
 
 ---
 
-### Step 4.4: LLM Response Generation (1 LLM Call)
-```
-context + question + chat_history → RAG prompt → LLM
-```
-**File:** `src/generation/prompts.py` → `get_rag_prompt(language)`
+### 6. Response Generation (LLM Call #2)
 
-**LLM generates:**
+**File:** `src/generation/prompts.py` → `get_rag_prompt()`
+
+**Prompt Structure:**
+- System message: Grounding rules, today's date, output format
+- Chat history: Previous messages
+- Human message: Question + SOURCES (retrieved events)
+
+**Language-Aware Prompts:**
+The system prompt is selected based on `detected_language`:
+- `detected_language: "fr"` → French prompt (RAG_SYSTEM_PROMPT_FR)
+- `detected_language: "en"` → English prompt (RAG_SYSTEM_PROMPT_EN)
+
+**Grounding Rules:**
+1. List ONLY events from SOURCES
+2. NEVER fabricate titles, dates, cities, prices, URLs
+3. OMIT fields if not in SOURCE
+4. Verify EVERY detail comes from a SOURCE
+
+**Output Format:**
 ```json
 {
   "answer_text": "Human-readable response",
-  "events": [...],
-  "needs_clarification": false,
-  "clarifying_questions": []
+  "events": [
+    {
+      "title": "Event Title",
+      "date": "2026-02-15",
+      "city": "Paris",
+      "location": "Venue Name",
+      "url": "https://...",
+      "match_type": "Exact Match"
+    }
+  ]
 }
 ```
 
 ---
 
-## 5. Post-Processing (Minimal)
+### 7. Persistence
 
-**File:** `src/retrieval/chain.py` (line 791-812)
+**File:** `src/data/chat_storage.py`
 
-Type safety only: ensures `structured_events` is a list.
-
-**Note:** Event limit (k=8) is enforced in `manager.py`, not post-processing.
-
----
-
-## 6. Persistence (OPTIMIZED - Async Writes)
-
-**File:** `src/retrieval/chain.py`
-
-### OPTIMIZATION: Async Database Writes
-```python
-def _async_db_write(func, *args, **kwargs):
-    """Execute database write in background thread (fire-and-forget)."""
-    thread = threading.Thread(target=_worker, daemon=True)
-    thread.start()
-```
-
-**Implementation:**
-- **User messages:** Written async (fire-and-forget) - reduces latency
-- **Assistant messages:** Written sync (need message_id for feedback)
+- **User message:** Written async (fire-and-forget)
+- **Assistant message:** Written sync (need message_id for feedback)
 
 ```python
-# User message - async (don't wait)
-_async_db_write(self.chat_storage.add_chat_message, session_id, "user", question)
-
-# Assistant message - sync (need message_id)
-message_id = self.chat_storage.add_chat_message(session_id, "assistant", answer_text)
+_async_db_write(chat_storage.add_chat_message, session_id, "user", question)
+message_id = chat_storage.add_chat_message(session_id, "assistant", answer_text)
 ```
 
 ---
 
-## 7. Response Assembly
+## Response Structure
 
 ```python
 {
-    "answer": str,              # Human-readable text
-    "structured_events": [...], # List of event objects (max 8)
-    "message_id": int,          # For feedback
-    "sources": [...],           # Source documents
-    "retrieval_stats": {...},   # Counts and match types
+    "answer": str,                    # Human-readable text with filters/hints
+    "structured_events": [...],       # Parsed event objects (max 8)
+    "message_id": int,                # For feedback submission
+    "sources": [...],                 # Source documents with metadata
+    "retrieval_stats": {
+        "total_count": int,
+        "exact_count": int,
+        "nearby_count": int
+    },
     "needs_clarification": bool,
-    "clarifying_questions": []
+    "clarifying_questions": [...]
 }
 ```
 
 ---
 
-## Optimized Flow Diagram
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              USER QUERY                                      │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ 1. API LAYER                                                                 │
-│    ├── API Key Validation                                                   │
-│    ├── Rate Limiting                                                        │
-│    └── Request Validation                                                   │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ 2. SAFETY CHECK (Pre-compiled patterns)                                     │
-│    ├── Prompt injection (20+ patterns)                                      │
-│    └── Profanity (Unicode normalized)                                       │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ 3. ★ SPECIAL QUERY FAST PATH (No LLM) ★ [ALL PRE-COMPILED]                  │
-│    ├── Greeting → Welcome response                                          │
-│    ├── Capability → Help response                                           │
-│    ├── Off-topic → Decline response                                         │
-│    ├── ★ Statistical → Redirect response [MERGED HERE]                      │
-│    ├── ★ City typo → Suggestion with fuzzy match [EARLY FUZZY]              │
-│    └── Out-of-scope city → Coverage message                                 │
-│                                                                              │
-│    ALL handled WITHOUT LLM call (~100ms response time)                       │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ 4. CACHE CHECK → If hit, return cached (No LLM)                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ 5. ★ EARLY BROAD QUERY CHECK ★ [OPTIMIZATION - BEFORE LLM]                  │
-│    ├── Check 3-criteria (city + event_type + date)                          │
-│    │   ├── City: CityLocator (database-backed, fuzzy)                       │
-│    │   ├── Event Type: ★ KeywordLocator (333 keywords, fuzzy) ★             │
-│    │   └── Date: ★ KeywordLocator (78 keywords + patterns) ★                │
-│    ├── Check conversation history context                                   │
-│    └── If ANY missing → Return clarification (NO LLM CALL!)                 │
-│        └── Saves ~5-8s and API costs for vague queries                      │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                         [Only if query is COMPLETE]
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ 6. QUERY UNDERSTANDING (1 LLM Call) [Was 3 calls]                           │
-│    ├── Reformulate query                                                    │
-│    ├── Extract filters                                                      │
-│    └── Detect clarification needs                                           │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ 7. MULTI-STAGE RETRIEVAL                                                    │
-│    ├── Stage 1: Exact match (FAISS + BM25 + RRF + period filter)            │
-│    ├── Stage 2: Nearby location fallback (keep date, remove city)           │
-│    └── Stage 3: Alternative dates check (metadata only, ±7 days)            │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ 8. RESPONSE GENERATION (1 LLM Call)                                         │
-│    ├── Language-aware prompt selection                                      │
-│    ├── Generate answer_text                                                 │
-│    └── Structure events list                                                │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ 9. POST-PROCESSING (Minimal)                                                │
-│    └── Type safety only (ensure structured_events is list)                  │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ 10. PERSISTENCE [OPTIMIZED - Async Writes]                                  │
-│    ├── User message → ASYNC (fire-and-forget, ~50ms saved)                  │
-│    └── Assistant message → Sync (need message_id)                           │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              RESPONSE                                        │
-│    {answer, structured_events, message_id, sources, ...}                    │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Key Files Summary
+## Key Files
 
 | File | Responsibility |
 |------|----------------|
-| `src/api/endpoints.py` | API entry point |
-| `src/retrieval/chain.py` | Main orchestration, early checks, async writes |
-| `src/retrieval/manager.py` | Multi-stage retrieval (ACTIVE production code) |
-| `src/retrieval/clarifications.py` | Centralized clarification templates |
+| `src/api/endpoints.py` | API entry point, rate limiting |
+| `src/retrieval/chain.py` | Main orchestration, session management |
+| `src/retrieval/unified_analyzer.py` | LLM-based query analysis + language detection |
+| `src/retrieval/manager.py` | Multi-stage retrieval |
+| `src/generation/prompts.py` | LLM prompt templates (FR/EN) |
+| `src/security/guardrails.py` | Safety checks |
+| `src/data/chat_storage.py` | Conversation persistence |
 | `src/models/vector_store.py` | FAISS + BM25 hybrid search |
-| `src/generation/prompts.py` | LLM prompt templates |
-| `src/security/guardrails.py` | Safety checks (pre-compiled) |
-| `src/utils/geo.py` | City validation, fuzzy matching |
-| `src/utils/keywords.py` | **Database-backed keyword detection (dates, event types)** |
-| `src/data/chat_storage.py` | Persistent chat history |
-| `scripts/migrate_search_keywords.py` | Database migration for search_keywords table |
 
 ---
 
-## Active Optimizations Summary
+## LLM Calls Summary
 
-| Optimization | Status | Impact | Location |
-|--------------|--------|--------|----------|
-| Pre-compiled regex | ACTIVE | ~10% faster matching | guardrails.py, chain.py |
-| Early broad query check | ACTIVE | Saves ~5-8s for vague queries | chain.py:758 |
-| **Early city validation + fuzzy** | ACTIVE | Fast rejection OR correction | chain.py:431 |
-| **Statistical query merged** | ACTIVE | No separate check needed | chain.py:431 |
-| Async DB writes | ACTIVE | ~50ms latency reduction | chain.py:43 |
-| Unified query understanding | ACTIVE | 3 LLM calls → 1 | chain.py:785 |
-| Fuzzy city matching | ACTIVE | Better typo tolerance | geo.py:79 |
-| Enhanced skip_words | ACTIVE | Fewer false city detections | chain.py:255 |
-| **Database-backed keywords** | ACTIVE | 333 event + 78 date keywords with fuzzy | keywords.py |
-| **Lazy FAISS loading** | ACTIVE | Faster chain init, load on first query | chain.py:695, 712 |
-| **Redundant call elimination** | ACTIVE | is_broad_query called once, result reused | chain.py:758 |
+| Call | Purpose | Includes | Latency |
+|------|---------|----------|---------|
+| #1 Unified Analysis | Intent + entities + filters | Language detection | ~2-3s |
+| #2 Response Generation | Grounded answer | Language-aware prompt | ~3-5s |
+
+**Total typical latency:** 5-10s for complete queries.
 
 ---
 
-## Validation Points Summary
-
-| Stage | What's Checked | Action on Failure | LLM Used? |
-|-------|---------------|-------------------|-----------|
-| API | API key, rate limit | 401/429 error | NO |
-| Safety | Profanity, injection | SecurityException | NO |
-| Special | Greeting, capability, off-topic | Custom response | **NO** |
-| **Special** | **Statistical queries** | **Redirect response** | **NO** |
-| **Special** | **City typo (fuzzy match)** | **Suggestion response** | **NO** |
-| Special | Out-of-scope city | Coverage message | **NO** |
-| Cache | Previous response | Return cached | **NO** |
-| **Early Broad** | **3-criteria check** | **Clarification** | **NO** |
-| Post-proc | Type safety only | N/A | After LLM |
-
----
-
-## Performance Characteristics
-
-| Scenario | LLM Calls | Estimated Latency |
-|----------|-----------|-------------------|
-| Greeting/Capability/Off-topic | 0 | ~100ms |
-| **Statistical query** | **0** | **~100ms** |
-| **City typo (fuzzy suggestion)** | **0** | **~100ms** |
-| Out-of-scope city (early) | 0 | ~100ms |
-| Broad query (early detection) | 0 | ~100ms |
-| Cache hit | 0 | ~50ms |
-| Complete query | 2 | ~6-10s |
-| Complete query (no results) | 2 | ~5-8s |
-
----
-
-## Fast Path Query Types (No LLM)
-
-| Query Type | Pattern/Detection | Response |
-|------------|-------------------|----------|
-| `greeting` | "bonjour", "hello", etc. | Welcome message |
-| `capability` | "what can you do", "aide" | Help description |
-| `off_topic` | Weather, translate, recipe | Polite decline |
-| `statistical` | "how many events", "combien" | Redirect to search |
-| `city_typo_suggestion` | "Possy" → "Poissy" (fuzzy) | Correction suggestion |
-| `out_of_scope_city` | "Delhi", "London" | Coverage message |
-| `broad_query` | Missing 3-criteria | Clarification questions |
-
----
-
-*Last updated: January 27, 2026*
-*Version: 8.0 (current state only - removed historical phase references)*
+*Last updated: January 29, 2026*

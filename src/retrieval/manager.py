@@ -2,7 +2,7 @@
 
 import logging
 from datetime import date, timedelta, datetime
-from typing import Any, Dict, List, Optional, Tuple, Set
+from typing import Any, Dict, List, Optional, Tuple, Set, Union
 from dataclasses import dataclass
 
 from langchain_core.documents import Document
@@ -18,7 +18,7 @@ class SearchIntent:
     city: Optional[str] = None
     target_date: Optional[date] = None
     days: List[int] = None
-    month: Optional[int] = None
+    month: Optional[Union[int, List[int]]] = None  # Support single month or list of months
     year: Optional[int] = 2026
     date_min: Optional[date] = None
     date_max: Optional[date] = None
@@ -78,7 +78,9 @@ class RetrievalManager:
         # Set a primary target date for distance calculations/windows
         if intent.month and intent.days:
             try:
-                intent.target_date = date(intent.year, intent.month, intent.days[0])
+                # Handle multi-month: use first month for target_date
+                first_month = intent.month[0] if isinstance(intent.month, list) else intent.month
+                intent.target_date = date(intent.year, first_month, intent.days[0])
             except:
                 pass
         elif intent.date_min:

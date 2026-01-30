@@ -1,0 +1,66 @@
+================================================================================
+  TRACE: FP011
+================================================================================
+
+Query: "Jazz concerts in London this weekend"
+Query Type: out_of_scope_city
+Expected Language: en
+Expected Filters: {}
+Expected Behavior: {
+  "should_ask_clarification": false,
+  "should_refuse_gracefully": true,
+  "expected_response_type": "out_of_scope_message",
+  "expected_llm_calls": 0
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 1 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 4044 ms
+  Detected Language: en
+  Intent: event_search
+  Intent Confidence: 0.95
+  Refined Query: "Jazz concerts in London this weekend"
+  Extracted Filters:
+    - month: 1
+    - day: [31, 1]
+    - year: 2026
+    - category: Musique
+
+  Completeness Check:
+    - Is Complete: True
+    - Missing Criteria: None
+    - Scope: "specific" (action: None)
+    - Should Ask Clarification: False
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline SKIPPED
+------------------------------------------------------------
+  Reason: Expected 0 LLM calls (special query path)
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: PASSED
+  Issues Found: 0
+
+  Metrics:
+    - security_time_ms: 0.70
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 4044.37
+    - is_complete: True
+    - missing_criteria: []
+    - should_clarify: False
+    - detected_language: en
+    - intent: event_search
+    - extracted_filters: {'month': 1, 'day': [31, 1], 'year': 2026, 'category': 'Musique'}
+
+[Trace saved: FP011_trace.txt]

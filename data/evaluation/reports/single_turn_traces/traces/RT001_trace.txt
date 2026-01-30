@@ -1,0 +1,86 @@
+================================================================================
+  TRACE: RT001
+================================================================================
+
+Query: "Concerts de jazz à Montreuil ce samedi"
+Query Type: retrieval_exact_match
+Expected Language: fr
+Expected Filters: {
+  "city": "Montreuil"
+}
+Expected Behavior: {
+  "should_ask_clarification": false,
+  "should_refuse_gracefully": false,
+  "expected_response_type": "event_results",
+  "expected_llm_calls": 2
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 1 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 4316 ms
+  Detected Language: fr
+  Intent: event_search
+  Intent Confidence: 0.95
+  Refined Query: "Concerts de jazz à Montreuil ce samedi"
+  Extracted Filters:
+    - city: montreuil
+    - month: 1
+    - day: 31
+    - year: 2026
+    - category: Musique
+
+  Completeness Check:
+    - Is Complete: True
+    - Missing Criteria: None
+    - Scope: "specific" (action: None)
+    - Should Ask Clarification: False
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline Execution
+------------------------------------------------------------
+  RAG Pipeline Time: 18288 ms
+  Events Retrieved: 2
+  Events in Response: 2
+
+  Response Preview (first 500 chars):
+  Voici 2 événements musicaux pour le mois de février dans les villes proches de Montreuil.
+
+💡 *Précisez une date, un type d'événement, ou "gratuit" pour affiner.*
+
+💡 *Peu de résultats ? Essayez d'élargir votre recherche : changez la date, la ville, ou simplifiez vos critères.*
+
+---
+**Filtres appliqués:** 📍 montreuil | 📅 1 février | 🎭 Musique...
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: WARNING
+  Issues Found: 1
+    [MEDIUM] Latency exceeds SLA
+
+  Metrics:
+    - security_time_ms: 0.80
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 4316.02
+    - is_complete: True
+    - missing_criteria: []
+    - should_clarify: False
+    - detected_language: fr
+    - intent: event_search
+    - extracted_filters: {'city': 'montreuil', 'month': 1, 'day': 31, 'year': 2026, 'category': 'Musique'}
+    - rag_time_ms: 18288.34
+    - total_latency_ms: 22604.35
+    - events_retrieved: 2
+    - events_in_response: 2
+
+[Trace saved: RT001_trace.txt]

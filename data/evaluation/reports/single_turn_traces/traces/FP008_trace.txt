@@ -1,0 +1,67 @@
+================================================================================
+  TRACE: FP008
+================================================================================
+
+Query: "Combien d'événements y a-t-il ce week-end?"
+Query Type: statistical
+Expected Language: fr
+Expected Filters: {}
+Expected Behavior: {
+  "should_ask_clarification": false,
+  "should_refuse_gracefully": false,
+  "expected_response_type": "statistical_redirect",
+  "expected_llm_calls": 0
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 0 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 6140 ms
+  Detected Language: fr
+  Intent: event_search
+  Intent Confidence: 1.00
+  Refined Query: "Combien d'événements y a-t-il ce week-end ?"
+  Extracted Filters:
+    - month: 1
+    - day: [31, 1]
+    - year: 2026
+
+  Completeness Check:
+    - Is Complete: False
+    - Missing Criteria: ['city', 'event_type']
+    - Scope: "all" (action: no_event_type_filter)
+    - Broad Intent Bypass: YES (user explicitly asked for 'all')
+    - Should Ask Clarification: True
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline SKIPPED
+------------------------------------------------------------
+  Reason: Expected 0 LLM calls (special query path)
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: FAILED
+  Issues Found: 1
+    [HIGH] Clarification behavior mismatch
+
+  Metrics:
+    - security_time_ms: 0.35
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 6139.76
+    - is_complete: False
+    - missing_criteria: ['city', 'event_type']
+    - should_clarify: True
+    - detected_language: fr
+    - intent: event_search
+    - extracted_filters: {'month': 1, 'day': [31, 1], 'year': 2026}
+
+[Trace saved: FP008_trace.txt]

@@ -272,6 +272,21 @@ Puis-je vous aider a trouver un concert, une exposition ou un spectacle ?""",
 Can I help you find a concert, exhibition, or show?"""
 }
 
+# Directions/transport responses (bilingual) - NEW
+DIRECTIONS_RESPONSES = {
+    "fr": """Je peux vous aider avec les directions vers un événement !
+
+Pourriez-vous préciser de quel événement vous parlez ? Par exemple, citez le nom de l'événement ou la salle.
+
+Une fois identifié, je vous fournirai l'adresse et un lien Google Maps pour les directions.""",
+
+    "en": """I can help you with directions to an event!
+
+Could you specify which event you're referring to? For example, mention the event name or venue.
+
+Once identified, I'll provide the address and a Google Maps link for directions."""
+}
+
 # Out-of-scope city responses (bilingual)
 OUT_OF_SCOPE_CITY_RESPONSES = {
     "fr": """Je suis desole, mais **{city}** est en dehors de ma zone de couverture.
@@ -367,12 +382,14 @@ MONTH_NAMES = {
 }
 
 
-def compose_response_prefix(analysis: UnifiedAnalysisResult, language: str) -> str:
+def compose_response_prefix(analysis: UnifiedAnalysisResult, language: str, session_id: str = None, correction_tracker: Dict = None) -> str:
     """Compose response prefix based on detected dimensions.
 
     Args:
         analysis: The unified analysis result with dimensions
         language: Target language (fr/en)
+        session_id: Optional session ID for tracking corrections
+        correction_tracker: Optional dict to track shown corrections per session
 
     Returns:
         Prefix string to prepend to main response
@@ -383,12 +400,29 @@ def compose_response_prefix(analysis: UnifiedAnalysisResult, language: str) -> s
     if analysis.has_greeting:
         prefix_parts.append(GREETING_PREFIXES.get(language, ""))
 
-    # Add typo correction acknowledgment ONLY if the correction was accepted
-    # (i.e., city_normalized is not None - meaning the corrected city is in scope)
+    # Add typo correction acknowledgment ONLY if:
+    # 1. The correction was accepted (city_normalized is not None)
+    # 2. This correction hasn't been shown before in this session
     if analysis.has_typo_correction and analysis.city_normalized:
         original, corrected = analysis.typo_correction
-        ack = TYPO_ACKNOWLEDGMENTS.get(language, TYPO_ACKNOWLEDGMENTS["en"])
-        prefix_parts.append(ack.format(original=original, corrected=corrected))
+        correction_key = f"{original.lower()}->{corrected.lower()}"
+
+        # Check if this correction was already shown in this session
+        should_show = True
+        if session_id and correction_tracker is not None:
+            if session_id not in correction_tracker:
+                correction_tracker[session_id] = set()
+            elif correction_key in correction_tracker[session_id]:
+                should_show = False  # Already shown this correction
+                logger.info(f"[CORRECTION-SKIP] Already shown '{correction_key}' in session {session_id[:8]}")
+
+            if should_show:
+                # Track this correction
+                correction_tracker[session_id].add(correction_key)
+
+        if should_show:
+            ack = TYPO_ACKNOWLEDGMENTS.get(language, TYPO_ACKNOWLEDGMENTS["en"])
+            prefix_parts.append(ack.format(original=original, corrected=corrected))
 
     return "".join(prefix_parts)
 
@@ -836,6 +870,10 @@ class RAGChain:
         # This enables code-level filter preservation instead of relying on LLM to re-interpret
         self._session_filters: Dict[str, Dict[str, Any]] = {}
 
+        # SESSION CORRECTION TRACKER: Track which typo corrections have been shown per session
+        # to avoid repeating "I assume you mean X" messages
+        self._session_corrections: Dict[str, Set[str]] = {}  # {session_id: {correction_key}}
+
         try:
             total_events_val = self.vector_store.storage.count_events()
             min_date, max_date = self.vector_store.storage.get_date_range()
@@ -1154,6 +1192,7 @@ class RAGChain:
                     UnifiedIntent.GREETING: GREETING_RESPONSES,
                     UnifiedIntent.CHITCHAT: CHITCHAT_RESPONSES,
                     UnifiedIntent.CAPABILITY: CAPABILITY_RESPONSES,
+                    UnifiedIntent.DIRECTIONS: DIRECTIONS_RESPONSES,
                     UnifiedIntent.ABUSE: ABUSE_RESPONSES,
                     UnifiedIntent.OFF_TOPIC: OFF_TOPIC_RESPONSES,
                 }
@@ -1246,6 +1285,17 @@ class RAGChain:
                     dim_prefix = compose_response_prefix(analysis, language)
                     questions_text = "\n".join([f"- {q}" for q in backup_questions])
                     answer_text = f"{dim_prefix}{backup_prefix}{questions_text}"
+
+                    # CRITICAL FIX: Store partial filters for follow-up query merging
+                    # Without this, user's clarification response would be treated as new standalone query
+                    if session_id and (analysis.filters or analysis.refined_query):
+                        self._store_session_filters(
+                            session_id,
+                            analysis.filters or {},
+                            analysis.refined_query
+                        )
+                        logger.info(f"[CLARIFICATION] Stored partial context for follow-up: filters={analysis.filters}")
+
                     return {
                         "early_response": answer_text,
                         "query_type": "broad_query",

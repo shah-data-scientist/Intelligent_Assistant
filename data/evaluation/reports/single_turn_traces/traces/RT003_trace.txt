@@ -1,0 +1,88 @@
+================================================================================
+  TRACE: RT003
+================================================================================
+
+Query: "Opera in Fontainebleau on January 15th"
+Query Type: retrieval_alt_dates
+Expected Language: en
+Expected Filters: {
+  "city": "Fontainebleau",
+  "month": 1,
+  "day": 15
+}
+Expected Behavior: {
+  "should_ask_clarification": false,
+  "should_refuse_gracefully": false,
+  "expected_response_type": "event_results",
+  "expected_llm_calls": 2
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 0 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 4996 ms
+  Detected Language: en
+  Intent: event_search
+  Intent Confidence: 0.95
+  Refined Query: "Opera in Fontainebleau on January 15th"
+  Extracted Filters:
+    - city: fontainebleau
+    - month: 1
+    - day: 15
+    - year: 2026
+    - category: Musique
+
+  Completeness Check:
+    - Is Complete: True
+    - Missing Criteria: None
+    - Scope: "specific" (action: None)
+    - Should Ask Clarification: False
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline Execution
+------------------------------------------------------------
+  RAG Pipeline Time: 3384 ms
+  Events Retrieved: 0
+  Events in Response: 0
+
+  Response Preview (first 500 chars):
+  I'm sorry, but **Fontainebleau** is outside my coverage area.
+
+I specialize in cultural events in the **Ile-de-France** region (Paris and its surroundings).
+
+Would you like me to search for events in an Ile-de-France city? For example:
+- Paris, Versailles, Saint-Denis
+- Boulogne-Billancourt, Montreuil, Nanterre
+- Fontainebleau, Meaux, Pontoise...
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: WARNING
+  Issues Found: 1
+    [MEDIUM] Latency exceeds SLA
+
+  Metrics:
+    - security_time_ms: 0.42
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 4996.38
+    - is_complete: True
+    - missing_criteria: []
+    - should_clarify: False
+    - detected_language: en
+    - intent: event_search
+    - extracted_filters: {'city': 'fontainebleau', 'month': 1, 'day': 15, 'year': 2026, 'category': 'Musique'}
+    - rag_time_ms: 3384.29
+    - total_latency_ms: 8380.67
+    - events_retrieved: 0
+    - events_in_response: 0
+
+[Trace saved: RT003_trace.txt]

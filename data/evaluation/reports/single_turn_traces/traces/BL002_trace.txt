@@ -1,0 +1,90 @@
+================================================================================
+  TRACE: BL002
+================================================================================
+
+Query: "Concerts de jazz gratuits à Paris ce week-end"
+Query Type: bilingual_pair
+Expected Language: fr
+Expected Filters: {
+  "city": "Paris",
+  "is_free": true
+}
+Expected Behavior: {
+  "should_ask_clarification": false,
+  "should_refuse_gracefully": false,
+  "expected_response_type": "event_results",
+  "expected_llm_calls": 2
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 1 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 4982 ms
+  Detected Language: fr
+  Intent: event_search
+  Intent Confidence: 0.95
+  Refined Query: "Concerts de jazz gratuits à Paris ce week-end"
+  Extracted Filters:
+    - city: Paris
+    - month: 1
+    - day: [31, 1]
+    - year: 2026
+    - category: Musique
+    - is_free: True
+
+  Completeness Check:
+    - Is Complete: True
+    - Missing Criteria: None
+    - Scope: "specific" (action: None)
+    - Should Ask Clarification: False
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline Execution
+------------------------------------------------------------
+  RAG Pipeline Time: 14573 ms
+  Events Retrieved: 0
+  Events in Response: 0
+
+  Response Preview (first 500 chars):
+  Voici 0 concerts de jazz gratuits à Paris pour ce week-end. Il n'y a aucun événement correspondant à vos critères de recherche dans la ville demandée, ni dans les villes à proximité.
+
+---
+💡 **Affiner votre recherche ?** Vous pouvez préciser :
+- 📆 Une **date** ou **période** (ex: "ce week-end", "en février")
+- 🎫 **Événements gratuits** (ex: "gratuit", "entrée libre")
+- 👨‍👩‍👧 **Public cible** (ex: "pour enfants", "en famille")
+- 🎭 **Type d'événement** (ex: "concerts", "expositions", "théâtre")
+
+--...
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: WARNING
+  Issues Found: 1
+    [MEDIUM] Latency exceeds SLA
+
+  Metrics:
+    - security_time_ms: 0.56
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 4981.89
+    - is_complete: True
+    - missing_criteria: []
+    - should_clarify: False
+    - detected_language: fr
+    - intent: event_search
+    - extracted_filters: {'city': 'Paris', 'month': 1, 'day': [31, 1], 'year': 2026, 'category': 'Musique', 'is_free': True}
+    - rag_time_ms: 14573.30
+    - total_latency_ms: 19555.19
+    - events_retrieved: 0
+    - events_in_response: 0
+
+[Trace saved: BL002_trace.txt]

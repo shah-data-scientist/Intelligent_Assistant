@@ -1,0 +1,62 @@
+================================================================================
+  TRACE: FP003
+================================================================================
+
+Query: "What can you do?"
+Query Type: capability
+Expected Language: en
+Expected Filters: {}
+Expected Behavior: {
+  "should_ask_clarification": false,
+  "should_refuse_gracefully": false,
+  "expected_response_type": "capability_response",
+  "expected_llm_calls": 0
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 0 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 4533 ms
+  Detected Language: en
+  Intent: capability
+  Intent Confidence: 1.00
+  Refined Query: "What can you do?"
+  Extracted Filters:
+
+  Completeness Check:
+    - Is Complete: False
+    - Missing Criteria: ['city', 'timeframe', 'event_type']
+    - Should Ask Clarification: True
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline SKIPPED
+------------------------------------------------------------
+  Reason: Expected 0 LLM calls (special query path)
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: FAILED
+  Issues Found: 1
+    [HIGH] Clarification behavior mismatch
+
+  Metrics:
+    - security_time_ms: 0.44
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 4532.51
+    - is_complete: False
+    - missing_criteria: ['city', 'timeframe', 'event_type']
+    - should_clarify: True
+    - detected_language: en
+    - intent: capability
+    - extracted_filters: {}
+
+[Trace saved: FP003_trace.txt]

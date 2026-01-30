@@ -1,0 +1,125 @@
+================================================================================
+  CONVERSATION TRACE: conv_008
+================================================================================
+
+Description: Negative refinement - user excludes options
+Test Focus: ['context_retention', 'negative_filters']
+Language: en
+Total Turns: 3
+
+------------------------------------------------------------
+  TURN 1: initial
+------------------------------------------------------------
+Query: "Art events in Paris in February"
+Turn Type: initial
+Expected Filters: {"city": "Paris", "category": "Art / Exposition", "month": 2}
+Expected Behavior: {"should_ask_clarification": false}
+
+  [Step 1] Security Check
+    Time: 0.9ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 29844.0ms
+    Language: fr
+    Intent: event_search
+    Is Complete: True
+    Filters: {
+      "city": "Paris",
+      "month": 2,
+      "category": "Art / Exposition"
+}
+
+  [Step 3] RAG Chain Execution
+    Time: 13549.0ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+------------------------------------------------------------
+  TURN 2: refinement
+------------------------------------------------------------
+Query: "Not the paid ones though"
+Turn Type: refinement
+Expected Filters: {"city": "Paris", "category": "Art / Exposition", "month": 2, "is_free": true}
+Expected Behavior: {"should_use_context": true, "inherited_filters": ["city", "category", "month"], "new_filters": {"is_free": true}}
+
+  [Step 1] Security Check
+    Time: 0.6ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 4236.7ms
+    Language: en
+    Intent: event_search
+    Is Complete: False
+    Filters: {
+      "city": null,
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": null,
+      "is_free": true,
+      "audience": null
+}
+    ! ISSUE: [HIGH] Turn 2: Missing filter 'city' (expected: Paris)
+    ! ISSUE: [HIGH] Turn 2: Missing filter 'category' (expected: Art / Exposition)
+    ! ISSUE: [HIGH] Turn 2: Missing filter 'month' (expected: 2)
+
+  [Step 3] RAG Chain Execution
+    Time: 25336.0ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+------------------------------------------------------------
+  TURN 3: refinement
+------------------------------------------------------------
+Query: "And nothing in Montmartre"
+Turn Type: refinement
+Expected Filters: {"city": "Paris", "category": "Art / Exposition", "month": 2, "is_free": true}
+Expected Behavior: {"should_use_context": true, "negative_location_filter": "Montmartre"}
+
+  [Step 1] Security Check
+    Time: 1.0ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 10536.5ms
+    Language: en
+    Intent: event_search
+    Is Complete: False
+    Filters: {
+      "city": null,
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": null,
+      "is_free": null,
+      "audience": null
+}
+    ! ISSUE: [HIGH] Turn 3: Missing filter 'city' (expected: Paris)
+    ! ISSUE: [HIGH] Turn 3: Missing filter 'category' (expected: Art / Exposition)
+    ! ISSUE: [HIGH] Turn 3: Missing filter 'month' (expected: 2)
+    ! ISSUE: [HIGH] Turn 3: Missing filter 'is_free' (expected: True)
+
+  [Step 3] RAG Chain Execution
+    Time: 4003.4ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+================================================================================
+  CONVERSATION SUMMARY
+================================================================================
+Status: FAIL
+Total Issues: 10
+  - [MEDIUM] Turn 1: Latency exceeds SLA (43394ms > 5000ms)
+  - [HIGH] Turn 2: Missing filter 'city' (expected: Paris)
+  - [HIGH] Turn 2: Missing filter 'category' (expected: Art / Exposition)
+  - [HIGH] Turn 2: Missing filter 'month' (expected: 2)
+  - [MEDIUM] Turn 2: Latency exceeds SLA (29573ms > 5000ms)
+  - [HIGH] Turn 3: Missing filter 'city' (expected: Paris)
+  - [HIGH] Turn 3: Missing filter 'category' (expected: Art / Exposition)
+  - [HIGH] Turn 3: Missing filter 'month' (expected: 2)
+  - [HIGH] Turn 3: Missing filter 'is_free' (expected: True)
+  - [MEDIUM] Turn 3: Latency exceeds SLA (14541ms > 5000ms)
+
+Total Latency: 87508ms
+Avg Turn Latency: 29169ms
+
+[Trace saved: conv_008_trace.txt]

@@ -1,0 +1,67 @@
+================================================================================
+  TRACE: FP009
+================================================================================
+
+Query: "Concerts in Possy this weekend"
+Query Type: city_typo_suggestion
+Expected Language: en
+Expected Filters: {}
+Expected Behavior: {
+  "should_ask_clarification": false,
+  "should_refuse_gracefully": false,
+  "expected_response_type": "city_typo_suggestion",
+  "expected_llm_calls": 0
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 0 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 6817 ms
+  Detected Language: en
+  Intent: event_search
+  Intent Confidence: 0.95
+  Refined Query: "Concerts in Poissy this weekend"
+  Extracted Filters:
+    - city: Poissy
+    - month: 1
+    - day: [31, 1]
+    - year: 2026
+    - category: Musique
+
+  Completeness Check:
+    - Is Complete: True
+    - Missing Criteria: None
+    - Scope: "specific" (action: None)
+    - Should Ask Clarification: False
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline SKIPPED
+------------------------------------------------------------
+  Reason: Expected 0 LLM calls (special query path)
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: PASSED
+  Issues Found: 0
+
+  Metrics:
+    - security_time_ms: 0.35
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 6816.96
+    - is_complete: True
+    - missing_criteria: []
+    - should_clarify: False
+    - detected_language: en
+    - intent: event_search
+    - extracted_filters: {'city': 'Poissy', 'month': 1, 'day': [31, 1], 'year': 2026, 'category': 'Musique'}
+
+[Trace saved: FP009_trace.txt]

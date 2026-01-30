@@ -10,7 +10,7 @@ from slowapi.util import get_remote_address
 from src.api.schemas import ChatRequest, ChatResponse, FeedbackRequest
 from src.retrieval.chain import RAGChain
 from src.config import settings
-from src.security.guardrails import check_safety, SecurityException
+from src.security.guardrails import check_safety, SecurityException, SessionBlockedException
 from src.security.sanitization import scan_for_pii
 from src.utils.tracing import generate_trace_id, clear_trace_id
 
@@ -60,8 +60,8 @@ def chat(request: Request, chat_request: ChatRequest, chain: RAGChain = Depends(
     trace_id = generate_trace_id()
 
     try:
-        # 1. Security Check
-        check_safety(chat_request.question)
+        # 1. Security Check (with session blocking)
+        check_safety(chat_request.question, session_id=chat_request.session_id)
 
         logger.info(f"Received chat request: {chat_request.question} (session: {chat_request.session_id})")
 
@@ -94,7 +94,12 @@ def chat(request: Request, chat_request: ChatRequest, chain: RAGChain = Depends(
         logger.info(f"Chat request completed successfully")
         return response
 
+    except SessionBlockedException as sbe:
+        # Session is blocked due to previous violation - return 403 Forbidden
+        logger.warning(f"Blocked session attempted request: {sbe}")
+        raise HTTPException(status_code=403, detail=str(sbe))
     except SecurityException as se:
+        # Security violation - return 400 Bad Request (session is now blocked)
         logger.warning(f"Security guardrail triggered: {se}")
         raise HTTPException(status_code=400, detail=str(se))
     except HTTPException as he:

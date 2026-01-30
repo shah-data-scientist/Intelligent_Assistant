@@ -1,0 +1,78 @@
+================================================================================
+  TRACE: SQ004
+================================================================================
+
+Query: "Street art festivals in Paris in summer 2026"
+Query Type: temporal_complex
+Expected Language: en
+Expected Filters: {
+  "city": "Paris",
+  "category": "Expositions",
+  "year": 2026
+}
+Expected Behavior: {}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 1 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 4786 ms
+  Detected Language: en
+  Intent: event_search
+  Intent Confidence: 0.95
+  Refined Query: "Street art festivals in Paris in summer 2026"
+  Extracted Filters:
+    - city: Paris
+    - month: [6, 7, 8]
+    - year: 2026
+    - category: Art / Exposition
+
+  Completeness Check:
+    - Is Complete: True
+    - Missing Criteria: None
+    - Scope: "specific" (action: None)
+    - Should Ask Clarification: False
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline Execution
+------------------------------------------------------------
+  RAG Pipeline Time: 40276 ms
+  Events Retrieved: 0
+  Events in Response: 0
+
+  Response Preview (first 500 chars):
+  **Connection Error**
+
+Unable to reach the AI service. Please check your internet connection and try again....
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: FAILED
+  Issues Found: 2
+    [HIGH] Filter extraction mismatch: category
+    [MEDIUM] Latency exceeds SLA
+
+  Metrics:
+    - security_time_ms: 0.52
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 4785.81
+    - is_complete: True
+    - missing_criteria: []
+    - should_clarify: False
+    - detected_language: en
+    - intent: event_search
+    - extracted_filters: {'city': 'Paris', 'month': [6, 7, 8], 'year': 2026, 'category': 'Art / Exposition'}
+    - rag_time_ms: 40276.05
+    - total_latency_ms: 45061.86
+    - events_retrieved: 0
+    - events_in_response: 0
+
+[Trace saved: SQ004_trace.txt]

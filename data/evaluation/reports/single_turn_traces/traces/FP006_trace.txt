@@ -1,0 +1,62 @@
+================================================================================
+  TRACE: FP006
+================================================================================
+
+Query: "Can you translate this text for me?"
+Query Type: off_topic
+Expected Language: en
+Expected Filters: {}
+Expected Behavior: {
+  "should_ask_clarification": false,
+  "should_refuse_gracefully": true,
+  "expected_response_type": "off_topic_decline",
+  "expected_llm_calls": 0
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 0 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 5312 ms
+  Detected Language: en
+  Intent: off_topic
+  Intent Confidence: 0.90
+  Refined Query: "Can you translate this text for me?"
+  Extracted Filters:
+
+  Completeness Check:
+    - Is Complete: False
+    - Missing Criteria: ['city', 'timeframe', 'event_type']
+    - Should Ask Clarification: True
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline SKIPPED
+------------------------------------------------------------
+  Reason: Expected 0 LLM calls (special query path)
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: FAILED
+  Issues Found: 1
+    [HIGH] Clarification behavior mismatch
+
+  Metrics:
+    - security_time_ms: 0.37
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 5311.66
+    - is_complete: False
+    - missing_criteria: ['city', 'timeframe', 'event_type']
+    - should_clarify: True
+    - detected_language: en
+    - intent: off_topic
+    - extracted_filters: {}
+
+[Trace saved: FP006_trace.txt]

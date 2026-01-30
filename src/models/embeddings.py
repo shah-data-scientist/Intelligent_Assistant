@@ -1,4 +1,8 @@
-"""Mistral embeddings client for generating event embeddings."""
+"""Mistral embeddings client for generating event embeddings.
+
+Uses Mistral's mistral-embed model which produces 1024-dimensional embeddings.
+This allows using the same API key as the LLM (Mistral).
+"""
 
 import hashlib
 import logging
@@ -12,6 +16,69 @@ from src.data.models import Event
 
 logger = logging.getLogger(__name__)
 
+
+# ========================================
+# EMBEDDING-SPECIFIC ERRORS
+# ========================================
+
+class EmbeddingError(Exception):
+    """Base exception for embedding errors."""
+    pass
+
+
+class EmbeddingRateLimitError(EmbeddingError):
+    """Rate limit exceeded for embedding API."""
+    pass
+
+
+class EmbeddingAuthError(EmbeddingError):
+    """Authentication error for embedding API."""
+    pass
+
+
+def _handle_embedding_error(error: Exception, context: str = "embedding") -> None:
+    """Convert raw exceptions to clear error messages.
+
+    Args:
+        error: The original exception
+        context: Description of what was being done
+
+    Raises:
+        EmbeddingRateLimitError: If rate limited
+        EmbeddingAuthError: If authentication failed
+        EmbeddingError: For other errors with clear message
+    """
+    error_str = str(error).lower()
+
+    # Rate limit errors
+    if "429" in error_str or "rate limit" in error_str or "too many requests" in error_str:
+        msg = f"Mistral embedding API rate limit exceeded during {context}. Wait a few minutes and try again."
+        logger.error(f"[EMBED] {msg}")
+        raise EmbeddingRateLimitError(msg) from error
+
+    # Payment/quota errors
+    if "402" in error_str or "payment required" in error_str or "quota" in error_str:
+        msg = f"Mistral embedding API quota exhausted during {context}. Check your Mistral account billing."
+        logger.error(f"[EMBED] {msg}")
+        raise EmbeddingRateLimitError(msg) from error
+
+    # Authentication errors
+    if "401" in error_str or "unauthorized" in error_str or "invalid api key" in error_str:
+        msg = f"Mistral embedding API authentication failed during {context}. Check your MISTRAL_API_KEY."
+        logger.error(f"[EMBED] {msg}")
+        raise EmbeddingAuthError(msg) from error
+
+    # Network/connection errors
+    if "connection" in error_str or "timeout" in error_str or "network" in error_str:
+        msg = f"Network error connecting to Mistral embedding API during {context}: {error}"
+        logger.error(f"[EMBED] {msg}")
+        raise EmbeddingError(msg) from error
+
+    # Unknown error - still provide context
+    msg = f"Embedding error during {context}: {error}"
+    logger.error(f"[EMBED] {msg}")
+    raise EmbeddingError(msg) from error
+
 # Global embedding cache for query embeddings
 _EMBEDDING_CACHE: Dict[str, Dict[str, Any]] = {}
 _CACHE_TTL_MINUTES = 120  # 2 hours
@@ -19,7 +86,11 @@ _CACHE_MAX_SIZE = 500
 
 
 class EventEmbedder:
-    """Generate embeddings for cultural events using Mistral."""
+    """Generate embeddings for cultural events using Mistral.
+
+    Uses Mistral's mistral-embed model which produces 1024-dimensional embeddings.
+    This allows using the same API key as the LLM.
+    """
 
     def __init__(
         self,
@@ -48,10 +119,18 @@ class EventEmbedder:
 
         Returns:
             Embedding vector as list of floats
+
+        Raises:
+            EmbeddingRateLimitError: If rate limited
+            EmbeddingAuthError: If authentication failed
+            EmbeddingError: For other errors
         """
         text = event.to_text()
-        embedding = self.embeddings.embed_query(text)
-        return embedding
+        try:
+            embedding = self.embeddings.embed_query(text)
+            return embedding
+        except Exception as e:
+            _handle_embedding_error(e, f"embed_event({event.event_id})")
 
     def embed_events(self, events: list[Event]) -> list[list[float]]:
         """Generate embeddings for multiple events in batch.
@@ -61,6 +140,11 @@ class EventEmbedder:
 
         Returns:
             List of embedding vectors
+
+        Raises:
+            EmbeddingRateLimitError: If rate limited
+            EmbeddingAuthError: If authentication failed
+            EmbeddingError: For other errors
         """
         if not events:
             return []
@@ -68,10 +152,12 @@ class EventEmbedder:
         texts = [event.to_text() for event in events]
         logger.info(f"Generating embeddings for {len(texts)} events")
 
-        embeddings = self.embeddings.embed_documents(texts)
-        logger.info(f"Generated {len(embeddings)} embeddings")
-
-        return embeddings
+        try:
+            embeddings = self.embeddings.embed_documents(texts)
+            logger.info(f"Generated {len(embeddings)} embeddings")
+            return embeddings
+        except Exception as e:
+            _handle_embedding_error(e, f"embed_events({len(events)} events)")
 
     def embed_query(self, query: str, use_cache: bool = True) -> list[float]:
         """Generate embedding for a search query with caching.
@@ -101,7 +187,10 @@ class EventEmbedder:
                 del _EMBEDDING_CACHE[cache_key]
 
         # Cache miss - generate embedding
-        embedding = self.embeddings.embed_query(query)
+        try:
+            embedding = self.embeddings.embed_query(query)
+        except Exception as e:
+            _handle_embedding_error(e, f"embed_query('{query[:30]}...')")
 
         # Store in cache
         if use_cache:

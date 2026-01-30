@@ -1,0 +1,93 @@
+================================================================================
+  CONVERSATION TRACE: conv_014
+================================================================================
+
+Description: Partial topic shift - related category change
+Test Focus: ['context_retention', 'partial_topic_shift']
+Language: en
+Total Turns: 2
+
+------------------------------------------------------------
+  TURN 1: initial
+------------------------------------------------------------
+Query: "Opera performances in Paris in March"
+Turn Type: initial
+Expected Filters: {"city": "Paris", "category": "Musique", "genre": "opera", "month": 3}
+Expected Behavior: {"should_ask_clarification": false}
+
+  [Step 1] Security Check
+    Time: 0.9ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 28344.5ms
+    Language: en
+    Intent: event_search
+    Is Complete: True
+    Filters: {
+      "city": "Paris",
+      "month": 3,
+      "day": null,
+      "year": 2026,
+      "category": "Théâtre / Spectacle",
+      "is_free": null,
+      "audience": null
+}
+    ! ISSUE: [MEDIUM] Turn 1: Filter mismatch for 'category' (expected: Musique, got: Théâtre / Spectacle)
+    ! ISSUE: [HIGH] Turn 1: Missing filter 'genre' (expected: opera)
+
+  [Step 3] RAG Chain Execution
+    Time: 26323.2ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+------------------------------------------------------------
+  TURN 2: refinement
+------------------------------------------------------------
+Query: "What about ballet instead?"
+Turn Type: refinement
+Expected Filters: {"city": "Paris", "category": "Danse", "genre": "ballet", "month": 3}
+Expected Behavior: {"should_use_context": true, "replaced_filters": {"genre": "ballet"}, "kept_filters": ["city", "month"]}
+
+  [Step 1] Security Check
+    Time: 0.7ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 20382.3ms
+    Language: en
+    Intent: event_search
+    Is Complete: False
+    Filters: {
+      "city": null,
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": "Danse",
+      "is_free": null,
+      "audience": null
+}
+    ! ISSUE: [HIGH] Turn 2: Missing filter 'city' (expected: Paris)
+    ! ISSUE: [HIGH] Turn 2: Missing filter 'genre' (expected: ballet)
+    ! ISSUE: [HIGH] Turn 2: Missing filter 'month' (expected: 3)
+
+  [Step 3] RAG Chain Execution
+    Time: 33136.9ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+================================================================================
+  CONVERSATION SUMMARY
+================================================================================
+Status: FAIL
+Total Issues: 7
+  - [MEDIUM] Turn 1: Filter mismatch for 'category' (expected: Musique, got: Théâtre / Spectacle)
+  - [HIGH] Turn 1: Missing filter 'genre' (expected: opera)
+  - [MEDIUM] Turn 1: Latency exceeds SLA (54669ms > 5000ms)
+  - [HIGH] Turn 2: Missing filter 'city' (expected: Paris)
+  - [HIGH] Turn 2: Missing filter 'genre' (expected: ballet)
+  - [HIGH] Turn 2: Missing filter 'month' (expected: 3)
+  - [MEDIUM] Turn 2: Latency exceeds SLA (53520ms > 5000ms)
+
+Total Latency: 108188ms
+Avg Turn Latency: 54094ms
+
+[Trace saved: conv_014_trace.txt]

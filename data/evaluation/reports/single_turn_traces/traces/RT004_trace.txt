@@ -1,0 +1,84 @@
+================================================================================
+  TRACE: RT004
+================================================================================
+
+Query: "Expositions d'art contemporain à Nanterre en mars"
+Query Type: retrieval_exact_then_nearby
+Expected Language: fr
+Expected Filters: {
+  "city": "Nanterre",
+  "month": 3
+}
+Expected Behavior: {
+  "should_ask_clarification": false,
+  "should_refuse_gracefully": false,
+  "expected_response_type": "event_results",
+  "expected_llm_calls": 2
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 0 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 3846 ms
+  Detected Language: fr
+  Intent: event_search
+  Intent Confidence: 0.95
+  Refined Query: "Expositions d'art contemporain à Nanterre en mars"
+  Extracted Filters:
+    - city: nanterre
+    - month: 3
+    - year: 2026
+    - category: Art / Exposition
+
+  Completeness Check:
+    - Is Complete: True
+    - Missing Criteria: None
+    - Scope: "specific" (action: None)
+    - Should Ask Clarification: False
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline Execution
+------------------------------------------------------------
+  RAG Pipeline Time: 22024 ms
+  Events Retrieved: 8
+  Events in Response: 8
+
+  Response Preview (first 500 chars):
+  Voici 0 événements d'art/expositions à Nanterre en mars, et 8 événements similaires dans les villes proches :
+
+💡 *Précisez une date, un type d'événement, ou "gratuit" pour affiner.*
+
+---
+**Filtres appliqués:** 📍 nanterre | 📅 mars | 🎭 Art / Exposition...
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: WARNING
+  Issues Found: 1
+    [MEDIUM] Latency exceeds SLA
+
+  Metrics:
+    - security_time_ms: 0.49
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 3846.27
+    - is_complete: True
+    - missing_criteria: []
+    - should_clarify: False
+    - detected_language: fr
+    - intent: event_search
+    - extracted_filters: {'city': 'nanterre', 'month': 3, 'year': 2026, 'category': 'Art / Exposition'}
+    - rag_time_ms: 22024.35
+    - total_latency_ms: 25870.62
+    - events_retrieved: 8
+    - events_in_response: 8
+
+[Trace saved: RT004_trace.txt]

@@ -1,0 +1,164 @@
+================================================================================
+  CONVERSATION TRACE: conv_004
+================================================================================
+
+Description: Complex refinement chain: Multiple incremental changes
+Test Focus: ['context_retention', 'incremental_modification', 'filter_accumulation']
+Language: fr
+Total Turns: 4
+
+------------------------------------------------------------
+  TURN 1: initial
+------------------------------------------------------------
+Query: "Expositions à Paris"
+Turn Type: initial
+Expected Filters: {"city": "Paris", "category": "Art / Exposition"}
+Expected Behavior: {"should_ask_clarification": true, "clarification_topics": ["date"]}
+
+  [Step 1] Security Check
+    Time: 0.6ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 4382.9ms
+    Language: fr
+    Intent: event_search
+    Is Complete: True
+    Filters: {
+      "city": "Paris",
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": "Art / Exposition",
+      "is_free": null,
+      "audience": null
+}
+
+  [Step 3] RAG Chain Execution
+    Time: 30263.4ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+------------------------------------------------------------
+  TURN 2: refinement
+------------------------------------------------------------
+Query: "Gratuites seulement"
+Turn Type: refinement
+Expected Filters: {"city": "Paris", "category": "Art / Exposition", "is_free": true}
+Expected Behavior: {"should_use_context": true, "inherited_filters": ["city", "category"], "new_filters": {"is_free": true}}
+
+  [Step 1] Security Check
+    Time: 0.6ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 6684.7ms
+    Language: fr
+    Intent: event_search
+    Is Complete: False
+    Filters: {
+      "city": null,
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": null,
+      "is_free": true,
+      "audience": null
+}
+    ! ISSUE: [HIGH] Turn 2: Missing filter 'city' (expected: Paris)
+    ! ISSUE: [HIGH] Turn 2: Missing filter 'category' (expected: Art / Exposition)
+
+  [Step 3] RAG Chain Execution
+    Time: 31263.1ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+------------------------------------------------------------
+  TURN 3: refinement
+------------------------------------------------------------
+Query: "Ce week-end"
+Turn Type: refinement
+Expected Filters: {"city": "Paris", "category": "Art / Exposition", "is_free": true}
+Expected Behavior: {"should_use_context": true, "inherited_filters": ["city", "category", "price"], "new_filters": {}}
+
+  [Step 1] Security Check
+    Time: 0.3ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 3671.6ms
+    Language: fr
+    Intent: event_search
+    Is Complete: False
+    Filters: {
+      "city": null,
+      "month": 1,
+      "day": [
+            31,
+            1
+      ],
+      "year": 2026,
+      "category": null,
+      "is_free": null,
+      "audience": null
+}
+    ! ISSUE: [HIGH] Turn 3: Missing filter 'city' (expected: Paris)
+    ! ISSUE: [HIGH] Turn 3: Missing filter 'category' (expected: Art / Exposition)
+    ! ISSUE: [HIGH] Turn 3: Missing filter 'is_free' (expected: True)
+
+  [Step 3] RAG Chain Execution
+    Time: 30904.7ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+------------------------------------------------------------
+  TURN 4: refinement
+------------------------------------------------------------
+Query: "Non, plutôt à Versailles finalement"
+Turn Type: refinement
+Expected Filters: {"city": "Versailles", "category": "Art / Exposition", "is_free": true}
+Expected Behavior: {"should_use_context": true, "replaced_filters": {"city": "Versailles"}, "kept_filters": ["category"]}
+
+  [Step 1] Security Check
+    Time: 0.5ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 3319.2ms
+    Language: fr
+    Intent: event_search
+    Is Complete: True
+    Filters: {
+      "city": "Versailles",
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": null,
+      "is_free": null,
+      "audience": null
+}
+    ! ISSUE: [HIGH] Turn 4: Missing filter 'category' (expected: Art / Exposition)
+    ! ISSUE: [HIGH] Turn 4: Missing filter 'is_free' (expected: True)
+
+  [Step 3] RAG Chain Execution
+    Time: 31331.8ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+================================================================================
+  CONVERSATION SUMMARY
+================================================================================
+Status: FAIL
+Total Issues: 11
+  - [MEDIUM] Turn 1: Latency exceeds SLA (34647ms > 5000ms)
+  - [HIGH] Turn 2: Missing filter 'city' (expected: Paris)
+  - [HIGH] Turn 2: Missing filter 'category' (expected: Art / Exposition)
+  - [MEDIUM] Turn 2: Latency exceeds SLA (37948ms > 5000ms)
+  - [HIGH] Turn 3: Missing filter 'city' (expected: Paris)
+  - [HIGH] Turn 3: Missing filter 'category' (expected: Art / Exposition)
+  - [HIGH] Turn 3: Missing filter 'is_free' (expected: True)
+  - [MEDIUM] Turn 3: Latency exceeds SLA (34577ms > 5000ms)
+  - [HIGH] Turn 4: Missing filter 'category' (expected: Art / Exposition)
+  - [HIGH] Turn 4: Missing filter 'is_free' (expected: True)
+  - [MEDIUM] Turn 4: Latency exceeds SLA (34651ms > 5000ms)
+
+Total Latency: 141823ms
+Avg Turn Latency: 35456ms
+
+[Trace saved: conv_004_trace.txt]

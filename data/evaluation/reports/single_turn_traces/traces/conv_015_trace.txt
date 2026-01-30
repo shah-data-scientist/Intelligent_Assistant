@@ -1,0 +1,91 @@
+================================================================================
+  CONVERSATION TRACE: conv_015
+================================================================================
+
+Description: Accessibility requirements conversation
+Test Focus: ['context_retention', 'accessibility_filters']
+Language: fr
+Total Turns: 2
+
+------------------------------------------------------------
+  TURN 1: initial
+------------------------------------------------------------
+Query: "Théâtre accessible en fauteuil roulant à Paris"
+Turn Type: initial
+Expected Filters: {"city": "Paris", "category": "Théâtre / Spectacle", "accessibility": "wheelchair"}
+Expected Behavior: {"should_ask_clarification": true, "clarification_topics": ["date"]}
+
+  [Step 1] Security Check
+    Time: 1.0ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 4368.3ms
+    Language: fr
+    Intent: event_search
+    Is Complete: True
+    Filters: {
+      "city": "Paris",
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": "Théâtre / Spectacle",
+      "is_free": null,
+      "audience": null
+}
+    ! ISSUE: [HIGH] Turn 1: Missing filter 'accessibility' (expected: wheelchair)
+
+  [Step 3] RAG Chain Execution
+    Time: 27989.7ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+------------------------------------------------------------
+  TURN 2: refinement
+------------------------------------------------------------
+Query: "En février, et si possible avec audio-description"
+Turn Type: refinement
+Expected Filters: {"city": "Paris", "category": "Théâtre / Spectacle", "accessibility": ["wheelchair", "audio_description"], "month": 2}
+Expected Behavior: {"should_use_context": true, "inherited_filters": ["city", "category", "accessibility"], "new_filters": {"month": 2, "accessibility_audio": true}}
+
+  [Step 1] Security Check
+    Time: 1.2ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 6031.2ms
+    Language: fr
+    Intent: event_search
+    Is Complete: False
+    Filters: {
+      "city": null,
+      "month": 2,
+      "day": null,
+      "year": 2026,
+      "category": null,
+      "is_free": null,
+      "audience": null
+}
+    ! ISSUE: [HIGH] Turn 2: Missing filter 'city' (expected: Paris)
+    ! ISSUE: [HIGH] Turn 2: Missing filter 'category' (expected: Théâtre / Spectacle)
+    ! ISSUE: [HIGH] Turn 2: Missing filter 'accessibility' (expected: ['wheelchair', 'audio_description'])
+
+  [Step 3] RAG Chain Execution
+    Time: 31863.4ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+================================================================================
+  CONVERSATION SUMMARY
+================================================================================
+Status: FAIL
+Total Issues: 6
+  - [HIGH] Turn 1: Missing filter 'accessibility' (expected: wheelchair)
+  - [MEDIUM] Turn 1: Latency exceeds SLA (32359ms > 5000ms)
+  - [HIGH] Turn 2: Missing filter 'city' (expected: Paris)
+  - [HIGH] Turn 2: Missing filter 'category' (expected: Théâtre / Spectacle)
+  - [HIGH] Turn 2: Missing filter 'accessibility' (expected: ['wheelchair', 'audio_description'])
+  - [MEDIUM] Turn 2: Latency exceeds SLA (37896ms > 5000ms)
+
+Total Latency: 70255ms
+Avg Turn Latency: 35127ms
+
+[Trace saved: conv_015_trace.txt]

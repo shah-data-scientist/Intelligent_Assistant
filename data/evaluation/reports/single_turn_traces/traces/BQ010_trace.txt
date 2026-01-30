@@ -1,0 +1,83 @@
+================================================================================
+  TRACE: BQ010
+================================================================================
+
+Query: "Montre-moi tout ce qui se passe à Versailles"
+Query Type: broad_intent_bypass
+Expected Language: fr
+Expected Filters: {
+  "city": "Versailles"
+}
+Expected Behavior: {
+  "should_ask_clarification": false,
+  "should_refuse_gracefully": false,
+  "expected_response_type": "event_results",
+  "expected_llm_calls": 2
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 1 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 4318 ms
+  Detected Language: fr
+  Intent: event_search
+  Intent Confidence: 0.90
+  Refined Query: "Montre-moi tout ce qui se passe à Versailles"
+  Extracted Filters:
+    - city: Versailles
+
+  Completeness Check:
+    - Is Complete: True
+    - Missing Criteria: None
+    - Scope: "all" (action: no_event_type_filter)
+    - Broad Intent Bypass: YES (user explicitly asked for 'all')
+    - Should Ask Clarification: False
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline Execution
+------------------------------------------------------------
+  RAG Pipeline Time: 27524 ms
+  Events Retrieved: 8
+  Events in Response: 8
+
+  Response Preview (first 500 chars):
+  Voici 1 événement au Le Vésinet et 7 dans les villes proches, notamment à Versailles.
+
+📅 *Résultats filtrés sur les **30 prochains jours**.*
+
+💡 *Précisez une date, un type d'événement, ou "gratuit" pour affiner.*
+
+---
+**Filtres appliqués:** 📍 le vésinet...
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: WARNING
+  Issues Found: 1
+    [MEDIUM] Latency exceeds SLA
+
+  Metrics:
+    - security_time_ms: 0.55
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 4318.14
+    - is_complete: True
+    - missing_criteria: []
+    - should_clarify: False
+    - detected_language: fr
+    - intent: event_search
+    - extracted_filters: {'city': 'Versailles'}
+    - rag_time_ms: 27524.42
+    - total_latency_ms: 31842.55
+    - events_retrieved: 8
+    - events_in_response: 8
+
+[Trace saved: BQ010_trace.txt]

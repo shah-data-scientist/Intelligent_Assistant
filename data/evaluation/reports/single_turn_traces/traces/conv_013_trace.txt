@@ -1,0 +1,97 @@
+================================================================================
+  CONVERSATION TRACE: conv_013
+================================================================================
+
+Description: Date range clarification needed
+Test Focus: ['clarifying_questions', 'temporal_ambiguity']
+Language: fr
+Total Turns: 2
+
+------------------------------------------------------------
+  TURN 1: initial
+------------------------------------------------------------
+Query: "Expositions à Paris"
+Turn Type: initial
+Expected Filters: {"city": "Paris", "category": "Art / Exposition"}
+Expected Behavior: {"should_ask_clarification": true, "clarification_topics": ["date"], "reason": "Query missing when - could be now, upcoming, or specific period"}
+
+  [Step 1] Security Check
+    Time: 0.5ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 12332.2ms
+    Language: fr
+    Intent: event_search
+    Is Complete: True
+    Filters: {
+      "city": "Paris",
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": "Art / Exposition",
+      "is_free": null,
+      "audience": null
+}
+
+  [Step 3] RAG Chain Execution
+    Time: 23638.0ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+------------------------------------------------------------
+  TURN 2: clarification_response
+------------------------------------------------------------
+Query: "La semaine prochaine"
+Turn Type: clarification_response
+Expected Filters: {"city": "Paris", "category": "Art / Exposition", "date_range": "next_week"}
+Expected Behavior: {"should_use_context": true, "inherited_filters": ["city", "category"], "new_filters": {"date_range": "next_week"}}
+
+  [Step 1] Security Check
+    Time: 0.5ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 5489.1ms
+    Language: fr
+    Intent: event_search
+    Is Complete: False
+    Filters: {
+      "city": null,
+      "month": 2,
+      "day": [
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+      ],
+      "year": 2026,
+      "category": null,
+      "is_free": null,
+      "audience": "professional"
+}
+    ! ISSUE: [HIGH] Turn 2: Missing filter 'city' (expected: Paris)
+    ! ISSUE: [HIGH] Turn 2: Missing filter 'category' (expected: Art / Exposition)
+    ! ISSUE: [HIGH] Turn 2: Missing filter 'date_range' (expected: next_week)
+
+  [Step 3] RAG Chain Execution
+    Time: 30320.3ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+================================================================================
+  CONVERSATION SUMMARY
+================================================================================
+Status: FAIL
+Total Issues: 5
+  - [MEDIUM] Turn 1: Latency exceeds SLA (35971ms > 5000ms)
+  - [HIGH] Turn 2: Missing filter 'city' (expected: Paris)
+  - [HIGH] Turn 2: Missing filter 'category' (expected: Art / Exposition)
+  - [HIGH] Turn 2: Missing filter 'date_range' (expected: next_week)
+  - [MEDIUM] Turn 2: Latency exceeds SLA (35810ms > 5000ms)
+
+Total Latency: 71780ms
+Avg Turn Latency: 35890ms
+
+[Trace saved: conv_013_trace.txt]

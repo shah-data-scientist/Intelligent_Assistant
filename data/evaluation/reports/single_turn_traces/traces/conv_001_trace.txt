@@ -1,0 +1,119 @@
+================================================================================
+  CONVERSATION TRACE: conv_001
+================================================================================
+
+Description: Simple refinement: User narrows down date after initial broad query
+Test Focus: ['context_retention', 'incremental_modification']
+Language: fr
+Total Turns: 3
+
+------------------------------------------------------------
+  TURN 1: initial
+------------------------------------------------------------
+Query: "Concerts de jazz à Paris"
+Turn Type: initial
+Expected Filters: {"city": "Paris", "category": "Musique"}
+Expected Behavior: {"should_ask_clarification": true, "clarification_topics": ["date", "month"], "acceptable_actions": ["ask_clarification", "show_results_with_suggestion"], "reason": "Query missing date - chatbot should ask when or suggest upcoming options"}
+
+  [Step 1] Security Check
+    Time: 0.7ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 9202.2ms
+    Language: fr
+    Intent: event_search
+    Is Complete: True
+    Filters: {
+      "city": "Paris",
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": "Musique",
+      "is_free": null,
+      "audience": null
+}
+
+  [Step 3] RAG Chain Execution
+    Time: 21722.3ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+------------------------------------------------------------
+  TURN 2: refinement
+------------------------------------------------------------
+Query: "En février plutôt"
+Turn Type: refinement
+Expected Filters: {"city": "Paris", "category": "Musique", "month": 2}
+Expected Behavior: {"should_use_context": true, "inherited_filters": ["city", "category"], "new_filters": {"month": 2}}
+
+  [Step 1] Security Check
+    Time: 0.4ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 4249.3ms
+    Language: fr
+    Intent: event_search
+    Is Complete: False
+    Filters: {
+      "city": null,
+      "month": 2,
+      "day": null,
+      "year": 2026,
+      "category": null,
+      "is_free": null,
+      "audience": null
+}
+    ! ISSUE: [HIGH] Turn 2: Missing filter 'city' (expected: Paris)
+    ! ISSUE: [HIGH] Turn 2: Missing filter 'category' (expected: Musique)
+
+  [Step 3] RAG Chain Execution
+    Time: 32561.4ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+------------------------------------------------------------
+  TURN 3: follow_up
+------------------------------------------------------------
+Query: "Parle-moi du premier"
+Turn Type: follow_up
+Expected Filters: {}
+Expected Behavior: {"should_use_context": true, "references_previous_results": true, "expected_action": "provide_details_on_first_result"}
+
+  [Step 1] Security Check
+    Time: 0.6ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 3823.8ms
+    Language: fr
+    Intent: off_topic
+    Is Complete: True
+    Filters: {
+      "city": null,
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": null,
+      "is_free": null,
+      "audience": null
+}
+
+  [Step 3] RAG Chain Execution
+    Time: 2578.1ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+================================================================================
+  CONVERSATION SUMMARY
+================================================================================
+Status: FAIL
+Total Issues: 5
+  - [MEDIUM] Turn 1: Latency exceeds SLA (30925ms > 5000ms)
+  - [HIGH] Turn 2: Missing filter 'city' (expected: Paris)
+  - [HIGH] Turn 2: Missing filter 'category' (expected: Musique)
+  - [MEDIUM] Turn 2: Latency exceeds SLA (36811ms > 5000ms)
+  - [MEDIUM] Turn 3: Latency exceeds SLA (6403ms > 5000ms)
+
+Total Latency: 74139ms
+Avg Turn Latency: 24713ms
+
+[Trace saved: conv_001_trace.txt]

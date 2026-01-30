@@ -1,0 +1,83 @@
+================================================================================
+  CONVERSATION TRACE: conv_006
+================================================================================
+
+Description: Ambiguous refinement requiring disambiguation
+Test Focus: ['clarifying_questions', 'ambiguity_detection']
+Language: fr
+Total Turns: 2
+
+------------------------------------------------------------
+  TURN 1: initial
+------------------------------------------------------------
+Query: "Concerts à Paris en mars"
+Turn Type: initial
+Expected Filters: {"city": "Paris", "category": "Musique", "month": 3}
+Expected Behavior: {"should_ask_clarification": false}
+
+  [Step 1] Security Check
+    Time: 0.8ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 2933.7ms
+    Language: fr
+    Intent: event_search
+    Is Complete: True
+    Filters: {
+      "city": "Paris",
+      "month": 3,
+      "day": null,
+      "year": 2026,
+      "category": "Musique",
+      "is_free": null,
+      "audience": null
+}
+
+  [Step 3] RAG Chain Execution
+    Time: 24033.7ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+------------------------------------------------------------
+  TURN 2: refinement
+------------------------------------------------------------
+Query: "Plus tard"
+Turn Type: refinement
+Expected Filters: {}
+Expected Behavior: {"should_ask_clarification": true, "clarification_topics": ["date_interpretation"], "reason": "'Plus tard' is ambiguous - could mean different month or time of day"}
+
+  [Step 1] Security Check
+    Time: 0.3ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 3633.9ms
+    Language: fr
+    Intent: chitchat
+    Is Complete: True
+    Filters: {
+      "city": null,
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": null,
+      "is_free": null,
+      "audience": null
+}
+
+  [Step 3] RAG Chain Execution
+    Time: 4285.2ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+================================================================================
+  CONVERSATION SUMMARY
+================================================================================
+Status: WARN
+Total Issues: 2
+  - [MEDIUM] Turn 1: Latency exceeds SLA (26968ms > 5000ms)
+  - [MEDIUM] Turn 2: Latency exceeds SLA (7919ms > 5000ms)
+
+Total Latency: 34888ms
+Avg Turn Latency: 17444ms
+
+[Trace saved: conv_006_trace.txt]

@@ -1,0 +1,85 @@
+================================================================================
+  CONVERSATION TRACE: conv_011
+================================================================================
+
+Description: Correction flow - user corrects a misunderstanding
+Test Focus: ['context_retention', 'error_correction']
+Language: fr
+Total Turns: 2
+
+------------------------------------------------------------
+  TURN 1: initial
+------------------------------------------------------------
+Query: "Concerts rock à Lyon"
+Turn Type: initial
+Expected Filters: {"city": "Lyon", "category": "Musique"}
+Expected Behavior: {"should_clarify_scope": true, "reason": "Lyon is not in Île-de-France"}
+
+  [Step 1] Security Check
+    Time: 0.5ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 5567.9ms
+    Language: fr
+    Intent: event_search
+    Is Complete: True
+    Filters: {
+      "city": "Lyon",
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": "Musique",
+      "is_free": null,
+      "audience": null
+}
+
+  [Step 3] RAG Chain Execution
+    Time: 12913.8ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+------------------------------------------------------------
+  TURN 2: refinement
+------------------------------------------------------------
+Query: "Pardon, je voulais dire Paris"
+Turn Type: refinement
+Expected Filters: {"city": "Paris", "category": "Musique"}
+Expected Behavior: {"should_use_context": true, "correction_applied": {"city": "Lyon -> Paris"}, "kept_filters": ["category", "genre"]}
+
+  [Step 1] Security Check
+    Time: 0.6ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 3884.5ms
+    Language: fr
+    Intent: event_search
+    Is Complete: True
+    Filters: {
+      "city": "Paris",
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": null,
+      "is_free": null,
+      "audience": null
+}
+    ! ISSUE: [HIGH] Turn 2: Missing filter 'category' (expected: Musique)
+
+  [Step 3] RAG Chain Execution
+    Time: 34200.8ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+================================================================================
+  CONVERSATION SUMMARY
+================================================================================
+Status: FAIL
+Total Issues: 3
+  - [MEDIUM] Turn 1: Latency exceeds SLA (18482ms > 5000ms)
+  - [HIGH] Turn 2: Missing filter 'category' (expected: Musique)
+  - [MEDIUM] Turn 2: Latency exceeds SLA (38086ms > 5000ms)
+
+Total Latency: 56568ms
+Avg Turn Latency: 28284ms
+
+[Trace saved: conv_011_trace.txt]

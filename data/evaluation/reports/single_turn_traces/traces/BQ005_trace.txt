@@ -1,0 +1,64 @@
+================================================================================
+  TRACE: BQ005
+================================================================================
+
+Query: "Concerts"
+Query Type: broad_query
+Expected Language: en
+Expected Filters: {}
+Expected Behavior: {
+  "should_ask_clarification": true,
+  "should_refuse_gracefully": false,
+  "expected_response_type": "clarification_missing_city+date",
+  "expected_llm_calls": 0
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 0 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 6349 ms
+  Detected Language: fr
+  Intent: event_search
+  Intent Confidence: 0.90
+  Refined Query: "Concerts"
+  Extracted Filters:
+    - category: Musique
+
+  Completeness Check:
+    - Is Complete: False
+    - Missing Criteria: ['city', 'timeframe']
+    - Scope: "specific" (action: None)
+    - Should Ask Clarification: True
+    - Expected Clarification: True
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline SKIPPED
+------------------------------------------------------------
+  Reason: Expected 0 LLM calls (special query path)
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: WARNING
+  Issues Found: 1
+    [MEDIUM] Language detection mismatch
+
+  Metrics:
+    - security_time_ms: 0.16
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 6349.31
+    - is_complete: False
+    - missing_criteria: ['city', 'timeframe']
+    - should_clarify: True
+    - detected_language: fr
+    - intent: event_search
+    - extracted_filters: {'category': 'Musique'}
+
+[Trace saved: BQ005_trace.txt]

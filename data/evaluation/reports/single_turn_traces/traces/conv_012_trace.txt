@@ -1,0 +1,124 @@
+================================================================================
+  CONVERSATION TRACE: conv_012
+================================================================================
+
+Description: Exploratory conversation - user discovers interests
+Test Focus: ['clarifying_questions', 'recommendation_flow']
+Language: en
+Total Turns: 3
+
+------------------------------------------------------------
+  TURN 1: initial
+------------------------------------------------------------
+Query: "I want to do something cultural this weekend but I don't know what"
+Turn Type: initial
+Expected Filters: {}
+Expected Behavior: {"should_ask_clarification": true, "clarification_topics": ["preferences", "category", "city"], "should_offer_options": true}
+
+  [Step 1] Security Check
+    Time: 1.4ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 5518.6ms
+    Language: en
+    Intent: event_search
+    Is Complete: False
+    Filters: {
+      "city": null,
+      "month": 1,
+      "day": [
+            31,
+            1
+      ],
+      "year": 2026,
+      "category": null,
+      "is_free": null,
+      "audience": null
+}
+
+  [Step 3] RAG Chain Execution
+    Time: 28.2ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+------------------------------------------------------------
+  TURN 2: clarification_response
+------------------------------------------------------------
+Query: "Maybe something with music? I'm near Montmartre"
+Turn Type: clarification_response
+Expected Filters: {"category": "Musique", "neighborhood": "Montmartre"}
+Expected Behavior: {"should_use_context": true, "soft_preferences": true, "new_filters": {"category": "Musique", "neighborhood": "Montmartre"}}
+
+  [Step 1] Security Check
+    Time: 1.1ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 2529.5ms
+    Language: en
+    Intent: event_search
+    Is Complete: True
+    Filters: {
+      "city": "Paris",
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": "Musique",
+      "is_free": null,
+      "audience": null
+}
+    ! ISSUE: [HIGH] Turn 2: Missing filter 'neighborhood' (expected: Montmartre)
+
+  [Step 3] RAG Chain Execution
+    Time: 27146.4ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+------------------------------------------------------------
+  TURN 3: follow_up
+------------------------------------------------------------
+Query: "These look nice! Any jazz specifically?"
+Turn Type: follow_up
+Expected Filters: {"category": "Musique", "genre": "jazz", "neighborhood": "Montmartre"}
+Expected Behavior: {"should_use_context": true, "refined_category": "jazz", "kept_filters": ["neighborhood", "date_range"]}
+
+  [Step 1] Security Check
+    Time: 0.6ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 5922.0ms
+    Language: en
+    Intent: event_search
+    Is Complete: False
+    Filters: {
+      "city": null,
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": "Musique",
+      "is_free": null,
+      "audience": null
+}
+    ! ISSUE: [HIGH] Turn 3: Missing filter 'genre' (expected: jazz)
+    ! ISSUE: [HIGH] Turn 3: Missing filter 'neighborhood' (expected: Montmartre)
+
+  [Step 3] RAG Chain Execution
+    Time: 29024.3ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+================================================================================
+  CONVERSATION SUMMARY
+================================================================================
+Status: FAIL
+Total Issues: 6
+  - [MEDIUM] Turn 1: Latency exceeds SLA (5548ms > 5000ms)
+  - [HIGH] Turn 2: Missing filter 'neighborhood' (expected: Montmartre)
+  - [MEDIUM] Turn 2: Latency exceeds SLA (29677ms > 5000ms)
+  - [HIGH] Turn 3: Missing filter 'genre' (expected: jazz)
+  - [HIGH] Turn 3: Missing filter 'neighborhood' (expected: Montmartre)
+  - [MEDIUM] Turn 3: Latency exceeds SLA (34947ms > 5000ms)
+
+Total Latency: 70172ms
+Avg Turn Latency: 23391ms
+
+[Trace saved: conv_012_trace.txt]

@@ -19,12 +19,16 @@ class Settings(BaseSettings):
     # Google API (Gemini)
     google_api_key: str = ""  # Optional if using Mistral
 
-    # LLM Backend: "mistral", "google", or "huggingface"
-    llm_backend: str = "huggingface"  # Using HuggingFace while Mistral is rate limited
+    # LLM Backend: "mistral", "google", "huggingface", or "ollama"
+    llm_backend: str = "ollama"  # Using local Ollama
 
     # HuggingFace settings (for llm_backend="huggingface")
     hf_token: str | None = None  # Set HF_TOKEN env var or provide here
     hf_model: str = "Qwen/Qwen2.5-7B-Instruct"  # 7B model, good at JSON output
+
+    # Ollama settings (for llm_backend="ollama")
+    ollama_model: str = "qwen2.5:1.5b"  # Smallest model for CPU
+    ollama_url: str = "http://localhost:11434"  # Ollama server URL
 
     # OpenAgenda API (via Opendatasoft)
     openagenda_base_url: str = (

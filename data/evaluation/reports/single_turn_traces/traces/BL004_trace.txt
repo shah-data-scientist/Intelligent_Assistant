@@ -1,0 +1,84 @@
+================================================================================
+  TRACE: BL004
+================================================================================
+
+Query: "Expositions d'art à Versailles en février"
+Query Type: bilingual_pair
+Expected Language: fr
+Expected Filters: {
+  "city": "Versailles",
+  "month": 2
+}
+Expected Behavior: {
+  "should_ask_clarification": false,
+  "should_refuse_gracefully": false,
+  "expected_response_type": "event_results",
+  "expected_llm_calls": 2
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 0 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 5315 ms
+  Detected Language: fr
+  Intent: event_search
+  Intent Confidence: 0.95
+  Refined Query: "Expositions d'art à Versailles en février"
+  Extracted Filters:
+    - city: Versailles
+    - month: 2
+    - year: 2026
+    - category: Art / Exposition
+
+  Completeness Check:
+    - Is Complete: True
+    - Missing Criteria: None
+    - Scope: "specific" (action: None)
+    - Should Ask Clarification: False
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline Execution
+------------------------------------------------------------
+  RAG Pipeline Time: 26116 ms
+  Events Retrieved: 8
+  Events in Response: 8
+
+  Response Preview (first 500 chars):
+  Pas d'événements d'art/expositions au Le Vésinet, mais voici 8 événements similaires dans les villes proches pour février :
+
+💡 *Précisez une date, un type d'événement, ou "gratuit" pour affiner.*
+
+---
+**Filtres appliqués:** 📍 le vésinet | 📅 février | 🎭 Art / Exposition...
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: WARNING
+  Issues Found: 1
+    [MEDIUM] Latency exceeds SLA
+
+  Metrics:
+    - security_time_ms: 0.43
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 5315.45
+    - is_complete: True
+    - missing_criteria: []
+    - should_clarify: False
+    - detected_language: fr
+    - intent: event_search
+    - extracted_filters: {'city': 'Versailles', 'month': 2, 'year': 2026, 'category': 'Art / Exposition'}
+    - rag_time_ms: 26116.09
+    - total_latency_ms: 31431.54
+    - events_retrieved: 8
+    - events_in_response: 8
+
+[Trace saved: BL004_trace.txt]

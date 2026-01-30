@@ -1,0 +1,73 @@
+================================================================================
+  TRACE: SQ009
+================================================================================
+
+Query: "Electronic music festivals in Île-de-France"
+Query Type: entity_specific
+Expected Language: en
+Expected Filters: {
+  "category": "Musique"
+}
+Expected Behavior: {
+  "should_ask_clarification": true
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 1 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 18 ms
+  Detected Language: fr
+  Intent: event_search
+  Intent Confidence: 0.50
+  Refined Query: "Electronic music festivals in Île-de-France"
+  Extracted Filters:
+
+  Completeness Check:
+    - Is Complete: False
+    - Missing Criteria: ['city', 'event_type']
+    - Should Ask Clarification: True
+    - Expected Clarification: True
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline Execution
+------------------------------------------------------------
+  RAG Pipeline Time: 31 ms
+  Events Retrieved: 0
+  Events in Response: 0
+
+  Response Preview (first 500 chars):
+  Pour t'aider, j'ai besoin de quelques precisions :
+- Dans quelle zone ? (Paris, Versailles, ou toute l'Ile-de-France...)
+- Quel type d'evenement ? (Concert, expo, theatre...)...
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: FAILED
+  Issues Found: 2
+    [MEDIUM] Language detection mismatch
+    [HIGH] Filter extraction mismatch: category
+
+  Metrics:
+    - security_time_ms: 0.87
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 18.18
+    - is_complete: False
+    - missing_criteria: ['city', 'event_type']
+    - should_clarify: True
+    - detected_language: fr
+    - intent: event_search
+    - extracted_filters: {}
+    - rag_time_ms: 31.34
+    - total_latency_ms: 49.52
+    - events_retrieved: 0
+    - events_in_response: 0
+
+[Trace saved: SQ009_trace.txt]

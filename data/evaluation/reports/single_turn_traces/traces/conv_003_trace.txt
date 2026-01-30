@@ -1,0 +1,119 @@
+================================================================================
+  CONVERSATION TRACE: conv_003
+================================================================================
+
+Description: Clarifying question flow: Broad query triggers clarification, user responds
+Test Focus: ['clarifying_questions', 'context_retention']
+Language: en
+Total Turns: 3
+
+------------------------------------------------------------
+  TURN 1: initial
+------------------------------------------------------------
+Query: "events"
+Turn Type: initial
+Expected Filters: {}
+Expected Behavior: {"should_ask_clarification": true, "clarification_topics": ["category", "city", "date"], "acceptable_actions": ["ask_clarification"], "reason": "Query too vague - missing category, location, and date"}
+
+  [Step 1] Security Check
+    Time: 0.3ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 6783.3ms
+    Language: en
+    Intent: event_search
+    Is Complete: False
+    Filters: {
+      "city": null,
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": null,
+      "is_free": null,
+      "audience": null
+}
+
+  [Step 3] RAG Chain Execution
+    Time: 32.0ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+------------------------------------------------------------
+  TURN 2: clarification_response
+------------------------------------------------------------
+Query: "Art exhibitions in Paris"
+Turn Type: clarification_response
+Expected Filters: {"city": "Paris", "category": "Art / Exposition"}
+Expected Behavior: {"should_ask_clarification": true, "clarification_topics": ["date"], "reason": "Now has category and city, still missing date"}
+
+  [Step 1] Security Check
+    Time: 0.4ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 2529.6ms
+    Language: en
+    Intent: event_search
+    Is Complete: True
+    Filters: {
+      "city": "Paris",
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": "Art / Exposition",
+      "is_free": null,
+      "audience": null
+}
+
+  [Step 3] RAG Chain Execution
+    Time: 31363.6ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+------------------------------------------------------------
+  TURN 3: clarification_response
+------------------------------------------------------------
+Query: "In March"
+Turn Type: clarification_response
+Expected Filters: {"city": "Paris", "category": "Art / Exposition", "month": 3}
+Expected Behavior: {"should_use_context": true, "inherited_filters": ["city", "category"], "new_filters": {"month": 3}}
+
+  [Step 1] Security Check
+    Time: 0.3ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 10752.7ms
+    Language: en
+    Intent: event_search
+    Is Complete: False
+    Filters: {
+      "city": null,
+      "month": 3,
+      "day": null,
+      "year": 2026,
+      "category": null,
+      "is_free": null,
+      "audience": null
+}
+    ! ISSUE: [HIGH] Turn 3: Missing filter 'city' (expected: Paris)
+    ! ISSUE: [HIGH] Turn 3: Missing filter 'category' (expected: Art / Exposition)
+
+  [Step 3] RAG Chain Execution
+    Time: 34423.5ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+================================================================================
+  CONVERSATION SUMMARY
+================================================================================
+Status: FAIL
+Total Issues: 5
+  - [MEDIUM] Turn 1: Latency exceeds SLA (6816ms > 5000ms)
+  - [MEDIUM] Turn 2: Latency exceeds SLA (33894ms > 5000ms)
+  - [HIGH] Turn 3: Missing filter 'city' (expected: Paris)
+  - [HIGH] Turn 3: Missing filter 'category' (expected: Art / Exposition)
+  - [MEDIUM] Turn 3: Latency exceeds SLA (45176ms > 5000ms)
+
+Total Latency: 85886ms
+Avg Turn Latency: 28629ms
+
+[Trace saved: conv_003_trace.txt]

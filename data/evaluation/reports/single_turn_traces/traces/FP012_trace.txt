@@ -1,0 +1,65 @@
+================================================================================
+  TRACE: FP012
+================================================================================
+
+Query: "Expositions à Delhi en mars"
+Query Type: out_of_scope_city
+Expected Language: fr
+Expected Filters: {}
+Expected Behavior: {
+  "should_ask_clarification": false,
+  "should_refuse_gracefully": true,
+  "expected_response_type": "out_of_scope_message",
+  "expected_llm_calls": 0
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 0 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 4849 ms
+  Detected Language: fr
+  Intent: event_search
+  Intent Confidence: 0.95
+  Refined Query: "Expositions à Delhi en mars"
+  Extracted Filters:
+    - month: 3
+    - year: 2026
+    - category: Art / Exposition
+
+  Completeness Check:
+    - Is Complete: True
+    - Missing Criteria: None
+    - Scope: "specific" (action: None)
+    - Should Ask Clarification: False
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline SKIPPED
+------------------------------------------------------------
+  Reason: Expected 0 LLM calls (special query path)
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: PASSED
+  Issues Found: 0
+
+  Metrics:
+    - security_time_ms: 0.23
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 4848.74
+    - is_complete: True
+    - missing_criteria: []
+    - should_clarify: False
+    - detected_language: fr
+    - intent: event_search
+    - extracted_filters: {'month': 3, 'year': 2026, 'category': 'Art / Exposition'}
+
+[Trace saved: FP012_trace.txt]

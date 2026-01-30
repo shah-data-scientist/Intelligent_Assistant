@@ -1,0 +1,114 @@
+================================================================================
+  CONVERSATION TRACE: conv_005
+================================================================================
+
+Description: Follow-up details with comparison request
+Test Focus: ['context_retention', 'result_reference', 'comparison']
+Language: en
+Total Turns: 3
+
+------------------------------------------------------------
+  TURN 1: initial
+------------------------------------------------------------
+Query: "Classical music concerts in February in Paris"
+Turn Type: initial
+Expected Filters: {"city": "Paris", "category": "Musique", "month": 2}
+Expected Behavior: {"should_ask_clarification": false}
+
+  [Step 1] Security Check
+    Time: 1.5ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 4860.3ms
+    Language: en
+    Intent: event_search
+    Is Complete: True
+    Filters: {
+      "city": "Paris",
+      "month": 2,
+      "day": null,
+      "year": 2026,
+      "category": "Musique",
+      "is_free": null,
+      "audience": null
+}
+
+  [Step 3] RAG Chain Execution
+    Time: 33690.6ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+------------------------------------------------------------
+  TURN 2: follow_up
+------------------------------------------------------------
+Query: "What's the price for the second one?"
+Turn Type: follow_up
+Expected Filters: {}
+Expected Behavior: {"should_use_context": true, "references_previous_results": true, "result_index": 2}
+
+  [Step 1] Security Check
+    Time: 0.6ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 3610.5ms
+    Language: en
+    Intent: off_topic
+    Is Complete: True
+    Filters: {
+      "city": null,
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": null,
+      "is_free": null,
+      "audience": null
+}
+
+  [Step 3] RAG Chain Execution
+    Time: 2398.8ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+------------------------------------------------------------
+  TURN 3: follow_up
+------------------------------------------------------------
+Query: "Is the first one more expensive?"
+Turn Type: follow_up
+Expected Filters: {}
+Expected Behavior: {"should_use_context": true, "references_previous_results": true, "comparison_required": true}
+
+  [Step 1] Security Check
+    Time: 0.5ms, Safe: True
+
+  [Step 2] Query Analysis
+    Time: 2073.3ms
+    Language: en
+    Intent: off_topic
+    Is Complete: True
+    Filters: {
+      "city": null,
+      "month": null,
+      "day": null,
+      "year": null,
+      "category": null,
+      "is_free": null,
+      "audience": null
+}
+
+  [Step 3] RAG Chain Execution
+    Time: 2763.2ms
+    Events Retrieved: 0
+    Response Preview: ...
+
+================================================================================
+  CONVERSATION SUMMARY
+================================================================================
+Status: WARN
+Total Issues: 2
+  - [MEDIUM] Turn 1: Latency exceeds SLA (38552ms > 5000ms)
+  - [MEDIUM] Turn 2: Latency exceeds SLA (6010ms > 5000ms)
+
+Total Latency: 49399ms
+Avg Turn Latency: 16466ms
+
+[Trace saved: conv_005_trace.txt]

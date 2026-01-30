@@ -1,0 +1,86 @@
+================================================================================
+  TRACE: RT002
+================================================================================
+
+Query: "Classical music in Bondy this weekend"
+Query Type: retrieval_nearby_fallback
+Expected Language: en
+Expected Filters: {
+  "city": "Bondy"
+}
+Expected Behavior: {
+  "should_ask_clarification": false,
+  "should_refuse_gracefully": false,
+  "expected_response_type": "event_results",
+  "expected_llm_calls": 2
+}
+
+------------------------------------------------------------
+  STEP 1: Security Check
+------------------------------------------------------------
+  Security Check Time: 1 ms
+  Is Safe: True
+
+------------------------------------------------------------
+  STEP 2: Unified Query Analysis
+------------------------------------------------------------
+  Analysis Time: 15553 ms
+  Detected Language: en
+  Intent: event_search
+  Intent Confidence: 0.95
+  Refined Query: "Classical music in Bondy this weekend"
+  Extracted Filters:
+    - city: Bondy
+    - month: 1
+    - day: [31, 1]
+    - year: 2026
+    - category: Musique
+
+  Completeness Check:
+    - Is Complete: True
+    - Missing Criteria: None
+    - Scope: "specific" (action: None)
+    - Should Ask Clarification: False
+    - Expected Clarification: False
+
+------------------------------------------------------------
+  STEP 3: RAG Pipeline Execution
+------------------------------------------------------------
+  RAG Pipeline Time: 17097 ms
+  Events Retrieved: 2
+  Events in Response: 2
+
+  Response Preview (first 500 chars):
+  Here are 0 events in Bondy, but here are 2 in nearby towns for **classical music** this **weekend**, and other dates are available!
+
+💡 *Specify a date, event type, or "free" to refine your search.*
+
+💡 *Few results? Try broadening your search: change the date, city, or simplify your criteria.*
+
+---
+**Applied filters:** 📍 Bondy | 📅 31-1 January | 🎭 Musique...
+
+================================================================================
+  TRACE SUMMARY
+================================================================================
+  Status: WARNING
+  Issues Found: 1
+    [MEDIUM] Latency exceeds SLA
+
+  Metrics:
+    - security_time_ms: 0.71
+    - security_blocked: False
+    - expected_blocked: False
+    - analysis_time_ms: 15553.47
+    - is_complete: True
+    - missing_criteria: []
+    - should_clarify: False
+    - detected_language: en
+    - intent: event_search
+    - extracted_filters: {'city': 'Bondy', 'month': 1, 'day': [31, 1], 'year': 2026, 'category': 'Musique'}
+    - rag_time_ms: 17096.59
+    - total_latency_ms: 32650.06
+    - events_retrieved: 2
+    - events_in_response: 2
+
+[Trace saved: RT002_trace.txt]
