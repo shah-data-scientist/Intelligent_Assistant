@@ -40,6 +40,14 @@ repos:
         stages: [pre-commit]
         description: Ensures changed Python files are documented in CHANGELOG.md
 
+      - id: smart-test-runner
+        name: Smart Targeted Tests (AST-based)
+        entry: python scripts/global_policy/smart_test_runner.py --staged
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+        description: Runs targeted tests for modified files + their importers
+
   # Python Code Quality
   - repo: https://github.com/psf/black
     rev: 24.1.1

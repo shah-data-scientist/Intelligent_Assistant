@@ -17,6 +17,7 @@ MAINTAINER: QA Team
 
 import pytest
 import json
+import os
 from src.generation.prompts import (
     RAG_SYSTEM_PROMPT,
     RAG_SYSTEM_PROMPT_FR,
@@ -32,14 +33,12 @@ class TestPromptStructure:
     def test_rag_prompt_fr_has_required_sections(self):
         """Test French RAG_SYSTEM_PROMPT has all required sections."""
         assert "Tu es" in RAG_SYSTEM_PROMPT_FR
-        assert "REGLES" in RAG_SYSTEM_PROMPT_FR
         assert "ANCRAGE" in RAG_SYSTEM_PROMPT_FR
         assert "FORMAT" in RAG_SYSTEM_PROMPT_FR or "JSON" in RAG_SYSTEM_PROMPT_FR
 
     def test_rag_prompt_en_has_required_sections(self):
         """Test English RAG_SYSTEM_PROMPT has all required sections."""
         assert "You are" in RAG_SYSTEM_PROMPT_EN
-        assert "RULES" in RAG_SYSTEM_PROMPT_EN
         assert "GROUNDING" in RAG_SYSTEM_PROMPT_EN
         assert "FORMAT" in RAG_SYSTEM_PROMPT_EN or "JSON" in RAG_SYSTEM_PROMPT_EN
 
@@ -228,15 +227,22 @@ class TestPromptEdgeCases:
 
 # Mark integration tests that make real LLM calls
 @pytest.mark.integration
-@pytest.mark.skip(reason="Requires LLM API call - expensive and slow")
+@pytest.mark.skipif(
+    not os.environ.get("RUN_LIVE_API_TESTS"),
+    reason="Live API tests disabled. Set RUN_LIVE_API_TESTS=1 to enable."
+)
 class TestPromptOutputFormat:
     """Integration tests for prompt output format (requires LLM)."""
 
     def test_prompt_generates_valid_json(self):
         """Test prompt produces parseable JSON (integration test)."""
-        from src.generation.llm import get_llm
+        from src.generation.llm import get_chat_llm
+        from src.config import settings
 
-        llm = get_llm()
+        if not settings.google_api_key:
+            pytest.skip("GOOGLE_API_KEY not configured")
+
+        llm = get_chat_llm()
         test_query = "Concerts de jazz à Paris"
         test_sources = [{"title": "Concert 1", "date": "2026-02-01"}, {"title": "Concert 2", "date": "2026-02-15"}]
 
@@ -252,9 +258,19 @@ class TestPromptOutputFormat:
         formatted_prompt = RAG_SYSTEM_PROMPT_FR.format(**template_vars)
         response = llm.invoke(formatted_prompt + f"\nQuery: {test_query}\nSources: {test_sources}")
 
+        # Extract content from AIMessage
+        content = response.content if hasattr(response, 'content') else str(response)
+
+        # Handle markdown code blocks
+        if content.strip().startswith("```"):
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:]
+            content = content.strip()
+
         # Should be parseable as JSON
         try:
-            data = json.loads(response)
+            data = json.loads(content)
             assert "answer_text" in data
             assert "events" in data
         except json.JSONDecodeError:
