@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 
+
 # Graceful shutdown handler
 def setup_signal_handlers(app: FastAPI):
     """Setup signal handlers for graceful shutdown."""
@@ -38,12 +39,12 @@ def setup_signal_handlers(app: FastAPI):
         logger.info(f"Received signal {signum}. Initiating graceful shutdown...")
 
         # Close RAG chain resources
-        if hasattr(app.state, 'rag_chain') and app.state.rag_chain:
+        if hasattr(app.state, "rag_chain") and app.state.rag_chain:
             try:
                 logger.info("Closing RAG chain resources...")
-                if hasattr(app.state.rag_chain, 'vector_store'):
+                if hasattr(app.state.rag_chain, "vector_store"):
                     app.state.rag_chain.vector_store.close()
-                if hasattr(app.state.rag_chain, 'chat_storage'):
+                if hasattr(app.state.rag_chain, "chat_storage"):
                     app.state.rag_chain.chat_storage.close()
                 logger.info("RAG chain closed successfully")
             except Exception as e:
@@ -57,36 +58,38 @@ def setup_signal_handlers(app: FastAPI):
     signal.signal(signal.SIGINT, shutdown_handler)
     logger.info("Signal handlers registered for graceful shutdown")
 
+
 async def background_data_sync(app: FastAPI):
     """Background task to sync data every 12 hours."""
     # Wait a bit after startup before the first sync to not block resources
-    await asyncio.sleep(60) 
-    
+    await asyncio.sleep(60)
+
     pipeline = DataIngestionPipeline()
-    
+
     while True:
         try:
             logger.info("Starting scheduled background data sync...")
             stats = await pipeline.ingest()
             logger.info(f"Background sync complete: {stats.get('new_events_added', 0)} new events.")
-            
+
             # If new events were added, reload the vector store in the active RAG chain
-            if stats.get('new_events_added', 0) > 0 and hasattr(app.state, "rag_chain"):
+            if stats.get("new_events_added", 0) > 0 and hasattr(app.state, "rag_chain"):
                 logger.info("New events found. Reloading FAISS index in RAGChain...")
                 app.state.rag_chain.vector_store.load_index()
-                
+
         except Exception as e:
             logger.error(f"Error during background data sync: {e}")
-            
+
         # Wait 12 hours (12 * 60 * 60 seconds)
         logger.info("Next background sync in 12 hours.")
         await asyncio.sleep(12 * 3600)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle events."""
     logger.info("Starting up Intelligent Assistant API...")
-    
+
     # Eagerly initialize the RAG Chain
     logger.info("Pre-loading RAG Chain (Embeddings & LLM)...")
     try:
@@ -94,12 +97,12 @@ async def lifespan(app: FastAPI):
         logger.info("RAG Chain loaded successfully.")
     except Exception as e:
         logger.error(f"Critical error loading RAG Chain: {e}")
-    
+
     # Start background sync task
     sync_task = asyncio.create_task(background_data_sync(app))
-    
+
     yield
-    
+
     logger.info("Shutting down...")
     sync_task.cancel()
     try:
@@ -107,6 +110,7 @@ async def lifespan(app: FastAPI):
     except asyncio.CancelledError:
         pass
     app.state.rag_chain = None
+
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
@@ -139,13 +143,10 @@ def create_app() -> FastAPI:
     logger.info("FastAPI app created with rate limiting (100 req/min per IP) and graceful shutdown")
     return app
 
+
 app = create_app()
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        "src.api.main:app",
-        host=settings.api_host,
-        port=settings.api_port,
-        reload=True
-    )
+
+    uvicorn.run("src.api.main:app", host=settings.api_host, port=settings.api_port, reload=True)

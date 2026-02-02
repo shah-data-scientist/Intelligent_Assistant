@@ -8,7 +8,6 @@ This module provides LLM-based and traditional metrics for evaluating generation
 
 import json
 import logging
-import re
 from typing import Any
 
 from src.evaluation.llm_backends import BaseLLMBackend, create_llm_backend
@@ -137,12 +136,7 @@ class LLMAsJudge:
     - Ollama (local, completely free)
     """
 
-    def __init__(
-        self,
-        backend: BaseLLMBackend | None = None,
-        backend_type: str = "mistral",
-        **backend_kwargs: Any
-    ):
+    def __init__(self, backend: BaseLLMBackend | None = None, backend_type: str = "mistral", **backend_kwargs: Any):
         """Initialize with LLM backend.
 
         Args:
@@ -168,9 +162,7 @@ class LLMAsJudge:
             self.backend = backend
         else:
             self.backend = create_llm_backend(
-                backend_type=backend_type,
-                temperature=0.0,  # Always deterministic for evaluation
-                **backend_kwargs
+                backend_type=backend_type, temperature=0.0, **backend_kwargs  # Always deterministic for evaluation
             )
 
         logger.info(f"Initialized LLMAsJudge with backend: {self.backend.get_name()}")
@@ -206,12 +198,7 @@ class LLMAsJudge:
             logger.error(f"Failed to parse JSON response: {response[:200]}")
             raise ValueError(f"Invalid JSON in LLM response: {e}")
 
-    def evaluate_faithfulness(
-        self,
-        query: str,
-        answer: str,
-        sources: list[str] | str
-    ) -> dict[str, Any]:
+    def evaluate_faithfulness(self, query: str, answer: str, sources: list[str] | str) -> dict[str, Any]:
         """Evaluate answer faithfulness to source documents.
 
         Scores how well the answer grounds to provided sources using LLM-as-a-Judge.
@@ -244,11 +231,7 @@ class LLMAsJudge:
             sources_text = "\n\n".join(f"Source {i+1}:\n{src}" for i, src in enumerate(sources))
 
         # Create prompt
-        prompt = FAITHFULNESS_JUDGE_PROMPT.format(
-            query=query,
-            sources=sources_text,
-            answer=answer
-        )
+        prompt = FAITHFULNESS_JUDGE_PROMPT.format(query=query, sources=sources_text, answer=answer)
 
         try:
             # Get LLM evaluation
@@ -271,23 +254,17 @@ class LLMAsJudge:
             # Clamp score to valid range
             result["score"] = max(0.0, min(1.0, float(result["score"])))
 
-            logger.debug(f"Faithfulness evaluation: score={result['score']:.2f}, violations={len(result['violations'])}")
+            logger.debug(
+                f"Faithfulness evaluation: score={result['score']:.2f}, violations={len(result['violations'])}"
+            )
 
             return result
 
         except Exception as e:
             logger.error(f"Faithfulness evaluation failed: {e}")
-            return {
-                "score": 0.5,
-                "reasoning": f"Evaluation failed: {str(e)}",
-                "violations": []
-            }
+            return {"score": 0.5, "reasoning": f"Evaluation failed: {str(e)}", "violations": []}
 
-    def evaluate_relevancy(
-        self,
-        query: str,
-        answer: str
-    ) -> dict[str, Any]:
+    def evaluate_relevancy(self, query: str, answer: str) -> dict[str, Any]:
         """Evaluate answer relevancy to the user's question.
 
         Scores how well the answer addresses the query using LLM-as-a-Judge.
@@ -313,10 +290,7 @@ class LLMAsJudge:
             0.9  # High relevancy
         """
         # Create prompt
-        prompt = RELEVANCY_JUDGE_PROMPT.format(
-            query=query,
-            answer=answer
-        )
+        prompt = RELEVANCY_JUDGE_PROMPT.format(query=query, answer=answer)
 
         try:
             # Get LLM evaluation
@@ -350,18 +324,9 @@ class LLMAsJudge:
 
         except Exception as e:
             logger.error(f"Relevancy evaluation failed: {e}")
-            return {
-                "score": 0.5,
-                "reasoning": f"Evaluation failed: {str(e)}",
-                "strengths": [],
-                "weaknesses": []
-            }
+            return {"score": 0.5, "reasoning": f"Evaluation failed: {str(e)}", "strengths": [], "weaknesses": []}
 
-    def evaluate_language_consistency(
-        self,
-        query: str,
-        answer: str
-    ) -> dict[str, Any]:
+    def evaluate_language_consistency(self, query: str, answer: str) -> dict[str, Any]:
         """Evaluate language consistency between query and answer.
 
         Uses heuristic-based language detection (French vs English).
@@ -386,6 +351,7 @@ class LLMAsJudge:
             >>> result["is_consistent"]
             True
         """
+
         def detect_language(text: str) -> str:
             """Simple heuristic language detection."""
             # French indicators
@@ -408,15 +374,10 @@ class LLMAsJudge:
             "query_language": query_lang,
             "answer_language": answer_lang,
             "is_consistent": is_consistent,
-            "score": 1.0 if is_consistent else 0.0
+            "score": 1.0 if is_consistent else 0.0,
         }
 
-    def evaluate_generation(
-        self,
-        query: str,
-        answer: str,
-        sources: list[str] | str
-    ) -> dict[str, Any]:
+    def evaluate_generation(self, query: str, answer: str, sources: list[str] | str) -> dict[str, Any]:
         """Comprehensive generation quality evaluation.
 
         Runs all evaluation metrics and returns combined results.
@@ -459,5 +420,5 @@ class LLMAsJudge:
             "quality_score": quality_score,
             "faithfulness_details": faithfulness,
             "relevancy_details": relevancy,
-            "language_details": language
+            "language_details": language,
         }

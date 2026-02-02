@@ -1,19 +1,22 @@
 """Debug script for structured output with LangChain Google Genai."""
+
 import os
 import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
-print("="*60)
+print("=" * 60)
 print("DEBUG: Structured Output Test")
-print("="*60)
+print("=" * 60)
 
 # Check versions
 try:
-    import langchain_google_genai
-    print(f"langchain_google_genai loaded")
+
+    print("langchain_google_genai loaded")
 except Exception as e:
     print(f"langchain_google_genai import error: {e}")
 
@@ -22,14 +25,17 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 from typing import Optional
 
+
 # Simple test schema
 class SimpleExtraction(BaseModel):
     """Simple extraction for testing."""
+
     city: Optional[str] = Field(None, description="City name mentioned in query")
     event_type: Optional[str] = Field(None, description="Type of event")
     language: str = Field("fr", description="Detected language")
 
-api_key = os.getenv('GOOGLE_API_KEY')
+
+api_key = os.getenv("GOOGLE_API_KEY")
 if not api_key:
     print("ERROR: No GOOGLE_API_KEY found")
     sys.exit(1)
@@ -60,7 +66,7 @@ try:
 
     messages = [
         SystemMessage(content="Extract city and event type from the query."),
-        HumanMessage(content="Jazz concerts in Paris")
+        HumanMessage(content="Jazz concerts in Paris"),
     ]
 
     result = structured_llm.invoke(messages)
@@ -71,6 +77,7 @@ try:
 except Exception as e:
     print(f"   ERROR: {type(e).__name__}: {e}")
     import traceback
+
     traceback.print_exc()
 
 # Test with the actual UnifiedAnalysisSchema
@@ -79,11 +86,11 @@ try:
     from src.retrieval.schemas import UnifiedAnalysisSchema
 
     structured_llm2 = llm.with_structured_output(UnifiedAnalysisSchema)
-    print(f"   Structured LLM created with UnifiedAnalysisSchema")
+    print("   Structured LLM created with UnifiedAnalysisSchema")
 
     messages = [
         SystemMessage(content="You are a query analyzer. Extract all entities."),
-        HumanMessage(content="Query: Jazz concerts in Paris")
+        HumanMessage(content="Query: Jazz concerts in Paris"),
     ]
 
     result = structured_llm2.invoke(messages)
@@ -96,8 +103,9 @@ try:
 except Exception as e:
     print(f"   ERROR: {type(e).__name__}: {e}")
     import traceback
+
     traceback.print_exc()
 
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("DEBUG COMPLETE")
-print("="*60)
+print("=" * 60)

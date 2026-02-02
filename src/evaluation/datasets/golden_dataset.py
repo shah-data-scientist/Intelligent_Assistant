@@ -58,6 +58,7 @@ class Query(BaseModel):
 
     class Config:
         """Pydantic configuration."""
+
         json_schema_extra = {
             "example": {
                 "id": "Q001",
@@ -68,15 +69,13 @@ class Query(BaseModel):
                 "expected_entities": ["jazz", "Paris", "février"],
                 "expected_categories": ["Musique"],
                 "expected_filters": {"city": "Paris", "month": 2, "category": "Musique"},
-                "relevance_ground_truth": [
-                    {"event_id": "evt_001", "relevance_score": 1.0, "reason": "Exact match"}
-                ],
+                "relevance_ground_truth": [{"event_id": "evt_001", "relevance_score": 1.0, "reason": "Exact match"}],
                 "generation_expectations": {
                     "must_contain_keywords": ["jazz", "Paris"],
                     "must_not_hallucinate": True,
                     "should_ask_clarification": False,
-                    "expected_language": "fr"
-                }
+                    "expected_language": "fr",
+                },
             }
         }
 
@@ -84,6 +83,7 @@ class Query(BaseModel):
 # v3.0 Conversation Models
 class ExpectedBehavior(BaseModel):
     """Expected behavior for a conversation turn."""
+
     should_ask_clarification: bool = False
     clarification_topics: list[str] = Field(default_factory=list)
     acceptable_actions: list[str] = Field(default_factory=list)
@@ -98,6 +98,7 @@ class ExpectedBehavior(BaseModel):
 
 class ConversationTurn(BaseModel):
     """A single turn in a multi-turn conversation."""
+
     turn_id: str
     turn_number: int
     turn_type: str  # "initial", "refinement", "follow_up", "topic_shift", "clarification_response"
@@ -111,6 +112,7 @@ class ConversationTurn(BaseModel):
 
 class Conversation(BaseModel):
     """A multi-turn conversation scenario."""
+
     session_id: str
     description: str
     test_focus: list[str] = Field(default_factory=list)
@@ -195,8 +197,10 @@ class GoldenDataset(BaseModel):
             flattened.append(query)
 
         self.queries = flattened
-        logger.info(f"Flattened v3.0 dataset: {len(self.conversations)} conversations + "
-                   f"{len(self.single_queries)} single queries → {len(flattened)} total queries")
+        logger.info(
+            f"Flattened v3.0 dataset: {len(self.conversations)} conversations + "
+            f"{len(self.single_queries)} single queries → {len(flattened)} total queries"
+        )
 
     @property
     def total_queries(self) -> int:
@@ -287,7 +291,7 @@ class GoldenDataset(BaseModel):
             version=self.version,
             created_at=self.created_at,
             description=f"Subset of {self.description or 'golden dataset'} (n={len(queries)})",
-            queries=queries
+            queries=queries,
         )
 
     def get_by_id(self, query_id: str) -> Query | None:
@@ -339,7 +343,11 @@ class GoldenDataset(BaseModel):
             "by_type": by_type,
             "by_language": by_language,
             "by_complexity": by_complexity,
-            "avg_expected_entities": sum(len(q.expected_entities) for q in self.queries) / self.total_queries if self.total_queries > 0 else 0,
+            "avg_expected_entities": (
+                sum(len(q.expected_entities) for q in self.queries) / self.total_queries
+                if self.total_queries > 0
+                else 0
+            ),
             "queries_with_ground_truth": sum(1 for q in self.queries if len(q.relevance_ground_truth) > 0),
         }
 
@@ -359,8 +367,5 @@ class GoldenDataset(BaseModel):
             >>> dataset.save("dataset.json")
         """
         return cls(
-            version=version,
-            created_at=datetime.now().isoformat(),
-            description="Golden evaluation dataset",
-            queries=[]
+            version=version, created_at=datetime.now().isoformat(), description="Golden evaluation dataset", queries=[]
         )

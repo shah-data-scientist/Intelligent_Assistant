@@ -72,7 +72,7 @@ class ChatStorage:
             echo=False,
             connect_args={
                 "timeout": 30,  # 30 second timeout for database locks
-                "check_same_thread": False  # Allow multi-threaded access
+                "check_same_thread": False,  # Allow multi-threaded access
             },
             pool_pre_ping=True,  # Verify connections before use
             pool_recycle=3600,  # Recycle connections after 1 hour
@@ -124,11 +124,7 @@ class ChatStorage:
         self.close()
 
     def add_chat_message(
-        self,
-        session_id: str,
-        role: str,
-        content: str,
-        retrieved_events: list[dict] | None = None
+        self, session_id: str, role: str, content: str, retrieved_events: list[dict] | None = None
     ) -> int:
         """Add a chat message to history and return its ID.
 
@@ -147,12 +143,7 @@ class ChatStorage:
             if retrieved_events:
                 events_json = json.dumps(retrieved_events)
 
-            record = ConversationRecord(
-                session_id=session_id,
-                role=role,
-                content=content,
-                retrieved_events=events_json
-            )
+            record = ConversationRecord(session_id=session_id, role=role, content=content, retrieved_events=events_json)
             session.add(record)
             session.commit()
             return record.id
@@ -166,11 +157,7 @@ class ChatStorage:
             comment: Optional detailed feedback
         """
         with self.SessionLocal() as session:
-            record = FeedbackRecord(
-                message_id=message_id,
-                is_positive=1 if is_positive else 0,
-                comment=comment
-            )
+            record = FeedbackRecord(message_id=message_id, is_positive=1 if is_positive else 0, comment=comment)
             session.add(record)
             session.commit()
             logger.info(f"Added {'positive' if is_positive else 'negative'} feedback for message {message_id}")

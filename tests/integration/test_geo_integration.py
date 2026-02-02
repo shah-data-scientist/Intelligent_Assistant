@@ -8,9 +8,6 @@ MAINTAINER: QA Team
 
 import pytest
 import sqlite3
-import json
-import os
-from unittest.mock import patch, MagicMock
 
 from src.utils.geo import CityLocator, haversine_distance
 
@@ -62,13 +59,15 @@ class TestCityLocatorWithMockDB:
         cursor = conn.cursor()
 
         # Create events table
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE events (
                 city TEXT,
                 coordinates_json TEXT,
                 raw_data_json TEXT
             )
-        """)
+        """
+        )
 
         # Insert test data
         test_data = [
@@ -78,10 +77,7 @@ class TestCityLocatorWithMockDB:
             ("Lyon", None, None),  # No coordinates - should be skipped
         ]
 
-        cursor.executemany(
-            "INSERT INTO events VALUES (?, ?, ?)",
-            test_data
-        )
+        cursor.executemany("INSERT INTO events VALUES (?, ?, ?)", test_data)
 
         conn.commit()
         conn.close()
@@ -187,13 +183,15 @@ class TestCityLocatorOverrides:
         db_path = str(tmp_path / "empty.db")
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE events (
                 city TEXT,
                 coordinates_json TEXT,
                 raw_data_json TEXT
             )
-        """)
+        """
+        )
         conn.commit()
         conn.close()
         return db_path

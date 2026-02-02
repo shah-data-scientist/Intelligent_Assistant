@@ -9,7 +9,6 @@ This module provides standard retrieval metrics for evaluating search quality:
 """
 
 import math
-from typing import Any
 
 
 class RetrievalMetrics:
@@ -137,11 +136,7 @@ class RetrievalMetrics:
         return retrieved_relevant / len(relevant_set)
 
     @staticmethod
-    def ndcg_at_k(
-        retrieved_ids: list[str],
-        relevance_scores: dict[str, float],
-        k: int = 5
-    ) -> float:
+    def ndcg_at_k(retrieved_ids: list[str], relevance_scores: dict[str, float], k: int = 5) -> float:
         """Calculate Normalized Discounted Cumulative Gain (NDCG@k).
 
         NDCG supports graded relevance (not just binary relevant/irrelevant).
@@ -177,11 +172,7 @@ class RetrievalMetrics:
         dcg_val = dcg(retrieved_ids, relevance_scores, k)
 
         # Ideal DCG (best possible ranking)
-        ideal_ranking = sorted(
-            relevance_scores.keys(),
-            key=lambda doc_id: relevance_scores[doc_id],
-            reverse=True
-        )
+        ideal_ranking = sorted(relevance_scores.keys(), key=lambda doc_id: relevance_scores[doc_id], reverse=True)
         idcg_val = dcg(ideal_ranking, relevance_scores, k)
 
         if idcg_val == 0.0:
@@ -217,10 +208,7 @@ class RetrievalMetrics:
 
     @staticmethod
     def evaluate_retrieval(
-        retrieved_ids: list[str],
-        relevant_ids: list[str],
-        relevance_scores: dict[str, float] | None = None,
-        k: int = 5
+        retrieved_ids: list[str], relevant_ids: list[str], relevance_scores: dict[str, float] | None = None, k: int = 5
     ) -> dict[str, float]:
         """Calculate all retrieval metrics at once.
 

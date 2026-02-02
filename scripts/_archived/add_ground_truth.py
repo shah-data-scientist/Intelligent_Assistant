@@ -6,10 +6,10 @@ This script helps identify relevant events for queries missing ground truth.
 import logging
 from src.data.storage import EventStorage
 from src.evaluation.datasets.golden_dataset import GoldenDataset
-from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 def main():
     # Load dataset and storage
@@ -98,29 +98,26 @@ def main():
             ground_truth = []
             for event, score, _ in relevant_events[:3]:
                 if score >= 0.5:
-                    ground_truth.append({
-                        "event_id": event.event_id,
-                        "relevance_score": round(min(score, 1.0), 2)
-                    })
+                    ground_truth.append({"event_id": event.event_id, "relevance_score": round(min(score, 1.0), 2)})
 
             # Update query with ground truth
             from src.evaluation.datasets.golden_dataset import RelevanceGroundTruth
-            query.relevance_ground_truth = [
-                RelevanceGroundTruth(**gt) for gt in ground_truth
-            ]
+
+            query.relevance_ground_truth = [RelevanceGroundTruth(**gt) for gt in ground_truth]
             print(f"\n[OK] AUTO-ADDED {len(ground_truth)} events to ground truth")
             for gt in ground_truth:
                 print(f"  - Event ID: {gt['event_id']}, Score: {gt['relevance_score']}")
         else:
-            print(f"\n[SKIP] No high-quality matches found (keeping empty ground truth for edge case)")
+            print("\n[SKIP] No high-quality matches found (keeping empty ground truth for edge case)")
 
     # Save updated dataset
     print(f"\n{'='*80}")
     queries_with_gt = [q for q in dataset.queries if q.relevance_ground_truth]
-    print(f"Saving updated dataset...")
+    print("Saving updated dataset...")
     print(f"Queries with ground truth: {len(queries_with_gt)}/{len(dataset.queries)}")
     dataset.save("data/evaluation/golden_dataset.json")
     logger.info("[OK] Dataset saved successfully")
+
 
 if __name__ == "__main__":
     main()

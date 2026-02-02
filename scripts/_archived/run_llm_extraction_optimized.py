@@ -14,12 +14,13 @@ from src.data.storage import EventStorage
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 def main():
     """Run extraction on optimized subset of events."""
 
-    logger.info("="*80)
+    logger.info("=" * 80)
     logger.info("LLM METADATA EXTRACTION - OPTIMIZED RUN")
-    logger.info("="*80)
+    logger.info("=" * 80)
 
     # Load events
     storage = EventStorage()
@@ -89,19 +90,19 @@ def main():
                     outdoor_added += 1
 
     # Summary
-    logger.info("\n" + "="*80)
+    logger.info("\n" + "=" * 80)
     logger.info("EXTRACTION COMPLETE")
-    logger.info("="*80)
+    logger.info("=" * 80)
     logger.info(f"\nProcessed: {len(candidates)} events")
     logger.info(f"Updated: {total_updated} ({total_updated/max(len(candidates),1)*100:.1f}%)")
-    logger.info(f"\nMetadata added:")
+    logger.info("\nMetadata added:")
     logger.info(f"  Price: {price_added}")
     logger.info(f"  Accessibility: {accessibility_added}")
     logger.info(f"  Age: {age_added}")
     logger.info(f"  Time of day: {time_added}")
     logger.info(f"  Outdoor: {outdoor_added}")
     logger.info(f"  Total: {price_added + accessibility_added + age_added + time_added + outdoor_added}")
-    logger.info("="*80)
+    logger.info("=" * 80)
 
     logger.info("\nNext steps:")
     logger.info("1. Rebuild FAISS index: poetry run python -m src.models.vector_store")

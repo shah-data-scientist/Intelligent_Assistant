@@ -741,10 +741,42 @@ class UnifiedAnalyzer:
         # POST-LLM HEURISTIC: Override language if query is clearly English but detected as French
         # This catches cases where the LLM defaults to French incorrectly
         query_lower = query.lower()
-        english_indicators = [" the ", " in ", " at ", " on ", " this ", " what ", " how ", " are ", " is ",
-                              " for ", " with ", " about ", " looking ", " find ", " show ", " want "]
-        french_indicators = [" le ", " la ", " les ", " de ", " du ", " des ", " à ", " au ", " aux ",
-                             " en ", " pour ", " avec ", " qui ", " que ", " est ", " sont "]
+        english_indicators = [
+            " the ",
+            " in ",
+            " at ",
+            " on ",
+            " this ",
+            " what ",
+            " how ",
+            " are ",
+            " is ",
+            " for ",
+            " with ",
+            " about ",
+            " looking ",
+            " find ",
+            " show ",
+            " want ",
+        ]
+        french_indicators = [
+            " le ",
+            " la ",
+            " les ",
+            " de ",
+            " du ",
+            " des ",
+            " à ",
+            " au ",
+            " aux ",
+            " en ",
+            " pour ",
+            " avec ",
+            " qui ",
+            " que ",
+            " est ",
+            " sont ",
+        ]
 
         english_count = sum(1 for w in english_indicators if w in f" {query_lower} ")
         french_count = sum(1 for w in french_indicators if w in f" {query_lower} ")
@@ -1162,10 +1194,42 @@ class UnifiedAnalyzer:
             # POST-LLM HEURISTIC: Override language if query is clearly English but detected as French
             # This catches cases where the LLM defaults to French incorrectly
             query_lower = query.lower()
-            english_indicators = [" the ", " in ", " at ", " on ", " this ", " what ", " how ", " are ", " is ",
-                                  " for ", " with ", " about ", " looking ", " find ", " show ", " want "]
-            french_indicators = [" le ", " la ", " les ", " de ", " du ", " des ", " à ", " au ", " aux ",
-                                 " en ", " pour ", " avec ", " qui ", " que ", " est ", " sont "]
+            english_indicators = [
+                " the ",
+                " in ",
+                " at ",
+                " on ",
+                " this ",
+                " what ",
+                " how ",
+                " are ",
+                " is ",
+                " for ",
+                " with ",
+                " about ",
+                " looking ",
+                " find ",
+                " show ",
+                " want ",
+            ]
+            french_indicators = [
+                " le ",
+                " la ",
+                " les ",
+                " de ",
+                " du ",
+                " des ",
+                " à ",
+                " au ",
+                " aux ",
+                " en ",
+                " pour ",
+                " avec ",
+                " qui ",
+                " que ",
+                " est ",
+                " sont ",
+            ]
 
             english_count = sum(1 for w in english_indicators if w in f" {query_lower} ")
             french_count = sum(1 for w in french_indicators if w in f" {query_lower} ")

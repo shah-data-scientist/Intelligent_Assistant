@@ -6,7 +6,6 @@ LAST MAJOR UPDATE: 2026-01-31
 MAINTAINER: QA Team
 """
 
-import logging
 import pytest
 from unittest.mock import MagicMock, patch
 
@@ -134,7 +133,7 @@ class TestGenerateTraceId:
         """Test that generated trace ID is a valid UUID."""
         trace_id = generate_trace_id()
         assert len(trace_id) == 36
-        assert trace_id.count('-') == 4
+        assert trace_id.count("-") == 4
 
     def test_sets_generated_id(self):
         """Test that generated ID is set in context."""
@@ -159,7 +158,7 @@ class TestConfigureTraceLogging:
         mock_handler.addFilter = MagicMock()
         mock_handler.setFormatter = MagicMock()
 
-        with patch('src.utils.tracing.logging.getLogger') as mock_get_logger:
+        with patch("src.utils.tracing.logging.getLogger") as mock_get_logger:
             mock_logger = MagicMock()
             mock_logger.handlers = [mock_handler]
             mock_get_logger.return_value = mock_logger

@@ -228,8 +228,7 @@ class TestPromptEdgeCases:
 # Mark integration tests that make real LLM calls
 @pytest.mark.integration
 @pytest.mark.skipif(
-    not os.environ.get("RUN_LIVE_API_TESTS"),
-    reason="Live API tests disabled. Set RUN_LIVE_API_TESTS=1 to enable."
+    not os.environ.get("RUN_LIVE_API_TESTS"), reason="Live API tests disabled. Set RUN_LIVE_API_TESTS=1 to enable."
 )
 class TestPromptOutputFormat:
     """Integration tests for prompt output format (requires LLM)."""
@@ -259,7 +258,7 @@ class TestPromptOutputFormat:
         response = llm.invoke(formatted_prompt + f"\nQuery: {test_query}\nSources: {test_sources}")
 
         # Extract content from AIMessage
-        content = response.content if hasattr(response, 'content') else str(response)
+        content = response.content if hasattr(response, "content") else str(response)
 
         # Handle markdown code blocks
         if content.strip().startswith("```"):

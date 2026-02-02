@@ -15,14 +15,22 @@ from src.data.models import Event
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 def infer_price_info(event: Event) -> str:
     """Infer if event is free based on description/title."""
     text = f"{event.title} {event.description or ''} {event.scraped_content or ''}".lower()
 
     # Free indicators
     free_keywords = [
-        'gratuit', 'free', 'entrée libre', 'accès libre', 'admission free',
-        'sans frais', 'gratuité', 'free admission', 'free entry'
+        "gratuit",
+        "free",
+        "entrée libre",
+        "accès libre",
+        "admission free",
+        "sans frais",
+        "gratuité",
+        "free admission",
+        "free entry",
     ]
 
     if any(keyword in text for keyword in free_keywords):
@@ -30,10 +38,10 @@ def infer_price_info(event: Event) -> str:
 
     # Paid indicators with price extraction
     price_patterns = [
-        r'(\d+)\s*€',
-        r'(\d+)\s*euros?',
-        r'tarif\s*:\s*(\d+)',
-        r'prix\s*:\s*(\d+)',
+        r"(\d+)\s*€",
+        r"(\d+)\s*euros?",
+        r"tarif\s*:\s*(\d+)",
+        r"prix\s*:\s*(\d+)",
     ]
 
     for pattern in price_patterns:
@@ -56,25 +64,33 @@ def infer_accessibility(event: Event) -> str:
 
     # Wheelchair access
     wheelchair_keywords = [
-        'fauteuil roulant', 'wheelchair', 'pmr', 'personnes à mobilité réduite',
-        'accessible handicap', 'handicap accessible', 'rampe d\'accès', 'ascenseur'
+        "fauteuil roulant",
+        "wheelchair",
+        "pmr",
+        "personnes à mobilité réduite",
+        "accessible handicap",
+        "handicap accessible",
+        "rampe d'accès",
+        "ascenseur",
     ]
     if any(kw in text for kw in wheelchair_keywords):
         features.append("Accessible en fauteuil roulant")
 
     # Hearing impaired
     hearing_keywords = [
-        'surtitres', 'subtitles', 'langue des signes', 'sign language',
-        'malentendant', 'hearing impaired', 'boucle magnétique'
+        "surtitres",
+        "subtitles",
+        "langue des signes",
+        "sign language",
+        "malentendant",
+        "hearing impaired",
+        "boucle magnétique",
     ]
     if any(kw in text for kw in hearing_keywords):
         features.append("Adapté aux malentendants")
 
     # Visually impaired
-    vision_keywords = [
-        'audiodescription', 'audio description', 'malvoyant',
-        'visually impaired', 'braille', 'tactile'
-    ]
+    vision_keywords = ["audiodescription", "audio description", "malvoyant", "visually impaired", "braille", "tactile"]
     if any(kw in text for kw in vision_keywords):
         features.append("Adapté aux malvoyants")
 
@@ -89,17 +105,17 @@ def infer_age_suitability(event: Event) -> str:
     text = f"{event.title} {event.description or ''} {event.scraped_content or ''}".lower()
 
     age_indicators = {
-        'tout public': 'Tout public',
-        'family': 'Tout public',
-        'famille': 'Tout public',
-        'enfants': 'Enfants et famille',
-        'children': 'Enfants et famille',
-        'jeune public': 'Jeune public',
-        'kids': 'Enfants et famille',
-        'adultes': 'Adultes',
-        'adults only': 'Adultes',
-        '18+': 'Adultes (18+)',
-        '16+': 'Adolescents et adultes (16+)',
+        "tout public": "Tout public",
+        "family": "Tout public",
+        "famille": "Tout public",
+        "enfants": "Enfants et famille",
+        "children": "Enfants et famille",
+        "jeune public": "Jeune public",
+        "kids": "Enfants et famille",
+        "adultes": "Adultes",
+        "adults only": "Adultes",
+        "18+": "Adultes (18+)",
+        "16+": "Adolescents et adultes (16+)",
     }
 
     for keyword, label in age_indicators.items():
@@ -108,10 +124,10 @@ def infer_age_suitability(event: Event) -> str:
 
     # Check for specific age ranges
     age_range_patterns = [
-        r'(\d+)\s*-\s*(\d+)\s*ans',
-        r'(\d+)\s*to\s*(\d+)\s*years',
-        r'à partir de\s*(\d+)\s*ans',
-        r'from\s*(\d+)\s*years',
+        r"(\d+)\s*-\s*(\d+)\s*ans",
+        r"(\d+)\s*to\s*(\d+)\s*years",
+        r"à partir de\s*(\d+)\s*ans",
+        r"from\s*(\d+)\s*years",
     ]
 
     for pattern in age_range_patterns:
@@ -124,6 +140,7 @@ def infer_age_suitability(event: Event) -> str:
 
     return None
 
+
 def backfill_tags_from_category(event: Event) -> bool:
     """Add category to tags if tags are empty."""
     if not event.tags and event.category:
@@ -131,20 +148,22 @@ def backfill_tags_from_category(event: Event) -> bool:
         return True
     return False
 
+
 def clean_conditions(event: Event) -> bool:
     """Deduplicate and clean conditions string."""
     if not event.conditions:
         return False
-        
-    parts = [p.strip() for p in event.conditions.split('|') if p.strip()]
+
+    parts = [p.strip() for p in event.conditions.split("|") if p.strip()]
     # Use dict to deduplicate while preserving order
     unique_parts = list(dict.fromkeys(parts))
-    
+
     new_conditions = " | ".join(unique_parts)
     if new_conditions != event.conditions:
         event.conditions = new_conditions
         return True
     return False
+
 
 def enrich_events(limit: int = None) -> dict:
     """Enrich events with inferred metadata.
@@ -162,13 +181,13 @@ def enrich_events(limit: int = None) -> dict:
         all_events = all_events[:limit]
 
     stats = {
-        'total_processed': len(all_events),
-        'price_added': 0,
-        'accessibility_added': 0,
-        'age_added': 0,
-        'tags_backfilled': 0,
-        'conditions_cleaned': 0,
-        'multiple_enrichments': 0
+        "total_processed": len(all_events),
+        "price_added": 0,
+        "accessibility_added": 0,
+        "age_added": 0,
+        "tags_backfilled": 0,
+        "conditions_cleaned": 0,
+        "multiple_enrichments": 0,
     }
 
     logger.info(f"Processing {len(all_events)} events...")
@@ -177,37 +196,37 @@ def enrich_events(limit: int = None) -> dict:
         enrichments = 0
 
         # Infer price if missing
-        if not event.conditions or 'gratuit' not in event.conditions.lower():
+        if not event.conditions or "gratuit" not in event.conditions.lower():
             inferred_price = infer_price_info(event)
             if inferred_price:
                 # Avoid duplication: only add if not already present
                 current = event.conditions or ""
                 if inferred_price not in current:
                     event.conditions = f"{current} | {inferred_price}".strip(" |")
-                    stats['price_added'] += 1
+                    stats["price_added"] += 1
                     enrichments += 1
 
         # Clean HTML from description if present
         if event.description and ("<p>" in event.description or "<br>" in event.description):
-            clean_desc = re.sub(r'<[^>]+>', '', event.description)
+            clean_desc = re.sub(r"<[^>]+>", "", event.description)
             event.description = clean_desc.strip()
             enrichments += 1
 
         # Clean/Deduplicate Conditions
         if clean_conditions(event):
-            stats['conditions_cleaned'] += 1
+            stats["conditions_cleaned"] += 1
             enrichments += 1
 
         # Backfill Tags
         if backfill_tags_from_category(event):
-            stats['tags_backfilled'] += 1
+            stats["tags_backfilled"] += 1
             enrichments += 1
 
         # Infer accessibility
         inferred_accessibility = infer_accessibility(event)
         if inferred_accessibility:
             event.accessibility = inferred_accessibility
-            stats['accessibility_added'] += 1
+            stats["accessibility_added"] += 1
             enrichments += 1
 
         # Infer age suitability (store in tags for now)
@@ -215,11 +234,11 @@ def enrich_events(limit: int = None) -> dict:
         if age_info and event.tags:
             if age_info not in event.tags:
                 event.tags.append(age_info)
-                stats['age_added'] += 1
+                stats["age_added"] += 1
                 enrichments += 1
 
         if enrichments > 1:
-            stats['multiple_enrichments'] += 1
+            stats["multiple_enrichments"] += 1
 
         # Update event in storage
         if enrichments > 0:
@@ -230,30 +249,34 @@ def enrich_events(limit: int = None) -> dict:
 
 def main():
     """Run metadata enrichment."""
-    logger.info("="*80)
+    logger.info("=" * 80)
     logger.info("METADATA ENRICHMENT - Inferring Missing Information")
-    logger.info("="*80)
+    logger.info("=" * 80)
 
     # Run enrichment
     stats = enrich_events()
 
     # Print results
-    logger.info("\n" + "="*80)
+    logger.info("\n" + "=" * 80)
     logger.info("ENRICHMENT RESULTS")
-    logger.info("="*80)
+    logger.info("=" * 80)
     logger.info(f"Total events processed: {stats['total_processed']}")
-    logger.info(f"Price information added: {stats['price_added']} ({stats['price_added']/stats['total_processed']*100:.1f}%)")
-    logger.info(f"Accessibility information added: {stats['accessibility_added']} ({stats['accessibility_added']/stats['total_processed']*100:.1f}%)")
+    logger.info(
+        f"Price information added: {stats['price_added']} ({stats['price_added']/stats['total_processed']*100:.1f}%)"
+    )
+    logger.info(
+        f"Accessibility information added: {stats['accessibility_added']} ({stats['accessibility_added']/stats['total_processed']*100:.1f}%)"
+    )
     logger.info(f"Age suitability added: {stats['age_added']} ({stats['age_added']/stats['total_processed']*100:.1f}%)")
     logger.info(f"Tags backfilled: {stats['tags_backfilled']}")
     logger.info(f"Conditions deduplicated: {stats['conditions_cleaned']}")
     logger.info(f"Events with multiple enrichments: {stats['multiple_enrichments']}")
 
-    logger.info("\n" + "="*80)
+    logger.info("\n" + "=" * 80)
     logger.info("Next steps:")
     logger.info("1. Re-build FAISS index: poetry run python -m src.models.vector_store")
     logger.info("2. Run evaluation: poetry run python check_metrics.py")
-    logger.info("="*80)
+    logger.info("=" * 80)
 
 
 if __name__ == "__main__":

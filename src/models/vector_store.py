@@ -28,7 +28,7 @@ class EventVectorStore:
         index_path: str | None = None,
         embedder: EventEmbedder | None = None,
         storage: EventStorage | None = None,
-        default_language: LanguageCode = "fr"
+        default_language: LanguageCode = "fr",
     ) -> None:
         """Initialize vector store.
 
@@ -147,16 +147,12 @@ class EventVectorStore:
         # Save FAISS index
         index_file = self.index_path / "index.faiss"
         faiss.write_index(self.index, str(index_file))
-        
+
         # Save BM25 index and Metadata
         metadata_file = self.index_path / "metadata.pkl"
         with open(metadata_file, "wb") as f:
             pickle.dump(
-                {
-                    "event_ids": self.event_ids,
-                    "dimension": self.dimension,
-                    "bm25": self.bm25
-                },
+                {"event_ids": self.event_ids, "dimension": self.dimension, "bm25": self.bm25},
                 f,
             )
         logger.info(f"Saved indices to {self.index_path}")
@@ -170,20 +166,17 @@ class EventVectorStore:
             raise FileNotFoundError(f"Index file not found: {index_file}")
 
         self.index = faiss.read_index(str(index_file))
-        
+
         with open(metadata_file, "rb") as f:
             metadata = pickle.load(f)
             self.event_ids = metadata["event_ids"]
             self.dimension = metadata["dimension"]
-            self.bm25 = metadata.get("bm25") # Optional for backward compatibility
+            self.bm25 = metadata.get("bm25")  # Optional for backward compatibility
 
         logger.info(f"Loaded Hybrid Index: {len(self.event_ids)} events")
 
     def _hybrid_search(
-        self,
-        query: str,
-        k: int = 100,
-        language: LanguageCode | None = None
+        self, query: str, k: int = 100, language: LanguageCode | None = None
     ) -> list[tuple[Event, float]]:
         """PRIVATE: Core hybrid search implementation (Vector + BM25 + RRF fusion).
 
@@ -278,7 +271,7 @@ class EventVectorStore:
         metadata_filter: dict[str, Any] | None = None,
         enable_hybrid: bool = True,
         candidate_pool: int | None = None,
-        language: LanguageCode | None = None
+        language: LanguageCode | None = None,
     ) -> list[tuple[Event, float]]:
         """Search events with hybrid retrieval + metadata filtering + geo priority.
 
@@ -312,8 +305,7 @@ class EventVectorStore:
 
         # Apply metadata filter if provided
         if metadata_filter:
-            filtered = [(event, score) for event, score in raw_results
-                        if self._matches_filter(event, metadata_filter)]
+            filtered = [(event, score) for event, score in raw_results if self._matches_filter(event, metadata_filter)]
         else:
             filtered = raw_results
 
@@ -337,25 +329,50 @@ class EventVectorStore:
         """
         # French stop words to exclude
         stop_words = {
-            "dans", "pour", "avec", "sans", "sous", "vers", "chez", "plus",
-            "cette", "cela", "tous", "tout", "vous", "nous", "leur", "sont",
-            "mais", "elle", "leur", "même", "peut", "fait", "très", "bien",
-            "the", "and", "for", "with", "from", "that", "this", "have",
-            "events", "événements", "event", "événement"  # Too generic
+            "dans",
+            "pour",
+            "avec",
+            "sans",
+            "sous",
+            "vers",
+            "chez",
+            "plus",
+            "cette",
+            "cela",
+            "tous",
+            "tout",
+            "vous",
+            "nous",
+            "leur",
+            "sont",
+            "mais",
+            "elle",
+            "leur",
+            "même",
+            "peut",
+            "fait",
+            "très",
+            "bien",
+            "the",
+            "and",
+            "for",
+            "with",
+            "from",
+            "that",
+            "this",
+            "have",
+            "events",
+            "événements",
+            "event",
+            "événement",  # Too generic
         }
 
         words = query.lower().split()
-        keywords = [
-            w for w in words
-            if len(w) >= 4 and w not in stop_words
-        ]
+        keywords = [w for w in words if len(w) >= 4 and w not in stop_words]
         return keywords
 
     def _apply_keyword_boost(
-        self,
-        results: Dict[str, float],
-        keywords: List[str],
-        boost_factor: float = 1.5
+        self, results: Dict[str, float], keywords: List[str], boost_factor: float = 1.5
     ) -> Dict[str, float]:
         """Apply keyword boost to search results.
 
@@ -382,10 +399,7 @@ class EventVectorStore:
         return boosted
 
     def _reciprocal_rank_fusion(
-        self,
-        vector_results: Dict[str, float],
-        bm25_results: Dict[str, float],
-        k: int = 60
+        self, vector_results: Dict[str, float], bm25_results: Dict[str, float], k: int = 60
     ) -> List[Tuple[str, float]]:
         """Combine results using Reciprocal Rank Fusion.
 
@@ -432,7 +446,7 @@ class EventVectorStore:
 
         target_coords = self.city_locator.get_coords(target_city)
         if not target_coords:
-            return candidates[:k] # Fallback
+            return candidates[:k]  # Fallback
 
         exact_matches = []
         nearby_matches = []
@@ -440,28 +454,23 @@ class EventVectorStore:
         for event, score in candidates:
             # Simple city substring match (case-insensitive)
             is_exact_city = (
-                event.location and
-                event.location.city and
-                target_city.lower() in event.location.city.lower()
+                event.location and event.location.city and target_city.lower() in event.location.city.lower()
             )
             if is_exact_city:
                 exact_matches.append((event, score))
             else:
-                dist = float('inf')
+                dist = float("inf")
                 if event.location and event.location.coordinates:
                     # Handle coordinates as dict (Pydantic model)
                     lat = event.location.coordinates.get("lat")
                     lon = event.location.coordinates.get("lon")
                     if lat is not None and lon is not None:
-                        dist = haversine_distance(
-                            target_coords[0], target_coords[1],
-                            lat, lon
-                        )
+                        dist = haversine_distance(target_coords[0], target_coords[1], lat, lon)
                 nearby_matches.append((event, score, dist))
 
         # Sort nearby by distance first
         nearby_matches.sort(key=lambda x: x[2])
-        
+
         # Combine
         final_results = exact_matches + [(e, s) for e, s, d in nearby_matches]
         return final_results[:k]
@@ -469,91 +478,107 @@ class EventVectorStore:
     def _matches_filter(self, event: Event, filters: dict[str, Any]) -> bool:
         """Check if event matches metadata filters."""
         for key, value in filters.items():
-            if value is None: continue
+            if value is None:
+                continue
 
             if key == "city":
                 # Geo-spatial filtering
                 target_city = value.lower().strip()
                 logger.debug(f"Filtering by city: {target_city}")
-                
+
                 # Skip filtering if it's a broad regional term rather than a specific city
                 # Uses shared constant from filters.py for consistency
                 if target_city.lower() in IDF_REGIONAL_TERMS:
                     logger.debug("Skipping city filter for regional term")
                     continue
-                    
+
                 target_coords = self.city_locator.get_coords(target_city)
                 logger.debug(f"Target coords for {target_city}: {target_coords}")
-                
+
                 if target_coords:
                     # Radius search (configurable via settings.retrieval_geo_radius_km)
                     # Check for coordinates in event.location
                     if not event.location or not event.location.coordinates:
                         # Fallback to string match if no coords
-                        if not event.location or not event.location.city: return False
-                        if value.lower() not in event.location.city.lower(): return False
+                        if not event.location or not event.location.city:
+                            return False
+                        if value.lower() not in event.location.city.lower():
+                            return False
                     else:
                         # Check distance
                         lat = event.location.coordinates.get("lat")
                         lon = event.location.coordinates.get("lon")
-                        
-                        if lat is None or lon is None:
-                             return False
 
-                        dist = haversine_distance(
-                            target_coords[0], target_coords[1],
-                            lat, lon
-                        )
-                        if dist > settings.retrieval_geo_radius_km: return False
+                        if lat is None or lon is None:
+                            return False
+
+                        dist = haversine_distance(target_coords[0], target_coords[1], lat, lon)
+                        if dist > settings.retrieval_geo_radius_km:
+                            return False
                 else:
-                    if not event.location or not event.location.city: return False
-                    if value.lower() not in event.location.city.lower(): return False
+                    if not event.location or not event.location.city:
+                        return False
+                    if value.lower() not in event.location.city.lower():
+                        return False
 
             elif key == "is_free" and value is True:
-                if not event.conditions or "gratuit" not in event.conditions.lower(): return False
+                if not event.conditions or "gratuit" not in event.conditions.lower():
+                    return False
 
             elif key == "age" and isinstance(value, (int, float)):
-                if event.age_min is not None and event.age_min > value: return False
-                if event.age_max is not None and event.age_max < value: return False
+                if event.age_min is not None and event.age_min > value:
+                    return False
+                if event.age_max is not None and event.age_max < value:
+                    return False
 
             elif key == "category" and event.category:
-                if value.lower() not in event.category.lower() and event.category.lower() not in value.lower(): 
+                if value.lower() not in event.category.lower() and event.category.lower() not in value.lower():
                     return False
             elif key == "year" and event.start_date:
                 if isinstance(value, list):
-                    if event.start_date.year not in value: return False
-                elif event.start_date.year != value: return False
+                    if event.start_date.year not in value:
+                        return False
+                elif event.start_date.year != value:
+                    return False
             elif key == "month" and event.start_date:
                 if isinstance(value, list):
-                    if event.start_date.month not in value: return False
-                elif event.start_date.month != value: return False
+                    if event.start_date.month not in value:
+                        return False
+                elif event.start_date.month != value:
+                    return False
             elif key == "day" and event.start_date:
                 if isinstance(value, list):
-                    if event.start_date.day not in value: return False
-                elif event.start_date.day != value: return False
+                    if event.start_date.day not in value:
+                        return False
+                elif event.start_date.day != value:
+                    return False
 
             # Date Range Filtering
             elif key == "date_min" and event.start_date:
                 # Value should be a datetime.date object or string ISO format
                 if isinstance(value, str):
                     from datetime import date
+
                     try:
                         value = date.fromisoformat(value)
                     except ValueError:
                         continue
-                
+
                 # Ensure value is a date or datetime object before comparing
                 from datetime import date, datetime
+
                 if not isinstance(value, (date, datetime)):
                     continue
 
                 # Handle comparison between datetime and date
-                event_date = event.start_date.date() if hasattr(event.start_date, 'date') else event.start_date
-                if event_date < value: return False
+                event_date = event.start_date.date() if hasattr(event.start_date, "date") else event.start_date
+                if event_date < value:
+                    return False
 
             elif key == "date_max" and event.start_date:
                 if isinstance(value, str):
                     from datetime import date
+
                     try:
                         value = date.fromisoformat(value)
                     except ValueError:
@@ -561,12 +586,14 @@ class EventVectorStore:
 
                 # Ensure value is a date or datetime object before comparing
                 from datetime import date, datetime
+
                 if not isinstance(value, (date, datetime)):
                     continue
 
                 # Handle comparison between datetime and date
-                event_date = event.start_date.date() if hasattr(event.start_date, 'date') else event.start_date
-                if event_date > value: return False
+                event_date = event.start_date.date() if hasattr(event.start_date, "date") else event.start_date
+                if event_date > value:
+                    return False
 
             # Period Filtering (has_morning, has_afternoon, has_evening)
             elif key == "period":
@@ -611,7 +638,17 @@ class EventVectorStore:
 
                 if audience_lower == "kids":
                     # Match events for children/kids
-                    kids_keywords = ["enfant", "enfants", "jeune", "jeunes", "kids", "children", "tout-petit", "tout-petits", "jeune public"]
+                    kids_keywords = [
+                        "enfant",
+                        "enfants",
+                        "jeune",
+                        "jeunes",
+                        "kids",
+                        "children",
+                        "tout-petit",
+                        "tout-petits",
+                        "jeune public",
+                    ]
                     # Also match if age_max is set and <= 12 (suggesting child-appropriate)
                     has_age_hint = event.age_max is not None and event.age_max <= 12
                     has_keyword = any(kw in event_text for kw in kids_keywords)
@@ -630,7 +667,17 @@ class EventVectorStore:
 
                 elif audience_lower == "professional":
                     # Match professional/corporate events
-                    pro_keywords = ["professionnel", "professionnelle", "corporate", "entreprise", "b2b", "business", "networking", "séminaire", "conférence professionnelle"]
+                    pro_keywords = [
+                        "professionnel",
+                        "professionnelle",
+                        "corporate",
+                        "entreprise",
+                        "b2b",
+                        "business",
+                        "networking",
+                        "séminaire",
+                        "conférence professionnelle",
+                    ]
                     has_keyword = any(kw in event_text for kw in pro_keywords)
                     if not has_keyword:
                         return False
@@ -646,11 +693,13 @@ class EventVectorStore:
     def __exit__(self, *args: Any) -> None:
         self.close()
 
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
     with EventVectorStore() as vector_store:
         vector_store.build_index()
         vector_store.save_index()
+
 
 if __name__ == "__main__":
     main()

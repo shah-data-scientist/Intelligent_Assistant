@@ -26,10 +26,7 @@ class TestEventLocation:
     def test_full_location(self):
         """Test creating location with all fields."""
         loc = EventLocation(
-            address="15 rue de la Paix",
-            city="Paris",
-            postal_code="75001",
-            coordinates={"lat": 48.8566, "lon": 2.3522}
+            address="15 rue de la Paix", city="Paris", postal_code="75001", coordinates={"lat": 48.8566, "lon": 2.3522}
         )
         assert loc.address == "15 rue de la Paix"
         assert loc.city == "Paris"

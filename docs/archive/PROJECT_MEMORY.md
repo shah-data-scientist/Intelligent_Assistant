@@ -310,8 +310,8 @@ To ensure high-quality RAG performance, data undergoes a multi-stage refinement 
     - Created `src/data/chat_storage.py` and dedicated `data/chat_history.db` for interactions (SRP).
     - Removed `ConversationRecord` and `FeedbackRecord` from `EventStorage`.
     - Updated `RAGChain` and API endpoints to utilize `ChatStorage` for improved modularity.
-  - **Test Suite Expansion:** 
-    - Added [tests/test_rag_prompts.py](tests/test_rag_prompts.py) to validate fallback logic and data reporting. 
+  - **Test Suite Expansion:**
+    - Added [tests/test_rag_prompts.py](tests/test_rag_prompts.py) to validate fallback logic and data reporting.
     - Verified chat storage isolation with updated [tests/test_chat_history.py](tests/test_chat_history.py).
     - **Advanced Semantic Retrieval:** Added [tests/test_advanced_retrieval.py](tests/test_advanced_retrieval.py) to verify retrieval of specific content (Nationality: Finland/Japan) and logistical details (Transport/Metro).
   - **Config Optimization:** Increased `retrieval_top_k` to 10 to ensure "at least 5 events" can be presented as requested by users.

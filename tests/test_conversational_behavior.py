@@ -14,25 +14,22 @@ chain = RAGChain()
 test_queries = [
     # Vague query - should ask for specifics
     "Events in Paris",
-
     # Broad query - should ask to narrow down
     "Jazz concerts",
-
     # Query that might have zero results - should propose alternatives
     "Free classical concerts in December",
-
     # Specific query - should work normally
     "Concerts de jazz à Paris en février",
 ]
 
-print("="*80)
+print("=" * 80)
 print("CONVERSATIONAL BEHAVIOR TEST")
-print("="*80)
+print("=" * 80)
 
 for i, query in enumerate(test_queries, 1):
     print(f"\n{'='*80}")
     print(f"[{i}/{len(test_queries)}] Query: {query}")
-    print("="*80)
+    print("=" * 80)
 
     # Generate answer
     session_id = f"conv_test_{uuid.uuid4().hex[:8]}"
@@ -42,15 +39,21 @@ for i, query in enumerate(test_queries, 1):
     num_sources = len(result["sources"])
 
     print(f"\nAnswer ({num_sources} sources):")
-    print("-"*80)
+    print("-" * 80)
     print(answer)
-    print("-"*80)
+    print("-" * 80)
 
     # Check for conversational elements
     conversational_indicators = [
-        "would you like", "what type", "which option", "would be most helpful",
-        "to help you", "let me know", "what are you in the mood for",
-        "would you prefer", "what interests you"
+        "would you like",
+        "what type",
+        "which option",
+        "would be most helpful",
+        "to help you",
+        "let me know",
+        "what are you in the mood for",
+        "would you prefer",
+        "what interests you",
     ]
 
     has_questions = any(indicator in answer.lower() for indicator in conversational_indicators)
@@ -66,11 +69,11 @@ for i, query in enumerate(test_queries, 1):
     else:
         print("[INFO] Response may not reference specific events")
 
-print("\n" + "="*80)
+print("\n" + "=" * 80)
 print("TEST COMPLETE")
-print("="*80)
+print("=" * 80)
 print("\nSummary:")
 print("- Test verifies that chatbot asks clarifying questions for vague queries")
 print("- Test verifies that chatbot proposes alternatives when results are limited")
 print("- Test verifies that grounding is maintained (no hallucinations)")
-print("="*80)
+print("=" * 80)

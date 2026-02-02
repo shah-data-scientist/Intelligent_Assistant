@@ -10,7 +10,6 @@ These tests verify that:
 import pytest
 import re
 import os
-import ast
 from unittest.mock import MagicMock, patch
 
 
@@ -24,8 +23,9 @@ class TestPromptIntegration:
 
         # Find all get_*_prompt functions
         prompt_getters = [
-            name for name in dir(prompts)
-            if name.startswith('get_') and name.endswith('_prompt') and callable(getattr(prompts, name))
+            name
+            for name in dir(prompts)
+            if name.startswith("get_") and name.endswith("_prompt") and callable(getattr(prompts, name))
         ]
 
         assert len(prompt_getters) > 0, "No prompt getters found"
@@ -34,30 +34,32 @@ class TestPromptIntegration:
             getter = getattr(prompts, getter_name)
             result = getter()
             # Some prompts return string (system prompts), others return ChatPromptTemplate
-            assert isinstance(result, (ChatPromptTemplate, str)), \
-                f"{getter_name}() should return ChatPromptTemplate or str, got {type(result)}"
+            assert isinstance(
+                result, (ChatPromptTemplate, str)
+            ), f"{getter_name}() should return ChatPromptTemplate or str, got {type(result)}"
             # If string, should be non-empty
             if isinstance(result, str):
                 assert len(result) > 100, f"{getter_name}() returned empty/short string"
 
     def test_unified_understanding_prompt_is_used(self):
         """Verify the unified prompt is actually used in chain.py."""
-        chain_path = 'src/retrieval/chain.py'
-        with open(chain_path, 'r', encoding='utf-8') as f:
+        chain_path = "src/retrieval/chain.py"
+        with open(chain_path, "r", encoding="utf-8") as f:
             content = f.read()
 
         # Must import the unified prompt
-        assert 'get_query_understanding_prompt' in content, \
-            "get_query_understanding_prompt must be imported in chain.py"
+        assert (
+            "get_query_understanding_prompt" in content
+        ), "get_query_understanding_prompt must be imported in chain.py"
 
         # Must be used to create a chain
-        assert 'unified_understanding_chain' in content, \
-            "unified_understanding_chain must be defined in chain.py"
+        assert "unified_understanding_chain" in content, "unified_understanding_chain must be defined in chain.py"
 
         # Must be invoked
-        assert 'unified_understanding_chain.invoke' in content or \
-               'self.unified_understanding_chain.invoke' in content.replace(' ', ''), \
-            "unified_understanding_chain must be invoked in chain.py"
+        assert (
+            "unified_understanding_chain.invoke" in content
+            or "self.unified_understanding_chain.invoke" in content.replace(" ", "")
+        ), "unified_understanding_chain must be invoked in chain.py"
 
 
 class TestChainIntegration:
@@ -65,20 +67,19 @@ class TestChainIntegration:
 
     def test_no_unused_chain_definitions(self):
         """Verify all self.*_chain definitions are actually used."""
-        chain_path = 'src/retrieval/chain.py'
-        with open(chain_path, 'r', encoding='utf-8') as f:
+        chain_path = "src/retrieval/chain.py"
+        with open(chain_path, "r", encoding="utf-8") as f:
             content = f.read()
 
         # Find all chain definitions
-        chain_defs = re.findall(r'self\.(\w+_chain)\s*=', content)
+        chain_defs = re.findall(r"self\.(\w+_chain)\s*=", content)
 
         # Find all chain usages (invocations)
-        chain_uses = re.findall(r'self\.(\w+_chain)\.invoke', content)
+        chain_uses = re.findall(r"self\.(\w+_chain)\.invoke", content)
 
         # All defined chains should be used
         unused = set(chain_defs) - set(chain_uses)
-        assert len(unused) == 0, \
-            f"Unused chains found: {unused}. Remove them or integrate them."
+        assert len(unused) == 0, f"Unused chains found: {unused}. Remove them or integrate them."
 
 
 class TestImportIntegration:
@@ -86,25 +87,21 @@ class TestImportIntegration:
 
     def test_chain_imports_are_used(self):
         """Verify all imports in chain.py from prompts are used."""
-        chain_path = 'src/retrieval/chain.py'
-        with open(chain_path, 'r', encoding='utf-8') as f:
+        chain_path = "src/retrieval/chain.py"
+        with open(chain_path, "r", encoding="utf-8") as f:
             content = f.read()
 
         # Find imports from prompts
-        import_match = re.search(
-            r'from src\.generation\.prompts import (.+)',
-            content
-        )
+        import_match = re.search(r"from src\.generation\.prompts import (.+)", content)
 
         if import_match:
-            imported_items = [i.strip() for i in import_match.group(1).split(',')]
+            imported_items = [i.strip() for i in import_match.group(1).split(",")]
 
             for item in imported_items:
                 # Each import should appear more than once (import + usage)
-                pattern = re.compile(r'\b' + item.strip() + r'\b')
+                pattern = re.compile(r"\b" + item.strip() + r"\b")
                 occurrences = len(pattern.findall(content))
-                assert occurrences > 1, \
-                    f"Import '{item}' is not used in chain.py. Remove it."
+                assert occurrences > 1, f"Import '{item}' is not used in chain.py. Remove it."
 
 
 class TestNoDeadClasses:
@@ -113,12 +110,12 @@ class TestNoDeadClasses:
     def test_retrieval_manager_is_used(self):
         """Verify RetrievalManager is instantiated somewhere."""
         found = False
-        for root, dirs, files in os.walk('src'):
+        for root, dirs, files in os.walk("src"):
             for file in files:
-                if file.endswith('.py'):
+                if file.endswith(".py"):
                     filepath = os.path.join(root, file)
-                    with open(filepath, 'r', encoding='utf-8') as f:
-                        if 'RetrievalManager(' in f.read():
+                    with open(filepath, "r", encoding="utf-8") as f:
+                        if "RetrievalManager(" in f.read():
                             found = True
                             break
             if found:
@@ -129,15 +126,14 @@ class TestNoDeadClasses:
     def test_deprecated_modules_are_marked(self):
         """Verify deprecated modules have deprecation notice."""
         deprecated_modules = [
-            'src/retrieval/orchestrator.py',
+            "src/retrieval/orchestrator.py",
         ]
 
         for module_path in deprecated_modules:
             if os.path.exists(module_path):
-                with open(module_path, 'r', encoding='utf-8') as f:
+                with open(module_path, "r", encoding="utf-8") as f:
                     content = f.read()
-                assert 'DEPRECATED' in content.upper(), \
-                    f"{module_path} should have DEPRECATED notice"
+                assert "DEPRECATED" in content.upper(), f"{module_path} should have DEPRECATED notice"
 
 
 class TestEndToEndPipeline:
@@ -155,23 +151,23 @@ class TestEndToEndPipeline:
                 "year": 2026,
                 "category": "concerts",
                 "is_free": None,
-                "age": None
-            }
+                "age": None,
+            },
         }
 
     def test_unified_chain_produces_expected_output(self, mock_llm_response):
         """Test that unified understanding chain produces valid output structure."""
         # This is a structural test - verifies the chain output format
-        required_keys = ['refined_query', 'filters']
+        required_keys = ["refined_query", "filters"]
         for key in required_keys:
             assert key in mock_llm_response, f"Missing required key: {key}"
 
-        filter_keys = ['city', 'month', 'day', 'year', 'category', 'is_free', 'age']
+        filter_keys = ["city", "month", "day", "year", "category", "is_free", "age"]
         for key in filter_keys:
-            assert key in mock_llm_response['filters'], f"Missing filter key: {key}"
+            assert key in mock_llm_response["filters"], f"Missing filter key: {key}"
 
-    @patch('src.retrieval.chain.MistralLLM')
-    @patch('src.retrieval.chain.EventVectorStore')
+    @patch("src.retrieval.chain.MistralLLM")
+    @patch("src.retrieval.chain.EventVectorStore")
     def test_rag_chain_initialization(self, mock_vector_store, mock_llm):
         """Test RAGChain initializes without errors."""
         # Setup mocks
@@ -199,43 +195,42 @@ class TestCodeQuality:
     def test_no_todo_with_critical_keyword(self):
         """Ensure no critical TODOs are left unaddressed."""
         critical_patterns = [
-            r'TODO.*CRITICAL',
-            r'TODO.*URGENT',
-            r'FIXME.*CRITICAL',
-            r'XXX.*MUST',
+            r"TODO.*CRITICAL",
+            r"TODO.*URGENT",
+            r"FIXME.*CRITICAL",
+            r"XXX.*MUST",
         ]
 
         violations = []
-        for root, dirs, files in os.walk('src'):
+        for root, dirs, files in os.walk("src"):
             for file in files:
-                if file.endswith('.py'):
+                if file.endswith(".py"):
                     filepath = os.path.join(root, file)
-                    with open(filepath, 'r', encoding='utf-8') as f:
+                    with open(filepath, "r", encoding="utf-8") as f:
                         for i, line in enumerate(f, 1):
                             for pattern in critical_patterns:
                                 if re.search(pattern, line, re.IGNORECASE):
                                     violations.append(f"{filepath}:{i}: {line.strip()}")
 
-        assert len(violations) == 0, \
-            f"Critical TODOs found:\n" + "\n".join(violations)
+        assert len(violations) == 0, "Critical TODOs found:\n" + "\n".join(violations)
 
     def test_no_commented_out_code_blocks(self):
         """Check for large blocks of commented-out code."""
         # This is a heuristic - 5+ consecutive comment lines with code patterns
         code_patterns = [
-            r'#\s*def\s+\w+',
-            r'#\s*class\s+\w+',
-            r'#\s*return\s+',
-            r'#\s*if\s+\w+',
-            r'#\s*for\s+\w+',
+            r"#\s*def\s+\w+",
+            r"#\s*class\s+\w+",
+            r"#\s*return\s+",
+            r"#\s*if\s+\w+",
+            r"#\s*for\s+\w+",
         ]
 
         violations = []
-        for root, dirs, files in os.walk('src'):
+        for root, dirs, files in os.walk("src"):
             for file in files:
-                if file.endswith('.py'):
+                if file.endswith(".py"):
                     filepath = os.path.join(root, file)
-                    with open(filepath, 'r', encoding='utf-8') as f:
+                    with open(filepath, "r", encoding="utf-8") as f:
                         lines = f.readlines()
 
                     consecutive_code_comments = 0

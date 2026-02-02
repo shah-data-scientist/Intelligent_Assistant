@@ -7,8 +7,6 @@ MAINTAINER: QA Team
 """
 
 import pytest
-import time
-from unittest.mock import Mock, patch
 
 from src.utils.retry import (
     RetryExhaustedError,
@@ -68,9 +66,7 @@ class TestRetryWithBackoff:
         """Test that only specified exceptions are caught."""
         call_count = {"count": 0}
 
-        @retry_with_backoff(
-            max_attempts=3, initial_delay=0.01, exceptions=(ConnectionError,)
-        )
+        @retry_with_backoff(max_attempts=3, initial_delay=0.01, exceptions=(ConnectionError,))
         def raises_value_error():
             call_count["count"] += 1
             raise ValueError("Not a network error")
@@ -235,13 +231,14 @@ class TestHttpxImportFallback:
         import sys
 
         # Temporarily hide httpx from imports
-        httpx_module = sys.modules.get('httpx')
-        sys.modules['httpx'] = None
+        httpx_module = sys.modules.get("httpx")
+        sys.modules["httpx"] = None
 
         try:
             # Force reimport
             import importlib
             import src.utils.retry as retry_module
+
             importlib.reload(retry_module)
 
             call_count = {"count": 0}
@@ -259,20 +256,21 @@ class TestHttpxImportFallback:
         finally:
             # Restore httpx
             if httpx_module:
-                sys.modules['httpx'] = httpx_module
-            elif 'httpx' in sys.modules:
-                del sys.modules['httpx']
+                sys.modules["httpx"] = httpx_module
+            elif "httpx" in sys.modules:
+                del sys.modules["httpx"]
 
     def test_retry_on_api_error_without_httpx(self):
         """Test that retry_on_api_error falls back when httpx not available."""
         import sys
 
-        httpx_module = sys.modules.get('httpx')
-        sys.modules['httpx'] = None
+        httpx_module = sys.modules.get("httpx")
+        sys.modules["httpx"] = None
 
         try:
             import importlib
             import src.utils.retry as retry_module
+
             importlib.reload(retry_module)
 
             call_count = {"count": 0}
@@ -289,9 +287,9 @@ class TestHttpxImportFallback:
             assert call_count["count"] == 2
         finally:
             if httpx_module:
-                sys.modules['httpx'] = httpx_module
-            elif 'httpx' in sys.modules:
-                del sys.modules['httpx']
+                sys.modules["httpx"] = httpx_module
+            elif "httpx" in sys.modules:
+                del sys.modules["httpx"]
 
 
 class TestRetryWithHttpx:

@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
+
 class EventScraper:
     """Scraper to fetch and extract text content from event URLs."""
 
@@ -33,9 +34,9 @@ class EventScraper:
             async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
                 response = await client.get(url, headers=self.headers)
                 response.raise_for_status()
-                
+
                 soup = BeautifulSoup(response.text, "html.parser")
-                
+
                 # Remove only structural clutter
                 for script in soup(["script", "style", "noscript", "iframe"]):
                     script.decompose()
@@ -43,12 +44,12 @@ class EventScraper:
                 # Try to find the main content area
                 # OpenAgenda: often has specific classes
                 content_node = (
-                    soup.find(class_="oa-event-description") or
-                    soup.find(class_="event-description") or
-                    soup.find("main") or
-                    soup.find("article") or
-                    soup.find(id="main") or
-                    soup.body
+                    soup.find(class_="oa-event-description")
+                    or soup.find(class_="event-description")
+                    or soup.find("main")
+                    or soup.find("article")
+                    or soup.find(id="main")
+                    or soup.body
                 )
 
                 if not content_node:
@@ -56,7 +57,7 @@ class EventScraper:
 
                 # Extract text
                 text = content_node.get_text(separator="\n")
-                
+
                 # Clean text
                 lines = []
                 for line in text.splitlines():
@@ -66,10 +67,10 @@ class EventScraper:
                         continue
                     if clean_line:
                         lines.append(clean_line)
-                
+
                 text = "\n".join(lines)
-                
-                return text[:10000] 
+
+                return text[:10000]
 
         except Exception as e:
             logger.warning(f"Failed to scrape {url}: {e}")

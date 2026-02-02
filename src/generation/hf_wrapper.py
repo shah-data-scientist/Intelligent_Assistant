@@ -23,13 +23,16 @@ logger = logging.getLogger(__name__)
 # HUGGINGFACE-SPECIFIC ERROR TYPES
 # ========================================
 
+
 class HuggingFaceError(Exception):
     """Base exception for HuggingFace API errors."""
+
     pass
 
 
 class HuggingFaceModelLoadingError(HuggingFaceError):
     """Model is currently loading (cold start). Retry after wait."""
+
     def __init__(self, estimated_time: float = 20.0):
         self.estimated_time = estimated_time
         super().__init__(f"Model is loading. Estimated wait: {estimated_time}s")
@@ -37,11 +40,13 @@ class HuggingFaceModelLoadingError(HuggingFaceError):
 
 class HuggingFaceRateLimitError(HuggingFaceError):
     """Rate limit exceeded."""
+
     pass
 
 
 class HuggingFaceQueueError(HuggingFaceError):
     """Request queued or timed out."""
+
     pass
 
 
@@ -49,33 +54,24 @@ def is_hf_model_loading_error(error: Exception) -> bool:
     """Check if error is a model loading error (cold start)."""
     error_str = str(error).lower()
     return (
-        "model is currently loading" in error_str or
-        "is currently loading" in error_str or
-        "estimated_time" in error_str or
-        "loading" in error_str and "model" in error_str
+        "model is currently loading" in error_str
+        or "is currently loading" in error_str
+        or "estimated_time" in error_str
+        or "loading" in error_str
+        and "model" in error_str
     )
 
 
 def is_hf_rate_limit_error(error: Exception) -> bool:
     """Check if error is a HuggingFace rate limit error."""
     error_str = str(error).lower()
-    return (
-        "rate limit" in error_str or
-        "too many requests" in error_str or
-        "429" in error_str or
-        "quota" in error_str
-    )
+    return "rate limit" in error_str or "too many requests" in error_str or "429" in error_str or "quota" in error_str
 
 
 def is_hf_queue_error(error: Exception) -> bool:
     """Check if error is a queue/timeout error."""
     error_str = str(error).lower()
-    return (
-        "queue" in error_str or
-        "timeout" in error_str or
-        "timed out" in error_str or
-        "503" in error_str
-    )
+    return "queue" in error_str or "timeout" in error_str or "timed out" in error_str or "503" in error_str
 
 
 class HuggingFaceChatWrapper(BaseChatModel):

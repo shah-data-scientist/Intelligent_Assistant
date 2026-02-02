@@ -32,7 +32,7 @@ class TestSQLiteChatMessageHistory:
 
     def test_init_creates_storage_if_not_provided(self):
         """Test that storage is created if not provided."""
-        with patch('src.data.chat_history.ChatStorage') as mock_class:
+        with patch("src.data.chat_history.ChatStorage") as mock_class:
             mock_instance = MagicMock()
             mock_class.return_value = mock_instance
 
@@ -53,9 +53,7 @@ class TestSQLiteChatMessageHistory:
 
     def test_messages_with_user_message(self, mock_storage):
         """Test messages property with user message."""
-        mock_storage.get_chat_history.return_value = [
-            {"role": "user", "content": "Hello"}
-        ]
+        mock_storage.get_chat_history.return_value = [{"role": "user", "content": "Hello"}]
         history = SQLiteChatMessageHistory("session-1", storage=mock_storage)
 
         messages = history.messages
@@ -66,9 +64,7 @@ class TestSQLiteChatMessageHistory:
 
     def test_messages_with_assistant_message(self, mock_storage):
         """Test messages property with assistant message."""
-        mock_storage.get_chat_history.return_value = [
-            {"role": "assistant", "content": "Hi there!"}
-        ]
+        mock_storage.get_chat_history.return_value = [{"role": "assistant", "content": "Hi there!"}]
         history = SQLiteChatMessageHistory("session-1", storage=mock_storage)
 
         messages = history.messages
@@ -102,9 +98,7 @@ class TestSQLiteChatMessageHistory:
 
         history.add_message(message)
 
-        mock_storage.add_chat_message.assert_called_once_with(
-            "session-1", "user", "Hello!"
-        )
+        mock_storage.add_chat_message.assert_called_once_with("session-1", "user", "Hello!")
 
     def test_add_ai_message(self, mock_storage):
         """Test adding an AI message."""
@@ -113,9 +107,7 @@ class TestSQLiteChatMessageHistory:
 
         history.add_message(message)
 
-        mock_storage.add_chat_message.assert_called_once_with(
-            "session-1", "assistant", "Hi there!"
-        )
+        mock_storage.add_chat_message.assert_called_once_with("session-1", "assistant", "Hi there!")
 
     def test_add_system_message(self, mock_storage):
         """Test adding a system message."""
@@ -124,9 +116,7 @@ class TestSQLiteChatMessageHistory:
 
         history.add_message(message)
 
-        mock_storage.add_chat_message.assert_called_once_with(
-            "session-1", "system", "You are a helpful assistant."
-        )
+        mock_storage.add_chat_message.assert_called_once_with("session-1", "system", "You are a helpful assistant.")
 
     def test_clear_does_nothing(self, mock_storage):
         """Test that clear method exists but does nothing."""

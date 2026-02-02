@@ -85,10 +85,7 @@ class OpenAgendaClient:
             # Extract records from response (Opendatasoft v2.1 format)
             records = data.get("results", [])
             total_count = data.get("total_count", 0)
-            logger.info(
-                f"Successfully fetched {len(records)} events "
-                f"(total available: {total_count:,})"
-            )
+            logger.info(f"Successfully fetched {len(records)} events " f"(total available: {total_count:,})")
 
             return records
 
@@ -163,6 +160,7 @@ def main() -> None:
         if events:
             # Display first event as example
             import json
+
             logger.info("First event:")
             logger.info(json.dumps(events[0], indent=2, ensure_ascii=False))
 

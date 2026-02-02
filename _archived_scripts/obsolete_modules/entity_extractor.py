@@ -89,10 +89,7 @@ class EntityExtractor:
             cities_str = ", ".join(sampled_cities)
 
             prompt = CITY_NORMALIZER_PROMPT.format(known_cities=cities_str)
-            messages = [
-                SystemMessage(content=prompt),
-                HumanMessage(content=f"User input: {city_input}")
-            ]
+            messages = [SystemMessage(content=prompt), HumanMessage(content=f"User input: {city_input}")]
 
             response = self.llm.invoke(messages)
             content = response.content.strip()
@@ -170,10 +167,7 @@ def extract_location_from_query(query: str) -> Tuple[Optional[str], Optional[str
             max_tokens=50,
         )
 
-        messages = [
-            SystemMessage(content=LOCATION_EXTRACTOR_PROMPT),
-            HumanMessage(content=f"Query: {query}")
-        ]
+        messages = [SystemMessage(content=LOCATION_EXTRACTOR_PROMPT), HumanMessage(content=f"Query: {query}")]
 
         response = llm.invoke(messages)
         content = response.content.strip()
@@ -262,7 +256,7 @@ def analyze_query_completeness(query: str, chat_history: List[Any] = None) -> Di
 
         messages = [
             SystemMessage(content=COMPLETENESS_ANALYZER_PROMPT),
-            HumanMessage(content=f"Query: {query}{history_context}")
+            HumanMessage(content=f"Query: {query}{history_context}"),
         ]
 
         response = llm.invoke(messages)
@@ -277,7 +271,9 @@ def analyze_query_completeness(query: str, chat_history: List[Any] = None) -> Di
 
         result = json.loads(content)
 
-        logger.info(f"[LLM-COMPLETE] Query '{query[:30]}...' -> complete={result.get('is_complete')}, missing={result.get('missing')}")
+        logger.info(
+            f"[LLM-COMPLETE] Query '{query[:30]}...' -> complete={result.get('is_complete')}, missing={result.get('missing')}"
+        )
 
         return result
 
@@ -289,7 +285,7 @@ def analyze_query_completeness(query: str, chat_history: List[Any] = None) -> Di
             "has_event_type": False,
             "has_timeframe": False,
             "is_complete": False,
-            "missing": ["location", "event_type", "timeframe"]
+            "missing": ["location", "event_type", "timeframe"],
         }
 
 

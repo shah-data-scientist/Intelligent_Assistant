@@ -7,8 +7,7 @@ MAINTAINER: QA Team
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock, patch
-from datetime import datetime, timedelta
+from unittest.mock import Mock
 
 from src.analysis.feedback_analyzer import FeedbackAnalyzer
 
@@ -120,9 +119,7 @@ class TestFeedbackAnalyzerSolutions:
         mock_storage = Mock()
         analyzer = FeedbackAnalyzer(storage=mock_storage)
 
-        patterns = {
-            "issue_breakdown": {"no_results": 5}
-        }
+        patterns = {"issue_breakdown": {"no_results": 5}}
 
         solutions = analyzer._generate_solutions(patterns, [])
 
@@ -137,9 +134,7 @@ class TestFeedbackAnalyzerSolutions:
         mock_storage = Mock()
         analyzer = FeedbackAnalyzer(storage=mock_storage)
 
-        patterns = {
-            "issue_breakdown": {"wrong_results": 3}
-        }
+        patterns = {"issue_breakdown": {"wrong_results": 3}}
 
         solutions = analyzer._generate_solutions(patterns, [])
 
@@ -174,9 +169,7 @@ class TestFeedbackAnalyzerSolutions:
         mock_storage = Mock()
         analyzer = FeedbackAnalyzer(storage=mock_storage)
 
-        patterns = {
-            "issue_breakdown": {}
-        }
+        patterns = {"issue_breakdown": {}}
 
         negative_feedback = [
             {"comment": None},
@@ -193,9 +186,7 @@ class TestFeedbackAnalyzerSolutions:
         mock_storage = Mock()
         analyzer = FeedbackAnalyzer(storage=mock_storage)
 
-        patterns = {
-            "issue_breakdown": {"date_issue": 2}
-        }
+        patterns = {"issue_breakdown": {"date_issue": 2}}
 
         solutions = analyzer._generate_solutions(patterns, [])
 
@@ -269,9 +260,7 @@ class TestFeedbackAnalyzerLocationIssue:
         mock_storage = Mock()
         analyzer = FeedbackAnalyzer(storage=mock_storage)
 
-        patterns = {
-            "issue_breakdown": {"location_issue": 3}
-        }
+        patterns = {"issue_breakdown": {"location_issue": 3}}
 
         solutions = analyzer._generate_solutions(patterns, [])
 
@@ -305,9 +294,7 @@ class TestFeedbackAnalyzerEdgeCases:
         mock_storage = Mock()
         analyzer = FeedbackAnalyzer(storage=mock_storage)
 
-        patterns = {
-            "issue_breakdown": {"date_issue": 4}
-        }
+        patterns = {"issue_breakdown": {"date_issue": 4}}
 
         solutions = analyzer._generate_solutions(patterns, [])
 
@@ -320,9 +307,7 @@ class TestFeedbackAnalyzerEdgeCases:
         mock_storage = Mock()
         analyzer = FeedbackAnalyzer(storage=mock_storage)
 
-        patterns = {
-            "issue_breakdown": {"missing_info": 2}
-        }
+        patterns = {"issue_breakdown": {"missing_info": 2}}
 
         solutions = analyzer._generate_solutions(patterns, [])
 

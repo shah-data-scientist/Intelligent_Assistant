@@ -275,7 +275,7 @@ class TestStemTokensEdgeCases:
         from unittest.mock import patch
 
         # Mock the import to raise ImportError
-        with patch.dict(sys.modules, {'nltk.stem': None, 'nltk': None}):
+        with patch.dict(sys.modules, {"nltk.stem": None, "nltk": None}):
             # The function should return tokens unchanged
             tokens = ["concerts", "musicaux"]
             # Since nltk is already imported, we need to mock at function level

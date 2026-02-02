@@ -38,7 +38,7 @@ def test_simple_invocation(backend):
     """Test that Mistral can respond to a simple prompt."""
     print("Testing simple invocation...")
     try:
-        response = backend.invoke("Say 'hello' in JSON format: {\"greeting\": \"hello\"}")
+        response = backend.invoke('Say \'hello\' in JSON format: {"greeting": "hello"}')
 
         if response and len(response) > 0:
             print(f"[OK] Mistral responded ({len(response)} chars)")
@@ -117,7 +117,7 @@ def test_full_generation_evaluation():
         answer = "Voici les concerts de jazz à Paris en février:\n1. Jazz Night - 15 février 2026 au Blue Note Paris\n2. Festival Jazz - 20 février 2026"
         sources = [
             "Title: Jazz Night\nCity: Paris\nDate: 15/02/2026\nVenue: Blue Note Paris",
-            "Title: Festival Jazz\nCity: Paris\nDate: 20/02/2026"
+            "Title: Festival Jazz\nCity: Paris\nDate: 20/02/2026",
         ]
 
         result = judge.evaluate_generation(query, answer, sources)
@@ -126,7 +126,7 @@ def test_full_generation_evaluation():
         missing_keys = [k for k in required_keys if k not in result]
 
         if not missing_keys:
-            print(f"[OK] Full evaluation complete:")
+            print("[OK] Full evaluation complete:")
             print(f"     Faithfulness: {result['faithfulness_score']:.2f}")
             print(f"     Relevancy: {result['relevancy_score']:.2f}")
             print(f"     Quality: {result['quality_score']:.2f}")

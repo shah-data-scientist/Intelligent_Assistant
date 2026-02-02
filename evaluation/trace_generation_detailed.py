@@ -13,9 +13,10 @@ from pathlib import Path
 # Setup - evaluation folder is one level deep
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 from dotenv import load_dotenv
+
 load_dotenv(project_root / ".env", override=True)
 
 from src.retrieval.unified_analyzer import unified_analyze
@@ -23,7 +24,7 @@ from src.retrieval.chain import (
     should_apply_default_timeframe,
     apply_default_timeframe,
     detect_language_from_query,
-    RAGChain
+    RAGChain,
 )
 
 
@@ -45,14 +46,14 @@ def print_event_table(sources: list):
     print(f"  {'─'*76}")
 
     for i, src in enumerate(sources[:10], 1):
-        score = src.get('score', 0)
-        match_type = src.get('match_type', 'Unknown')[:16]
-        distance = src.get('distance_km', 0)
-        title = src.get('title', 'Unknown')[:30]
-        city = src.get('city', 'Unknown')
-        date = src.get('date', 'Unknown')
-        category = src.get('category', 'Unknown')
-        venue = src.get('venue', 'Unknown')[:25]
+        score = src.get("score", 0)
+        match_type = src.get("match_type", "Unknown")[:16]
+        distance = src.get("distance_km", 0)
+        title = src.get("title", "Unknown")[:30]
+        city = src.get("city", "Unknown")
+        date = src.get("date", "Unknown")
+        category = src.get("category", "Unknown")
+        venue = src.get("venue", "Unknown")[:25]
 
         dist_str = f"{distance:.1f}km" if distance > 0 else "0km"
         print(f"  {i:<3} {score:<7.3f} {match_type:<16} {dist_str:<6} {title:<30} {city}")
@@ -83,18 +84,18 @@ def trace_query_detailed(query: str, chain: RAGChain, session_id: str, chat_hist
     print(f"\n  PRIMARY INTENT: {analysis.intent.value}")
     print(f"  INTENT CONFIDENCE: {analysis.intent_confidence:.2f}")
 
-    print(f"\n  ENTITY EXTRACTION:")
+    print("\n  ENTITY EXTRACTION:")
     print(f"    city_raw: {analysis.city}")
     print(f"    city_normalized: {analysis.city_normalized}")
     print(f"    event_type: {analysis.event_type}")
     print(f"    timeframe: {analysis.timeframe}")
 
-    print(f"\n  FILTERS EXTRACTED:")
+    print("\n  FILTERS EXTRACTED:")
     for key, val in analysis.filters.items():
-        if val is not None and not key.startswith('_'):
+        if val is not None and not key.startswith("_"):
             print(f"    {key}: {val}")
 
-    print(f"\n  COMPLETENESS CHECK:")
+    print("\n  COMPLETENESS CHECK:")
     print(f"    is_complete: {analysis.is_complete}")
     print(f"    missing_criteria: {analysis.missing_criteria}")
 
@@ -103,16 +104,16 @@ def trace_query_detailed(query: str, chain: RAGChain, session_id: str, chat_hist
     # ========================================
     print_separator("STEP 3: SEMANTIC SEARCH QUERY")
 
-    refined_query = analysis.filters.get('_refined_query') or query
-    search_terms = analysis.filters.get('_search_terms', [query])
+    refined_query = analysis.filters.get("_refined_query") or query
+    search_terms = analysis.filters.get("_search_terms", [query])
 
-    print(f"\n  ORIGINAL QUERY: \"{query}\"")
-    print(f"\n  REFINED QUERY (sent to vector embeddings):")
-    print(f"    \"{refined_query}\"")
+    print(f'\n  ORIGINAL QUERY: "{query}"')
+    print("\n  REFINED QUERY (sent to vector embeddings):")
+    print(f'    "{refined_query}"')
 
-    print(f"\n  ACCUMULATED SEARCH TERMS:")
+    print("\n  ACCUMULATED SEARCH TERMS:")
     for i, term in enumerate(search_terms, 1):
-        print(f"    {i}. \"{term}\"")
+        print(f'    {i}. "{term}"')
 
     # ========================================
     # STEP 4: Filter Application
@@ -122,7 +123,7 @@ def trace_query_detailed(query: str, chain: RAGChain, session_id: str, chat_hist
     filters = analysis.filters.copy()
     should_apply = should_apply_default_timeframe(filters)
 
-    print(f"\n  APPLIED FILTERS:")
+    print("\n  APPLIED FILTERS:")
     print(f"    city: {filters.get('city', '(any)')}")
     print(f"    category: {filters.get('category', '(any)')}")
     print(f"    month: {filters.get('month', '(any)')}")
@@ -132,7 +133,7 @@ def trace_query_detailed(query: str, chain: RAGChain, session_id: str, chat_hist
 
     if should_apply:
         filters = apply_default_timeframe(filters)
-        print(f"\n  DEFAULT TIMEFRAME APPLIED (30 days):")
+        print("\n  DEFAULT TIMEFRAME APPLIED (30 days):")
         print(f"    _timeframe_start: {filters.get('_timeframe_start')}")
         print(f"    _timeframe_end: {filters.get('_timeframe_end')}")
 
@@ -143,13 +144,13 @@ def trace_query_detailed(query: str, chain: RAGChain, session_id: str, chat_hist
 
     result = chain.query_with_metadata(query, session_id=session_id)
 
-    sources = result.get('sources', [])
-    retrieval_stats = result.get('retrieval_stats', {})
+    sources = result.get("sources", [])
+    retrieval_stats = result.get("retrieval_stats", {})
 
     print(f"\n  QUERY TYPE: {result.get('query_type', 'event_search')}")
     print(f"  NEEDS CLARIFICATION: {result.get('needs_clarification', False)}")
 
-    print(f"\n  RETRIEVAL STATISTICS:")
+    print("\n  RETRIEVAL STATISTICS:")
     print(f"    Total retrieved: {len(sources)}")
     print(f"    Exact matches: {retrieval_stats.get('exact_match_count', 0)}")
     print(f"    Nearby matches: {retrieval_stats.get('nearby_count', 0)}")
@@ -167,11 +168,11 @@ def trace_query_detailed(query: str, chain: RAGChain, session_id: str, chat_hist
     # ========================================
     print_separator("STEP 7: GENERATED RESPONSE")
 
-    answer = result.get('answer', '')
+    answer = result.get("answer", "")
     print(f"\n  RESPONSE LENGTH: {len(answer)} characters")
-    print(f"\n  FULL RESPONSE:")
+    print("\n  FULL RESPONSE:")
     print(f"  {'─'*70}")
-    for line in answer.split('\n'):
+    for line in answer.split("\n"):
         print(f"  {line}")
 
     # ========================================
@@ -180,16 +181,16 @@ def trace_query_detailed(query: str, chain: RAGChain, session_id: str, chat_hist
     print_separator("STEP 8: SESSION STATE")
 
     stored = chain._session_filters.get(session_id, {})
-    filters_only = {k: v for k, v in stored.items() if not k.startswith('_')}
-    accumulated_terms = stored.get('_search_terms', [])
+    filters_only = {k: v for k, v in stored.items() if not k.startswith("_")}
+    accumulated_terms = stored.get("_search_terms", [])
 
-    print(f"\n  STORED FILTERS:")
+    print("\n  STORED FILTERS:")
     for key, val in filters_only.items():
         print(f"    {key}: {val}")
 
-    print(f"\n  ACCUMULATED SEARCH TERMS:")
+    print("\n  ACCUMULATED SEARCH TERMS:")
     for i, term in enumerate(accumulated_terms, 1):
-        print(f"    {i}. \"{term}\"")
+        print(f'    {i}. "{term}"')
 
     return result, analysis
 
@@ -226,10 +227,7 @@ def main():
     print(f"# TRACE 2: {query2} (follow-up with context)")
     print("#" * 80)
 
-    chat_history = [
-        HumanMessage(content=query1),
-        AIMessage(content=result1['answer'][:200] + "...")
-    ]
+    chat_history = [HumanMessage(content=query1), AIMessage(content=result1["answer"][:200] + "...")]
 
     result2, analysis2 = trace_query_detailed(query2, chain, session_id, chat_history=chat_history)
 
@@ -243,8 +241,8 @@ def main():
     print(f"  Turn 2: '{query2}'")
 
     stored = chain._session_filters.get(session_id, {})
-    filters_only = {k: v for k, v in stored.items() if not k.startswith('_')}
-    print(f"\n  FINAL SESSION STATE:")
+    filters_only = {k: v for k, v in stored.items() if not k.startswith("_")}
+    print("\n  FINAL SESSION STATE:")
     print(f"    Filters: {filters_only}")
     print(f"    Search terms: {stored.get('_search_terms', [])}")
 

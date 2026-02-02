@@ -19,9 +19,8 @@ NEW_QUERIES = [
         expected_categories=["Art"],
         expected_filters={"city": "Paris", "month": 3, "price": 0, "accessibility": ["wheelchair"]},
         generation_expectations=GenerationExpectations(
-            must_contain_keywords=["exposition", "art"],
-            expected_language="fr"
-        )
+            must_contain_keywords=["exposition", "art"], expected_language="fr"
+        ),
     ),
     Query(
         id="Q052",
@@ -33,11 +32,9 @@ NEW_QUERIES = [
         expected_categories=["Musique"],
         expected_filters={"city": "Paris", "age_min": 6, "age_max": 12},
         generation_expectations=GenerationExpectations(
-            must_contain_keywords=["concert", "enfants"],
-            expected_language="fr"
-        )
+            must_contain_keywords=["concert", "enfants"], expected_language="fr"
+        ),
     ),
-
     # Temporal complexity
     Query(
         id="Q053",
@@ -48,10 +45,7 @@ NEW_QUERIES = [
         expected_entities=[],
         expected_categories=[],
         expected_filters={"month": 2, "year": 2026},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["février"],
-            expected_language="fr"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["février"], expected_language="fr"),
     ),
     Query(
         id="Q054",
@@ -62,10 +56,7 @@ NEW_QUERIES = [
         expected_entities=["shows"],
         expected_categories=[],
         expected_filters={"city": "Versailles", "month": 1},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=[],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=[], expected_language="en"),
     ),
     Query(
         id="Q055",
@@ -76,12 +67,8 @@ NEW_QUERIES = [
         expected_entities=["nocturne", "soir"],
         expected_categories=[],
         expected_filters={"city": "Paris"},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["Marais"],
-            expected_language="fr"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["Marais"], expected_language="fr"),
     ),
-
     # Geographic complexity
     Query(
         id="Q056",
@@ -92,10 +79,7 @@ NEW_QUERIES = [
         expected_entities=["cultural", "events"],
         expected_categories=[],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=[],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=[], expected_language="en"),
     ),
     Query(
         id="Q057",
@@ -107,9 +91,8 @@ NEW_QUERIES = [
         expected_categories=[],
         expected_filters={"city": "Paris"},
         generation_expectations=GenerationExpectations(
-            must_contain_keywords=["festival", "parc"],
-            expected_language="fr"
-        )
+            must_contain_keywords=["festival", "parc"], expected_language="fr"
+        ),
     ),
     Query(
         id="Q058",
@@ -120,12 +103,8 @@ NEW_QUERIES = [
         expected_entities=["museum", "exhibition", "Louvre"],
         expected_categories=["Art"],
         expected_filters={"city": "Paris"},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["museum"],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["museum"], expected_language="en"),
     ),
-
     # Multi-language and cultural nuance
     Query(
         id="Q059",
@@ -136,10 +115,7 @@ NEW_QUERIES = [
         expected_entities=["spectacle", "bilingue"],
         expected_categories=[],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["bilingue"],
-            expected_language="fr"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["bilingue"], expected_language="fr"),
     ),
     Query(
         id="Q060",
@@ -150,12 +126,8 @@ NEW_QUERIES = [
         expected_entities=["Japanese", "Japan", "tea ceremony"],
         expected_categories=["Culture"],
         expected_filters={"city": "Paris"},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["Japan"],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["Japan"], expected_language="en"),
     ),
-
     # Negation and exclusion
     Query(
         id="Q061",
@@ -166,10 +138,7 @@ NEW_QUERIES = [
         expected_entities=["concert", "modern", "experimental"],
         expected_categories=["Musique"],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["concert"],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["concert"], expected_language="en"),
     ),
     Query(
         id="Q062",
@@ -180,12 +149,8 @@ NEW_QUERIES = [
         expected_entities=["entrée libre", "gratuit"],
         expected_categories=[],
         expected_filters={"price": 0},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["gratuit"],
-            expected_language="fr"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["gratuit"], expected_language="fr"),
     ),
-
     # Comparative and ranking
     Query(
         id="Q063",
@@ -196,10 +161,7 @@ NEW_QUERIES = [
         expected_entities=["art", "exhibition"],
         expected_categories=["Art"],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["exhibition"],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["exhibition"], expected_language="en"),
     ),
     Query(
         id="Q064",
@@ -210,12 +172,8 @@ NEW_QUERIES = [
         expected_entities=["théâtre"],
         expected_categories=["Théâtre"],
         expected_filters={"city": "Paris"},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["théâtre"],
-            expected_language="fr"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["théâtre"], expected_language="fr"),
     ),
-
     # Conditional and hypothetical
     Query(
         id="Q065",
@@ -226,10 +184,7 @@ NEW_QUERIES = [
         expected_entities=["indoor", "cultural"],
         expected_categories=[],
         expected_filters={"city": "Paris"},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["indoor"],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["indoor"], expected_language="en"),
     ),
     Query(
         id="Q066",
@@ -240,12 +195,8 @@ NEW_QUERIES = [
         expected_entities=["climatisé", "intérieur"],
         expected_categories=[],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=[],
-            expected_language="fr"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=[], expected_language="fr"),
     ),
-
     # Combined entity types
     Query(
         id="Q067",
@@ -256,10 +207,7 @@ NEW_QUERIES = [
         expected_entities=["workshop", "masterclass", "artist"],
         expected_categories=[],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["workshop"],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["workshop"], expected_language="en"),
     ),
     Query(
         id="Q068",
@@ -270,12 +218,8 @@ NEW_QUERIES = [
         expected_entities=["auteur", "dédicace", "librairie"],
         expected_categories=["Littérature"],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["auteur"],
-            expected_language="fr"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["auteur"], expected_language="fr"),
     ),
-
     # Budget-conscious queries
     Query(
         id="Q069",
@@ -286,10 +230,7 @@ NEW_QUERIES = [
         expected_entities=["free", "cheap", "student"],
         expected_categories=[],
         expected_filters={"month": 2},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["free"],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["free"], expected_language="en"),
     ),
     Query(
         id="Q070",
@@ -300,12 +241,8 @@ NEW_QUERIES = [
         expected_entities=["tarif réduit", "musée"],
         expected_categories=["Art"],
         expected_filters={"city": "Paris"},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["musée"],
-            expected_language="fr"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["musée"], expected_language="fr"),
     ),
-
     # Follow-up and conversational
     Query(
         id="Q071",
@@ -316,10 +253,7 @@ NEW_QUERIES = [
         expected_entities=[],
         expected_categories=[],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=[],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=[], expected_language="en"),
     ),
     Query(
         id="Q072",
@@ -330,12 +264,8 @@ NEW_QUERIES = [
         expected_entities=["concert", "alternative"],
         expected_categories=["Musique"],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["concert"],
-            expected_language="fr"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["concert"], expected_language="fr"),
     ),
-
     # Ambiguous or underspecified
     Query(
         id="Q073",
@@ -346,10 +276,7 @@ NEW_QUERIES = [
         expected_entities=[],
         expected_categories=[],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=[],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=[], expected_language="en"),
     ),
     Query(
         id="Q074",
@@ -360,12 +287,8 @@ NEW_QUERIES = [
         expected_entities=["culturel", "soir"],
         expected_categories=[],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=[],
-            expected_language="fr"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=[], expected_language="fr"),
     ),
-
     # Technical and format-specific
     Query(
         id="Q075",
@@ -376,10 +299,7 @@ NEW_QUERIES = [
         expected_entities=["VR", "digital", "immersive"],
         expected_categories=["Art"],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["digital"],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["digital"], expected_language="en"),
     ),
     Query(
         id="Q076",
@@ -390,12 +310,8 @@ NEW_QUERIES = [
         expected_entities=["cinéma", "plein air", "rooftop"],
         expected_categories=["Cinéma"],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["cinéma"],
-            expected_language="fr"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["cinéma"], expected_language="fr"),
     ),
-
     # Accessibility-focused (important for inclusivity)
     Query(
         id="Q077",
@@ -406,10 +322,7 @@ NEW_QUERIES = [
         expected_entities=["sign language", "deaf", "accessible"],
         expected_categories=[],
         expected_filters={"accessibility": ["sign_language"]},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["sign"],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["sign"], expected_language="en"),
     ),
     Query(
         id="Q078",
@@ -421,11 +334,9 @@ NEW_QUERIES = [
         expected_categories=[],
         expected_filters={"accessibility": ["audio_description"]},
         generation_expectations=GenerationExpectations(
-            must_contain_keywords=["audiodescription"],
-            expected_language="fr"
-        )
+            must_contain_keywords=["audiodescription"], expected_language="fr"
+        ),
     ),
-
     # Age-specific beyond children
     Query(
         id="Q079",
@@ -436,10 +347,7 @@ NEW_QUERIES = [
         expected_entities=["senior", "elderly"],
         expected_categories=[],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=[],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=[], expected_language="en"),
     ),
     Query(
         id="Q080",
@@ -450,12 +358,8 @@ NEW_QUERIES = [
         expected_entities=["adolescent", "jeune"],
         expected_categories=[],
         expected_filters={"age_min": 13, "age_max": 17},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["adolescent"],
-            expected_language="fr"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["adolescent"], expected_language="fr"),
     ),
-
     # Genre-specific music
     Query(
         id="Q081",
@@ -466,10 +370,7 @@ NEW_QUERIES = [
         expected_entities=["electronic", "techno", "festival"],
         expected_categories=["Musique"],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["electronic"],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["electronic"], expected_language="en"),
     ),
     Query(
         id="Q082",
@@ -480,12 +381,8 @@ NEW_QUERIES = [
         expected_entities=["musique du monde", "africaine", "latino"],
         expected_categories=["Musique"],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["musique"],
-            expected_language="fr"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["musique"], expected_language="fr"),
     ),
-
     # Art movements and periods
     Query(
         id="Q083",
@@ -496,10 +393,7 @@ NEW_QUERIES = [
         expected_entities=["impressionist", "art", "exhibition"],
         expected_categories=["Art"],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["impressionist"],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["impressionist"], expected_language="en"),
     ),
     Query(
         id="Q084",
@@ -511,11 +405,9 @@ NEW_QUERIES = [
         expected_categories=["Art"],
         expected_filters={},
         generation_expectations=GenerationExpectations(
-            must_contain_keywords=["art", "exposition"],
-            expected_language="fr"
-        )
+            must_contain_keywords=["art", "exposition"], expected_language="fr"
+        ),
     ),
-
     # Performance types
     Query(
         id="Q085",
@@ -526,10 +418,7 @@ NEW_QUERIES = [
         expected_entities=["street", "outdoor", "Montmartre"],
         expected_categories=[],
         expected_filters={"city": "Paris"},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["Montmartre"],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["Montmartre"], expected_language="en"),
     ),
     Query(
         id="Q086",
@@ -540,12 +429,8 @@ NEW_QUERIES = [
         expected_entities=["danse", "contemporaine", "ballet"],
         expected_categories=["Danse"],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["danse"],
-            expected_language="fr"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["danse"], expected_language="fr"),
     ),
-
     # Educational and workshops
     Query(
         id="Q087",
@@ -556,10 +441,7 @@ NEW_QUERIES = [
         expected_entities=["photography", "workshop", "course"],
         expected_categories=[],
         expected_filters={"month": 2},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["photography"],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["photography"], expected_language="en"),
     ),
     Query(
         id="Q088",
@@ -570,12 +452,8 @@ NEW_QUERIES = [
         expected_entities=["atelier", "écriture", "théâtre"],
         expected_categories=[],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["atelier"],
-            expected_language="fr"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["atelier"], expected_language="fr"),
     ),
-
     # Historical and heritage
     Query(
         id="Q089",
@@ -586,10 +464,7 @@ NEW_QUERIES = [
         expected_entities=["guided tour", "historical", "monument"],
         expected_categories=["Culture"],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["tour"],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["tour"], expected_language="en"),
     ),
     Query(
         id="Q090",
@@ -600,12 +475,8 @@ NEW_QUERIES = [
         expected_entities=["visite", "patrimoine", "architecture"],
         expected_categories=["Culture"],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["visite"],
-            expected_language="fr"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["visite"], expected_language="fr"),
     ),
-
     # Seasonal and thematic
     Query(
         id="Q091",
@@ -616,10 +487,7 @@ NEW_QUERIES = [
         expected_entities=["Valentine", "romantic", "concert"],
         expected_categories=[],
         expected_filters={"month": 2},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["Valentine"],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["Valentine"], expected_language="en"),
     ),
     Query(
         id="Q092",
@@ -630,12 +498,8 @@ NEW_QUERIES = [
         expected_entities=["Journée de la Femme", "8 mars"],
         expected_categories=[],
         expected_filters={"month": 3},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["femme"],
-            expected_language="fr"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["femme"], expected_language="fr"),
     ),
-
     # Food and culture combination
     Query(
         id="Q093",
@@ -646,10 +510,7 @@ NEW_QUERIES = [
         expected_entities=["food", "tasting", "wine"],
         expected_categories=[],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["food"],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["food"], expected_language="en"),
     ),
     Query(
         id="Q094",
@@ -660,12 +521,8 @@ NEW_QUERIES = [
         expected_entities=["gastronomique", "festival", "marché"],
         expected_categories=[],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["festival"],
-            expected_language="fr"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["festival"], expected_language="fr"),
     ),
-
     # Night-time specific
     Query(
         id="Q095",
@@ -676,10 +533,7 @@ NEW_QUERIES = [
         expected_entities=["Nuit Blanche", "night", "nocturne"],
         expected_categories=[],
         expected_filters={"month": 10},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["night"],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["night"], expected_language="en"),
     ),
     Query(
         id="Q096",
@@ -690,12 +544,8 @@ NEW_QUERIES = [
         expected_entities=["soirée", "nocturne", "musée"],
         expected_categories=["Art"],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["musée"],
-            expected_language="fr"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["musée"], expected_language="fr"),
     ),
-
     # Pet-friendly
     Query(
         id="Q097",
@@ -706,10 +556,7 @@ NEW_QUERIES = [
         expected_entities=["dog", "pet", "outdoor"],
         expected_categories=[],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["dog"],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["dog"], expected_language="en"),
     ),
     Query(
         id="Q098",
@@ -720,12 +567,8 @@ NEW_QUERIES = [
         expected_entities=["animaux", "extérieur"],
         expected_categories=[],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["animaux"],
-            expected_language="fr"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["animaux"], expected_language="fr"),
     ),
-
     # Emerging/trending
     Query(
         id="Q099",
@@ -736,10 +579,7 @@ NEW_QUERIES = [
         expected_entities=["NFT", "crypto", "blockchain", "digital art"],
         expected_categories=["Art"],
         expected_filters={},
-        generation_expectations=GenerationExpectations(
-            must_contain_keywords=["NFT"],
-            expected_language="en"
-        )
+        generation_expectations=GenerationExpectations(must_contain_keywords=["NFT"], expected_language="en"),
     ),
     Query(
         id="Q100",
@@ -751,11 +591,11 @@ NEW_QUERIES = [
         expected_categories=["Art"],
         expected_filters={},
         generation_expectations=GenerationExpectations(
-            must_contain_keywords=["intelligence", "artificielle"],
-            expected_language="fr"
-        )
+            must_contain_keywords=["intelligence", "artificielle"], expected_language="fr"
+        ),
     ),
 ]
+
 
 def main():
     logger.info("Loading existing golden dataset...")
@@ -773,7 +613,7 @@ def main():
     logger.info("✓ Dataset expansion complete!")
     logger.info(f"  - Added: {len(NEW_QUERIES)} complex queries")
     logger.info(f"  - Total: {len(dataset.queries)} queries")
-    logger.info(f"  - Complexity breakdown:")
+    logger.info("  - Complexity breakdown:")
 
     complexity_counts = {}
     for q in dataset.queries:
@@ -781,6 +621,7 @@ def main():
 
     for complexity, count in sorted(complexity_counts.items()):
         logger.info(f"    - {complexity}: {count} queries")
+
 
 if __name__ == "__main__":
     main()

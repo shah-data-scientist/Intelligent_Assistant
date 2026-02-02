@@ -29,11 +29,9 @@ class Event(BaseModel):
     url: str | None = Field(None, description="Event URL")
     image_url: str | None = Field(None, description="Event image URL")
     tags: list[str] = Field(default_factory=list, description="Event tags")
-    raw_data: dict[str, Any] = Field(
-        default_factory=dict, description="Original raw data from API"
-    )
+    raw_data: dict[str, Any] = Field(default_factory=dict, description="Original raw data from API")
     scraped_content: str | None = Field(None, description="Enriched content from URL")
-    
+
     # New metadata fields
     age_min: int | None = Field(None, description="Minimum age")
     age_max: int | None = Field(None, description="Maximum age")
@@ -71,7 +69,7 @@ class Event(BaseModel):
         if include_metadata_prefix and self.location and self.location.city and self.category:
             metadata_prefix = f"[Ville: {self.location.city}] [Catégorie: {self.category}]"
             if self.start_date:
-                month_year = self.start_date.strftime('%B %Y')
+                month_year = self.start_date.strftime("%B %Y")
                 metadata_prefix += f" [Date: {month_year}]"
             parts.append(metadata_prefix)
             parts.append("")  # Blank line separator
@@ -150,7 +148,8 @@ class Event(BaseModel):
 
         # Split into sentences (simple approach)
         import re
-        sentences = re.split(r'(?<=[.!?])\s+', full_text)
+
+        sentences = re.split(r"(?<=[.!?])\s+", full_text)
 
         chunks = []
         current_chunk = []
@@ -175,7 +174,7 @@ class Event(BaseModel):
 
             # If adding this sentence would exceed limit and we have content, create chunk
             if current_tokens + sentence_tokens > effective_max and current_chunk:
-                chunk_text = metadata_header + "\n" + ' '.join(current_chunk)
+                chunk_text = metadata_header + "\n" + " ".join(current_chunk)
                 chunks.append(chunk_text)
 
                 # Keep last sentences for overlap (approximate 50 tokens)
@@ -196,7 +195,7 @@ class Event(BaseModel):
 
         # Add remaining content as final chunk
         if current_chunk:
-            chunk_text = metadata_header + "\n" + ' '.join(current_chunk)
+            chunk_text = metadata_header + "\n" + " ".join(current_chunk)
             chunks.append(chunk_text)
 
         return chunks if chunks else [full_text]

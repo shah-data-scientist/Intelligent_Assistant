@@ -52,7 +52,7 @@ class MistralBackend(BaseLLMBackend):
     def invoke(self, prompt: str) -> str:
         """Invoke Mistral API."""
         response = self.llm.invoke(prompt)
-        return response.content if hasattr(response, 'content') else str(response)
+        return response.content if hasattr(response, "content") else str(response)
 
     def get_name(self) -> str:
         """Get backend name."""
@@ -76,7 +76,7 @@ class HuggingFaceBackend(BaseLLMBackend):
         model_id: str = "mistralai/Mistral-7B-Instruct-v0.2",
         api_token: str | None = None,
         temperature: float = 0.0,
-        max_new_tokens: int = 500
+        max_new_tokens: int = 500,
     ):
         """Initialize Hugging Face backend.
 
@@ -100,12 +100,12 @@ class HuggingFaceBackend(BaseLLMBackend):
         # Try to import huggingface_hub
         try:
             from huggingface_hub import InferenceClient
+
             self.client = InferenceClient(token=self.api_token)
             logger.info(f"Initialized Hugging Face backend with model: {model_id}")
         except ImportError:
             raise ImportError(
-                "huggingface_hub is required for Hugging Face backend. "
-                "Install with: pip install huggingface-hub"
+                "huggingface_hub is required for Hugging Face backend. " "Install with: pip install huggingface-hub"
             )
 
     def invoke(self, prompt: str) -> str:
@@ -117,7 +117,7 @@ class HuggingFaceBackend(BaseLLMBackend):
                 model=self.model_id,
                 max_new_tokens=self.max_new_tokens,
                 temperature=self.temperature,
-                return_full_text=False
+                return_full_text=False,
             )
 
             return response.strip()
@@ -143,12 +143,7 @@ class OllamaBackend(BaseLLMBackend):
     - phi (2.7B, faster, lower quality)
     """
 
-    def __init__(
-        self,
-        model: str = "mistral",
-        base_url: str = "http://localhost:11434",
-        temperature: float = 0.0
-    ):
+    def __init__(self, model: str = "mistral", base_url: str = "http://localhost:11434", temperature: float = 0.0):
         """Initialize Ollama backend.
 
         Args:
@@ -163,12 +158,14 @@ class OllamaBackend(BaseLLMBackend):
         # Try to import ollama or use requests
         try:
             import ollama
+
             self.client = ollama.Client(host=base_url)
             self._use_ollama_lib = True
             logger.info(f"Initialized Ollama backend with model: {model}")
         except ImportError:
             # Fallback to requests
             import requests
+
             self._use_ollama_lib = False
             self._requests = requests
             logger.info(f"Initialized Ollama backend (via requests) with model: {model}")
@@ -178,14 +175,9 @@ class OllamaBackend(BaseLLMBackend):
         try:
             if self._use_ollama_lib:
                 response = self.client.generate(
-                    model=self.model,
-                    prompt=prompt,
-                    options={
-                        "temperature": self.temperature,
-                        "num_predict": 500
-                    }
+                    model=self.model, prompt=prompt, options={"temperature": self.temperature, "num_predict": 500}
                 )
-                return response['response']
+                return response["response"]
             else:
                 # Use requests as fallback
                 response = self._requests.post(
@@ -194,15 +186,12 @@ class OllamaBackend(BaseLLMBackend):
                         "model": self.model,
                         "prompt": prompt,
                         "stream": False,
-                        "options": {
-                            "temperature": self.temperature,
-                            "num_predict": 500
-                        }
+                        "options": {"temperature": self.temperature, "num_predict": 500},
                     },
-                    timeout=60
+                    timeout=60,
                 )
                 response.raise_for_status()
-                return response.json()['response']
+                return response.json()["response"]
 
         except Exception as e:
             logger.error(f"Ollama API call failed: {e}")
@@ -216,11 +205,7 @@ class OllamaBackend(BaseLLMBackend):
         return f"ollama:{self.model}"
 
 
-def create_llm_backend(
-    backend_type: str = "mistral",
-    temperature: float = 0.0,
-    **kwargs: Any
-) -> BaseLLMBackend:
+def create_llm_backend(backend_type: str = "mistral", temperature: float = 0.0, **kwargs: Any) -> BaseLLMBackend:
     """Factory function to create LLM backend.
 
     Args:
@@ -255,23 +240,13 @@ def create_llm_backend(
         api_token = kwargs.get("api_token", None)
         max_new_tokens = kwargs.get("max_new_tokens", 500)
         return HuggingFaceBackend(
-            model_id=model_id,
-            api_token=api_token,
-            temperature=temperature,
-            max_new_tokens=max_new_tokens
+            model_id=model_id, api_token=api_token, temperature=temperature, max_new_tokens=max_new_tokens
         )
 
     elif backend_type == "ollama":
         model = kwargs.get("model", "mistral")
         base_url = kwargs.get("base_url", "http://localhost:11434")
-        return OllamaBackend(
-            model=model,
-            base_url=base_url,
-            temperature=temperature
-        )
+        return OllamaBackend(model=model, base_url=base_url, temperature=temperature)
 
     else:
-        raise ValueError(
-            f"Unknown backend type: {backend_type}. "
-            f"Supported: 'mistral', 'huggingface', 'ollama'"
-        )
+        raise ValueError(f"Unknown backend type: {backend_type}. " f"Supported: 'mistral', 'huggingface', 'ollama'")

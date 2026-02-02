@@ -7,7 +7,6 @@ MAINTAINER: QA Team
 """
 
 import pytest
-from datetime import date
 
 from src.retrieval.unified_analyzer import (
     is_rate_limit_error,
@@ -172,7 +171,18 @@ class TestCategoryMappingCompleteness:
 
     def test_music_categories(self):
         """Test music-related categories are mapped."""
-        music_terms = ["concert", "concerts", "musique", "jazz", "opera", "opéra", "classical", "classique", "rock", "music"]
+        music_terms = [
+            "concert",
+            "concerts",
+            "musique",
+            "jazz",
+            "opera",
+            "opéra",
+            "classical",
+            "classique",
+            "rock",
+            "music",
+        ]
         for term in music_terms:
             result = map_category_to_db(term)
             assert result == "Musique", f"'{term}' should map to 'Musique'"

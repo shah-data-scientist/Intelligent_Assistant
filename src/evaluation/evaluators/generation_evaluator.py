@@ -19,11 +19,7 @@ class GenerationEvaluator:
     """Evaluate generation quality against golden dataset."""
 
     def __init__(
-        self,
-        rag_chain: RAGChain,
-        judge: LLMAsJudge | None = None,
-        judge_backend: str = "mistral",
-        **judge_kwargs: Any
+        self, rag_chain: RAGChain, judge: LLMAsJudge | None = None, judge_backend: str = "mistral", **judge_kwargs: Any
     ):
         """Initialize generation evaluator.
 
@@ -37,11 +33,7 @@ class GenerationEvaluator:
         self.judge = judge or LLMAsJudge(backend_type=judge_backend, **judge_kwargs)
         logger.info(f"Initialized GenerationEvaluator with judge backend: {self.judge.backend.get_name()}")
 
-    def evaluate_query(
-        self,
-        query: Query,
-        session_id: str = "evaluation_session"
-    ) -> dict[str, Any]:
+    def evaluate_query(self, query: Query, session_id: str = "evaluation_session") -> dict[str, Any]:
         """Evaluate generation quality for a single query.
 
         Args:
@@ -56,17 +48,11 @@ class GenerationEvaluator:
         try:
             # Generate answer with simple retry for rate limits
             try:
-                result = self.rag_chain.query_with_metadata(
-                    question=query.query,
-                    session_id=session_id
-                )
+                result = self.rag_chain.query_with_metadata(question=query.query, session_id=session_id)
             except Exception as e:
                 logger.warning(f"Initial query failed: {e}. Retrying in 5s...")
                 time.sleep(5)
-                result = self.rag_chain.query_with_metadata(
-                    question=query.query,
-                    session_id=session_id
-                )
+                result = self.rag_chain.query_with_metadata(question=query.query, session_id=session_id)
 
             latency_ms = (time.time() - start_time) * 1000
 
@@ -88,18 +74,11 @@ class GenerationEvaluator:
                     sources_text.append(source_text)
 
             # Evaluate with LLM-as-a-Judge
-            evaluation = self.judge.evaluate_generation(
-                query=query.query,
-                answer=answer,
-                sources=sources_text
-            )
+            evaluation = self.judge.evaluate_generation(query=query.query, answer=answer, sources=sources_text)
 
             # Check against expectations
             expectations = query.generation_expectations
-            keywords_present = all(
-                kw.lower() in answer.lower()
-                for kw in expectations.must_contain_keywords
-            )
+            keywords_present = all(kw.lower() in answer.lower() for kw in expectations.must_contain_keywords)
 
             metrics_result = {
                 "query_id": query.id,
@@ -114,16 +93,15 @@ class GenerationEvaluator:
                 "quality_score": evaluation["quality_score"],
                 "keywords_present": keywords_present,
                 "expected_language_match": (
-                    expectations.expected_language is None or
-                    evaluation["language_details"]["answer_language"] == expectations.expected_language
+                    expectations.expected_language is None
+                    or evaluation["language_details"]["answer_language"] == expectations.expected_language
                 ),
                 "faithfulness_details": evaluation["faithfulness_details"],
                 "relevancy_details": evaluation["relevancy_details"],
             }
 
             logger.debug(
-                f"Query {query.id}: quality={metrics_result['quality_score']:.2f}, "
-                f"latency={latency_ms:.0f}ms"
+                f"Query {query.id}: quality={metrics_result['quality_score']:.2f}, " f"latency={latency_ms:.0f}ms"
             )
 
             return metrics_result
@@ -138,11 +116,7 @@ class GenerationEvaluator:
                 "latency_ms": (time.time() - start_time) * 1000,
             }
 
-    def evaluate_dataset(
-        self,
-        golden_dataset: GoldenDataset,
-        session_id: str | None = None
-    ) -> dict[str, Any]:
+    def evaluate_dataset(self, golden_dataset: GoldenDataset, session_id: str | None = None) -> dict[str, Any]:
         """Evaluate generation quality across entire golden dataset.
 
         Args:
@@ -178,7 +152,9 @@ class GenerationEvaluator:
                         del self.rag_chain._session_filters[current_session_id]
                 current_session_id = query_session_id
 
-            logger.debug(f"Evaluating query {i}/{golden_dataset.total_queries}: {query.id} (session: {query_session_id})")
+            logger.debug(
+                f"Evaluating query {i}/{golden_dataset.total_queries}: {query.id} (session: {query_session_id})"
+            )
 
             result = self.evaluate_query(query, session_id=query_session_id)
             per_query_results.append(result)
@@ -191,9 +167,9 @@ class GenerationEvaluator:
                 quality_scores.append(result["quality_score"])
                 if result["language_consistent"]:
                     language_consistent_count += 1
-            
+
             # Pace the evaluation to respect API limits
-            time.sleep(5) 
+            time.sleep(5)
 
         # Calculate aggregated metrics
         num_successful = len([r for r in per_query_results if "error" not in r])
@@ -205,19 +181,23 @@ class GenerationEvaluator:
         }
 
         if num_successful > 0:
-            aggregated.update({
-                "avg_faithfulness": sum(faithfulness_scores) / len(faithfulness_scores),
-                "avg_relevancy": sum(relevancy_scores) / len(relevancy_scores),
-                "avg_quality_score": sum(quality_scores) / len(quality_scores),
-                "language_consistency_rate": language_consistent_count / num_successful,
-            })
+            aggregated.update(
+                {
+                    "avg_faithfulness": sum(faithfulness_scores) / len(faithfulness_scores),
+                    "avg_relevancy": sum(relevancy_scores) / len(relevancy_scores),
+                    "avg_quality_score": sum(quality_scores) / len(quality_scores),
+                    "language_consistency_rate": language_consistent_count / num_successful,
+                }
+            )
         else:
-            aggregated.update({
-                "avg_faithfulness": 0.0,
-                "avg_relevancy": 0.0,
-                "avg_quality_score": 0.0,
-                "language_consistency_rate": 0.0,
-            })
+            aggregated.update(
+                {
+                    "avg_faithfulness": 0.0,
+                    "avg_relevancy": 0.0,
+                    "avg_quality_score": 0.0,
+                    "language_consistency_rate": 0.0,
+                }
+            )
 
         logger.info(
             f"Generation evaluation complete: "
@@ -226,7 +206,4 @@ class GenerationEvaluator:
             f"avg_latency={aggregated['avg_latency_ms']:.0f}ms"
         )
 
-        return {
-            "aggregated_metrics": aggregated,
-            "per_query_results": per_query_results
-        }
+        return {"aggregated_metrics": aggregated, "per_query_results": per_query_results}

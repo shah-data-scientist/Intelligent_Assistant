@@ -11,7 +11,7 @@ from datetime import date
 from unittest.mock import MagicMock
 
 from src.retrieval.manager import RetrievalManager, SearchIntent
-from src.data.models import Event, EventLocation
+from src.data.models import Event
 
 
 @pytest.fixture
@@ -117,10 +117,7 @@ class TestRetrievalManagerParseIntent:
     def test_parse_intent_with_date_range_strings(self, mock_vector_store):
         """Test parse_intent with date range as ISO strings."""
         manager = RetrievalManager(mock_vector_store)
-        filters = {
-            "date_min": "2026-06-01",
-            "date_max": "2026-06-30"
-        }
+        filters = {"date_min": "2026-06-01", "date_max": "2026-06-30"}
 
         intent = manager.parse_intent(filters)
 
@@ -131,10 +128,7 @@ class TestRetrievalManagerParseIntent:
     def test_parse_intent_with_date_range_objects(self, mock_vector_store):
         """Test parse_intent with date range as date objects."""
         manager = RetrievalManager(mock_vector_store)
-        filters = {
-            "date_min": date(2026, 7, 1),
-            "date_max": date(2026, 7, 31)
-        }
+        filters = {"date_min": date(2026, 7, 1), "date_max": date(2026, 7, 31)}
 
         intent = manager.parse_intent(filters)
 
@@ -259,6 +253,7 @@ class TestRetrievalManagerExecuteSearch:
 
         # First call (exact): empty, subsequent calls: return event
         call_count = [0]
+
         def search_side_effect(*args, **kwargs):
             call_count[0] += 1
             if call_count[0] == 1:  # Exact search
@@ -292,9 +287,11 @@ class TestRetrievalManagerExecuteSearch:
             if city.lower() == "lyon":
                 return (45.7640, 4.8357)
             return None
+
         mock_vector_store.city_locator.get_coords.side_effect = get_coords
 
         call_count = [0]
+
         def search_side_effect(*args, **kwargs):
             call_count[0] += 1
             if call_count[0] == 1:

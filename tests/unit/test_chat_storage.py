@@ -7,16 +7,13 @@ MAINTAINER: QA Team
 """
 
 import pytest
-import json
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 from src.data.chat_storage import (
     ChatStorage,
     ConversationRecord,
     FeedbackRecord,
-    ChatBase,
 )
 
 
@@ -47,6 +44,7 @@ class TestChatStorage:
         """Test that initialization creates required tables."""
         # Tables should exist after initialization
         from sqlalchemy import inspect
+
         inspector = inspect(storage.engine)
         tables = inspector.get_table_names()
 
@@ -77,14 +75,8 @@ class TestChatStorage:
 
     def test_add_chat_message_with_retrieved_events(self, storage):
         """Test adding message with retrieved events."""
-        events = [
-            {"title": "Jazz Concert", "venue": "Paris"},
-            {"title": "Rock Show", "venue": "Lyon"}
-        ]
-        msg_id = storage.add_chat_message(
-            "session-1", "assistant", "Found events",
-            retrieved_events=events
-        )
+        events = [{"title": "Jazz Concert", "venue": "Paris"}, {"title": "Rock Show", "venue": "Lyon"}]
+        msg_id = storage.add_chat_message("session-1", "assistant", "Found events", retrieved_events=events)
 
         # Verify events were stored
         history = storage.get_chat_history("session-1")
@@ -150,6 +142,7 @@ class TestChatStorage:
         # Verify feedback was stored
         with storage.SessionLocal() as session:
             from sqlalchemy import select
+
             query = select(FeedbackRecord).where(FeedbackRecord.message_id == msg_id)
             feedback = session.execute(query).scalar()
 
@@ -164,6 +157,7 @@ class TestChatStorage:
 
         with storage.SessionLocal() as session:
             from sqlalchemy import select
+
             query = select(FeedbackRecord).where(FeedbackRecord.message_id == msg_id)
             feedback = session.execute(query).scalar()
 
@@ -178,6 +172,7 @@ class TestChatStorage:
 
         with storage.SessionLocal() as session:
             from sqlalchemy import select
+
             query = select(FeedbackRecord).where(FeedbackRecord.message_id == msg_id)
             feedback = session.execute(query).scalar()
 
@@ -199,16 +194,16 @@ class TestConversationRecord:
 
     def test_model_attributes(self):
         """Test model has expected attributes."""
-        assert hasattr(ConversationRecord, '__tablename__')
+        assert hasattr(ConversationRecord, "__tablename__")
         assert ConversationRecord.__tablename__ == "conversations"
 
         # Check columns exist
-        assert hasattr(ConversationRecord, 'id')
-        assert hasattr(ConversationRecord, 'session_id')
-        assert hasattr(ConversationRecord, 'role')
-        assert hasattr(ConversationRecord, 'content')
-        assert hasattr(ConversationRecord, 'retrieved_events')
-        assert hasattr(ConversationRecord, 'timestamp')
+        assert hasattr(ConversationRecord, "id")
+        assert hasattr(ConversationRecord, "session_id")
+        assert hasattr(ConversationRecord, "role")
+        assert hasattr(ConversationRecord, "content")
+        assert hasattr(ConversationRecord, "retrieved_events")
+        assert hasattr(ConversationRecord, "timestamp")
 
 
 class TestFeedbackRecord:
@@ -216,15 +211,15 @@ class TestFeedbackRecord:
 
     def test_model_attributes(self):
         """Test model has expected attributes."""
-        assert hasattr(FeedbackRecord, '__tablename__')
+        assert hasattr(FeedbackRecord, "__tablename__")
         assert FeedbackRecord.__tablename__ == "feedbacks"
 
         # Check columns exist
-        assert hasattr(FeedbackRecord, 'id')
-        assert hasattr(FeedbackRecord, 'message_id')
-        assert hasattr(FeedbackRecord, 'is_positive')
-        assert hasattr(FeedbackRecord, 'comment')
-        assert hasattr(FeedbackRecord, 'timestamp')
+        assert hasattr(FeedbackRecord, "id")
+        assert hasattr(FeedbackRecord, "message_id")
+        assert hasattr(FeedbackRecord, "is_positive")
+        assert hasattr(FeedbackRecord, "comment")
+        assert hasattr(FeedbackRecord, "timestamp")
 
 
 class TestMigration:
@@ -245,10 +240,11 @@ class TestMigration:
         # Migration should have run without error
         # Verify column exists
         from sqlalchemy import inspect
-        inspector = inspect(storage.engine)
-        columns = [c['name'] for c in inspector.get_columns('conversations')]
 
-        assert 'retrieved_events' in columns
+        inspector = inspect(storage.engine)
+        columns = [c["name"] for c in inspector.get_columns("conversations")]
+
+        assert "retrieved_events" in columns
         storage.close()
 
 

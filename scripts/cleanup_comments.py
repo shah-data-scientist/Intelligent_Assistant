@@ -14,7 +14,6 @@ Usage:
 """
 
 import re
-import ast
 from pathlib import Path
 from typing import List, Tuple, Dict
 import argparse
@@ -119,7 +118,7 @@ class CommentCleaner:
 
         # Get next non-empty line (the actual code)
         next_code = None
-        for next_line in all_lines[line_num + 1:]:
+        for next_line in all_lines[line_num + 1 :]:
             if next_line.strip() and not next_line.strip().startswith("#"):
                 next_code = next_line.strip().lower()
                 break
@@ -183,11 +182,7 @@ class CommentCleaner:
                 return False
 
             # Record changes
-            self.changes.append({
-                "file": str(filepath),
-                "issues": issues,
-                "count": len(issues)
-            })
+            self.changes.append({"file": str(filepath), "issues": issues, "count": len(issues)})
 
             if not self.dry_run:
                 # Write cleaned content
@@ -244,19 +239,21 @@ class CommentCleaner:
                 report_lines.append(f"### {change['file']}")
                 report_lines.append(f"**Issues cleaned: {change['count']}**")
                 report_lines.append("")
-                for issue in change['issues']:
+                for issue in change["issues"]:
                     report_lines.append(f"- {issue}")
                 report_lines.append("")
 
-        report_lines.extend([
-            "---",
-            "",
-            "## Next Steps",
-            "",
-            "1. Review the changes in git diff",
-            "2. Run tests to ensure nothing broke: `python run_tests.py`",
-            "3. Commit if satisfied: `git add -u && git commit -m 'chore: Clean up comments'`",
-        ])
+        report_lines.extend(
+            [
+                "---",
+                "",
+                "## Next Steps",
+                "",
+                "1. Review the changes in git diff",
+                "2. Run tests to ensure nothing broke: `python run_tests.py`",
+                "3. Commit if satisfied: `git add -u && git commit -m 'chore: Clean up comments'`",
+            ]
+        )
 
         report_content = "\n".join(report_lines)
 
@@ -269,20 +266,10 @@ class CommentCleaner:
 
 def main():
     parser = argparse.ArgumentParser(description="Clean up comments in Python codebase")
+    parser.add_argument("--dry-run", action="store_true", help="Preview changes without modifying files")
+    parser.add_argument("--verbose", action="store_true", help="Show verbose output")
     parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Preview changes without modifying files"
-    )
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Show verbose output"
-    )
-    parser.add_argument(
-        "--src-only",
-        action="store_true",
-        help="Only process src/ directory (default: src/ and tests/)"
+        "--src-only", action="store_true", help="Only process src/ directory (default: src/ and tests/)"
     )
 
     args = parser.parse_args()
@@ -322,11 +309,14 @@ def main():
     print("=" * 80)
     print(f"Files scanned: {cleaner.stats['files_scanned']}")
     print(f"Files modified: {cleaner.stats['files_modified']}")
-    print(f"Total issues cleaned: {sum([
-        cleaner.stats['commented_code_removed'],
-        cleaner.stats['redundant_comments_removed'],
-        cleaner.stats['outdated_todos_removed']
-    ])}")
+    total_cleaned = sum(
+        [
+            cleaner.stats["commented_code_removed"],
+            cleaner.stats["redundant_comments_removed"],
+            cleaner.stats["outdated_todos_removed"],
+        ]
+    )
+    print(f"Total issues cleaned: {total_cleaned}")
     print()
 
     if args.dry_run:

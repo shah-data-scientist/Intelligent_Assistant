@@ -17,7 +17,7 @@ from sqlalchemy import (
     text,
     func,
 )
-from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from src.data.models import Event, EventLocation
 
@@ -56,7 +56,7 @@ class EventRecord(Base):
     url = Column(String(500), nullable=True)
     image_url = Column(String(500), nullable=True)
     tags_json = Column(Text, nullable=True)  # JSON array
-    
+
     # New fields for better RAG
     age_min = Column(Integer, nullable=True)
     age_max = Column(Integer, nullable=True)
@@ -73,9 +73,9 @@ class EventRecord(Base):
     is_full_day = Column(Integer, nullable=True)  # 1 = full day event
 
     # Period filter flags (indexed for fast filtering)
-    has_morning = Column(Integer, nullable=True, index=True)    # 1 if any timing < 12:00
+    has_morning = Column(Integer, nullable=True, index=True)  # 1 if any timing < 12:00
     has_afternoon = Column(Integer, nullable=True, index=True)  # 1 if any timing 12:00-18:00
-    has_evening = Column(Integer, nullable=True, index=True)    # 1 if any timing >= 18:00
+    has_evening = Column(Integer, nullable=True, index=True)  # 1 if any timing >= 18:00
 
     # Metadata
     raw_data_json = Column(Text, nullable=True)  # Full raw event data
@@ -105,7 +105,7 @@ class EventStorage:
             echo=False,  # Set to True for SQL debugging
             connect_args={
                 "timeout": 30,  # 30 second timeout for database locks
-                "check_same_thread": False  # Allow multi-threaded access
+                "check_same_thread": False,  # Allow multi-threaded access
             },
             pool_pre_ping=True,  # Verify connections before use
             pool_recycle=3600,  # Recycle connections after 1 hour
@@ -134,7 +134,7 @@ class EventStorage:
             try:
                 columns = conn.execute(text("PRAGMA table_info(events)")).fetchall()
                 column_names = [col[1] for col in columns]
-                
+
                 # List of new columns to add if missing
                 new_cols = {
                     "scraped_content": "TEXT",
@@ -149,14 +149,14 @@ class EventStorage:
                     "is_full_day": "INTEGER",
                     "has_morning": "INTEGER",
                     "has_afternoon": "INTEGER",
-                    "has_evening": "INTEGER"
+                    "has_evening": "INTEGER",
                 }
-                
+
                 for col_name, col_type in new_cols.items():
                     if col_name not in column_names:
                         logger.info(f"Migrating schema: adding {col_name} column")
                         conn.execute(text(f"ALTER TABLE events ADD COLUMN {col_name} {col_type}"))
-                
+
                 conn.commit()
             except Exception as e:
                 logger.warning(f"Schema migration check failed: {e}")
@@ -319,9 +319,7 @@ class EventStorage:
         """
         with self.SessionLocal() as session:
             # Check if exists
-            existing = session.execute(
-                select(EventRecord).where(EventRecord.event_id == event.event_id)
-            ).first()
+            existing = session.execute(select(EventRecord).where(EventRecord.event_id == event.event_id)).first()
 
             if existing:
                 logger.debug(f"Event {event.event_id} already exists, skipping")
@@ -334,9 +332,7 @@ class EventStorage:
             logger.debug(f"Added event {event.event_id}")
             return True
 
-    def add_events_bulk(
-        self, events: list[Event], faiss_indices: list[int] | None = None
-    ) -> int:
+    def add_events_bulk(self, events: list[Event], faiss_indices: list[int] | None = None) -> int:
         """Add multiple events in bulk.
 
         Args:
@@ -351,10 +347,7 @@ class EventStorage:
 
         with self.SessionLocal() as session:
             # Get existing event IDs
-            existing_ids = {
-                row[0]
-                for row in session.execute(select(EventRecord.event_id)).all()
-            }
+            existing_ids = {row[0] for row in session.execute(select(EventRecord.event_id)).all()}
 
             # Filter to new events only
             new_events = [e for e in events if e.event_id not in existing_ids]
@@ -386,9 +379,7 @@ class EventStorage:
             Event object or None if not found
         """
         with self.SessionLocal() as session:
-            record = session.execute(
-                select(EventRecord).where(EventRecord.event_id == event_id)
-            ).scalar_one_or_none()
+            record = session.execute(select(EventRecord).where(EventRecord.event_id == event_id)).scalar_one_or_none()
 
             if not record:
                 return None
@@ -512,10 +503,7 @@ class EventStorage:
             Tuple of (min_start_date, max_start_date)
         """
         with self.SessionLocal() as session:
-            result = session.query(
-                func.min(EventRecord.start_date),
-                func.max(EventRecord.start_date)
-            ).first()
+            result = session.query(func.min(EventRecord.start_date), func.max(EventRecord.start_date)).first()
             return result if result else (None, None)
 
     def get_existing_event_ids(self) -> set[str]:
@@ -525,10 +513,7 @@ class EventStorage:
             Set of event IDs
         """
         with self.SessionLocal() as session:
-            return {
-                row[0]
-                for row in session.execute(select(EventRecord.event_id)).all()
-            }
+            return {row[0] for row in session.execute(select(EventRecord.event_id)).all()}
 
     def update_faiss_index(self, event_id: str, faiss_index: int) -> bool:
         """Update FAISS index for an event.
@@ -541,9 +526,7 @@ class EventStorage:
             True if updated, False if event not found
         """
         with self.SessionLocal() as session:
-            record = session.execute(
-                select(EventRecord).where(EventRecord.event_id == event_id)
-            ).scalar_one_or_none()
+            record = session.execute(select(EventRecord).where(EventRecord.event_id == event_id)).scalar_one_or_none()
 
             if not record:
                 return False
@@ -562,9 +545,7 @@ class EventStorage:
             Number of events deleted
         """
         with self.SessionLocal() as session:
-            result = session.query(EventRecord).filter(
-                EventRecord.start_date < before_date
-            ).delete()
+            result = session.query(EventRecord).filter(EventRecord.start_date < before_date).delete()
             session.commit()
             logger.info(f"Deleted {result} events before {before_date}")
             return result
@@ -572,7 +553,6 @@ class EventStorage:
     def clear_all(self) -> None:
         """Clear all events from storage (use with caution)."""
         with self.SessionLocal() as session:
-                        session.query(EventRecord).delete()
-                        session.commit()
-                        logger.warning("Cleared all events from storage")
-            
+            session.query(EventRecord).delete()
+            session.commit()
+            logger.warning("Cleared all events from storage")

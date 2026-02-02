@@ -14,12 +14,13 @@ from src.data.storage import EventStorage
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 def main():
     """Test extraction on 5 sample events."""
 
-    logger.info("="*80)
+    logger.info("=" * 80)
     logger.info("LLM METADATA EXTRACTION - TEST RUN (5 events)")
-    logger.info("="*80)
+    logger.info("=" * 80)
 
     # Load events
     storage = EventStorage()
@@ -45,7 +46,7 @@ def main():
         metadata = extract_metadata_with_llm(event)
 
         if metadata:
-            logger.info(f"\n  Extracted metadata:")
+            logger.info("\n  Extracted metadata:")
             logger.info(f"    Price category: {metadata.get('price_category')}")
             logger.info(f"    Price range: {metadata.get('price_min')} - {metadata.get('price_max')} EUR")
             logger.info(f"    Age range: {metadata.get('age_min')} - {metadata.get('age_max')}")
@@ -56,20 +57,20 @@ def main():
 
             # Test application (don't save)
             if apply_extracted_metadata(event, metadata):
-                logger.info(f"\n  Would update:")
+                logger.info("\n  Would update:")
                 logger.info(f"    New conditions: {event.conditions}")
                 logger.info(f"    New accessibility: {event.accessibility}")
                 logger.info(f"    New tags: {event.tags}")
             else:
-                logger.info(f"\n  No updates would be made")
+                logger.info("\n  No updates would be made")
         else:
-            logger.info(f"  Failed to extract metadata")
+            logger.info("  Failed to extract metadata")
 
-        logger.info("\n" + "-"*80 + "\n")
+        logger.info("\n" + "-" * 80 + "\n")
 
-    logger.info("="*80)
+    logger.info("=" * 80)
     logger.info("TEST COMPLETE")
-    logger.info("="*80)
+    logger.info("=" * 80)
     logger.info("\nIf results look good, run full extraction:")
     logger.info("  poetry run python scripts/llm_metadata_extraction.py")
 

@@ -7,7 +7,6 @@ MAINTAINER: QA Team
 """
 
 import pytest
-from unittest.mock import MagicMock, patch, Mock
 
 
 class TestIsRetryableLLMError:
@@ -110,6 +109,7 @@ class TestGetLLMFactory:
     def test_get_chat_llm_function_exists(self):
         """Test that get_chat_llm function can be imported."""
         from src.generation.llm import get_chat_llm
+
         assert callable(get_chat_llm)
 
 
@@ -126,7 +126,7 @@ class TestMistralLLMClass:
         """Test MistralLLM has invoke method."""
         from src.generation.llm import MistralLLM
 
-        assert hasattr(MistralLLM, 'invoke') or hasattr(MistralLLM, '__call__')
+        assert hasattr(MistralLLM, "invoke") or hasattr(MistralLLM, "__call__")
 
 
 class TestLLMMessageFormatting:
@@ -154,9 +154,7 @@ User query: {query}
 Context: {context}"""
 
         result = template.format(
-            domain="cultural events",
-            query="Jazz concerts in Paris",
-            context="Event data from database"
+            domain="cultural events", query="Jazz concerts in Paris", context="Event data from database"
         )
 
         assert "cultural events" in result
@@ -171,13 +169,14 @@ class TestLLMResponseParsing:
         """Test JSON extraction from LLM response."""
         import json
 
-        response = '''Here are the results:
+        response = """Here are the results:
 ```json
 {"answer": "Found 5 events", "events": []}
-```'''
+```"""
 
         import re
-        match = re.search(r'```json\s*(.*?)\s*```', response, re.DOTALL)
+
+        match = re.search(r"```json\s*(.*?)\s*```", response, re.DOTALL)
         assert match is not None
 
         parsed = json.loads(match.group(1))
@@ -188,6 +187,7 @@ class TestLLMResponseParsing:
         response = '{"answer": "Incomplete JSON'
 
         import json
+
         try:
             json.loads(response)
             parsed = True

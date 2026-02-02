@@ -32,8 +32,7 @@ class Settings(BaseSettings):
 
     # OpenAgenda API (via Opendatasoft)
     openagenda_base_url: str = (
-        "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/"
-        "evenements-publics-openagenda/records"
+        "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/" "evenements-publics-openagenda/records"
     )
 
     # Storage

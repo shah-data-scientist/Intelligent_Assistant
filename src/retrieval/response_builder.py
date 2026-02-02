@@ -25,7 +25,7 @@ DEFAULT_TIMEFRAME_DAYS = 30  # Default to next 30 days when no timeframe specifi
 # Broadening suggestion for when no results found
 BROADENING_SUGGESTION = {
     "fr": "💡 Vous pouvez essayer d'élargir votre recherche en modifiant la date ou la ville.",
-    "en": "💡 You can try broadening your search by changing the date or city."
+    "en": "💡 You can try broadening your search by changing the date or city.",
 }
 
 # Markers for detecting and stripping existing suffixes (avoid duplication)
@@ -231,7 +231,7 @@ class ResponseComponents:
             self.main_content,
             self.refinement_suffix,
             self.broadening_suggestion,
-            self.filter_echo
+            self.filter_echo,
         ]
         return "".join(p for p in parts if p)
 
@@ -290,7 +290,7 @@ class ResponseBuilder:
         if message:
             # Add a newline before main content for visual separation
             self.components.transparency_note = message + "\n\n"
-            logger.info(f"[TRANSPARENCY] Added filter relaxation note")
+            logger.info("[TRANSPARENCY] Added filter relaxation note")
         return self
 
     def add_refinement_suffix(self, suffix: str) -> "ResponseBuilder":
@@ -445,9 +445,12 @@ def format_events_as_text(sources: List[Dict[str, Any]], language: str = "fr", m
         if date_str:
             try:
                 from datetime import datetime
+
                 if "T" in str(date_str):
                     dt = datetime.fromisoformat(str(date_str).replace("Z", "+00:00"))
-                    date_display = dt.strftime("%d/%m/%Y à %H:%M") if language == "fr" else dt.strftime("%b %d, %Y at %H:%M")
+                    date_display = (
+                        dt.strftime("%d/%m/%Y à %H:%M") if language == "fr" else dt.strftime("%b %d, %Y at %H:%M")
+                    )
                 else:
                     date_display = str(date_str)
             except Exception:
@@ -505,7 +508,9 @@ def is_summary_only_response(answer_text: str, event_count: int) -> bool:
     if len(answer_text) < min_expected_chars:
         for pattern in summary_patterns:
             if pattern in text_lower:
-                logger.info(f"[SUMMARY-DETECT] Response appears summary-only ({len(answer_text)} chars < {min_expected_chars} expected)")
+                logger.info(
+                    f"[SUMMARY-DETECT] Response appears summary-only ({len(answer_text)} chars < {min_expected_chars} expected)"
+                )
                 return True
 
     return False

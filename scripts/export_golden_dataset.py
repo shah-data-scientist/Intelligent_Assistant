@@ -24,7 +24,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -37,7 +37,7 @@ def export_to_yaml(json_path: str, yaml_path: str) -> None:
     """
     # Load JSON dataset
     logger.info(f"Loading dataset from {json_path}")
-    with open(json_path, 'r', encoding='utf-8') as f:
+    with open(json_path, "r", encoding="utf-8") as f:
         dataset = json.load(f)
 
     queries = dataset.get("queries", [])
@@ -81,19 +81,19 @@ def export_to_yaml(json_path: str, yaml_path: str) -> None:
 
         # Expected entities
         yaml_lines.append("    expected_entities:")
-        for entity in query.get('expected_entities', []):
-            yaml_lines.append(f"      - \"{entity}\"")
+        for entity in query.get("expected_entities", []):
+            yaml_lines.append(f'      - "{entity}"')
         yaml_lines.append("")
 
         # Expected categories
         yaml_lines.append("    expected_categories:")
-        for cat in query.get('expected_categories', []):
+        for cat in query.get("expected_categories", []):
             yaml_lines.append(f"      - {cat}")
         yaml_lines.append("")
 
         # Expected filters
         yaml_lines.append("    expected_filters:")
-        filters = query.get('expected_filters', {})
+        filters = query.get("expected_filters", {})
         if filters:
             for key, value in filters.items():
                 yaml_lines.append(f"      {key}: {json.dumps(value, ensure_ascii=False)}")
@@ -102,28 +102,28 @@ def export_to_yaml(json_path: str, yaml_path: str) -> None:
         yaml_lines.append("")
 
         # Conversational context (if present)
-        if 'conversational_context' in query:
+        if "conversational_context" in query:
             yaml_lines.append("    conversational_context:")
-            ctx = query['conversational_context']
+            ctx = query["conversational_context"]
             yaml_lines.append(f"      parent_query_id: {ctx.get('parent_query_id', 'null')}")
             yaml_lines.append(f"      turn_number: {ctx.get('turn_number', 0)}")
             yaml_lines.append(f"      chain_description: \"{ctx.get('chain_description', '')}\"")
             yaml_lines.append("")
 
         # Bilingual equivalent (if present)
-        if 'bilingual_equivalent' in query:
+        if "bilingual_equivalent" in query:
             yaml_lines.append(f"    bilingual_equivalent: {query['bilingual_equivalent']}")
             yaml_lines.append("")
 
         # Relevance ground truth
         yaml_lines.append("    relevance_ground_truth:")
-        ground_truth = query.get('relevance_ground_truth', [])
+        ground_truth = query.get("relevance_ground_truth", [])
         if ground_truth:
             for gt in ground_truth:
                 yaml_lines.append(f"      - event_id: \"{gt['event_id']}\"")
                 yaml_lines.append(f"        relevance_score: {gt['relevance_score']}")
-                reason = gt.get('reason', 'No reason provided')
-                yaml_lines.append(f"        reason: \"{reason}\"")
+                reason = gt.get("reason", "No reason provided")
+                yaml_lines.append(f'        reason: "{reason}"')
                 yaml_lines.append("")
                 yaml_lines.append("        # ✏️ USER NOTES (add your feedback here):")
                 yaml_lines.append("        user_notes: |")
@@ -138,10 +138,10 @@ def export_to_yaml(json_path: str, yaml_path: str) -> None:
 
         # Generation expectations
         yaml_lines.append("    generation_expectations:")
-        gen_exp = query.get('generation_expectations', {})
-        yaml_lines.append(f"      must_contain_keywords:")
-        for keyword in gen_exp.get('must_contain_keywords', []):
-            yaml_lines.append(f"        - \"{keyword}\"")
+        gen_exp = query.get("generation_expectations", {})
+        yaml_lines.append("      must_contain_keywords:")
+        for keyword in gen_exp.get("must_contain_keywords", []):
+            yaml_lines.append(f'        - "{keyword}"')
         yaml_lines.append(f"      must_not_hallucinate: {gen_exp.get('must_not_hallucinate', True)}")
         yaml_lines.append(f"      should_ask_clarification: {gen_exp.get('should_ask_clarification', False)}")
         yaml_lines.append(f"      should_refuse_gracefully: {gen_exp.get('should_refuse_gracefully', False)}")
@@ -151,9 +151,9 @@ def export_to_yaml(json_path: str, yaml_path: str) -> None:
         # Annotation comments
         yaml_lines.append("    # 📝 ANNOTATION COMMENTS (document test intent):")
         yaml_lines.append("    annotation_comments: |")
-        comments = query.get('annotation_comments', 'No comments provided')
+        comments = query.get("annotation_comments", "No comments provided")
         # Indent comment lines
-        for line in comments.split('\n'):
+        for line in comments.split("\n"):
             yaml_lines.append(f"      {line}")
         yaml_lines.append("")
         yaml_lines.append("    # ✅ TEST RESULTS (add evaluation results here):")
@@ -167,12 +167,12 @@ def export_to_yaml(json_path: str, yaml_path: str) -> None:
         yaml_lines.append("")
 
     # Write YAML file
-    yaml_content = '\n'.join(yaml_lines)
+    yaml_content = "\n".join(yaml_lines)
 
     output_path = Path(yaml_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(output_path, 'w', encoding='utf-8') as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write(yaml_content)
 
     logger.info(f"Exported {len(queries)} queries to {yaml_path}")
@@ -186,34 +186,24 @@ def export_to_yaml(json_path: str, yaml_path: str) -> None:
 
 def main():
     """Main export execution."""
-    parser = argparse.ArgumentParser(
-        description="Export golden dataset to editable YAML format"
-    )
-    parser.add_argument(
-        "--input",
-        default="data/evaluation/golden_dataset.json",
-        help="Input JSON golden dataset path"
-    )
-    parser.add_argument(
-        "--output",
-        default="data/evaluation/golden_dataset.yaml",
-        help="Output YAML path"
-    )
+    parser = argparse.ArgumentParser(description="Export golden dataset to editable YAML format")
+    parser.add_argument("--input", default="data/evaluation/golden_dataset.json", help="Input JSON golden dataset path")
+    parser.add_argument("--output", default="data/evaluation/golden_dataset.yaml", help="Output YAML path")
     args = parser.parse_args()
 
     try:
         export_to_yaml(args.input, args.output)
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("YAML EXPORT COMPLETE")
-        print("="*70)
+        print("=" * 70)
         print(f"Input:  {args.input}")
         print(f"Output: {args.output}")
         print("\nNext steps:")
         print("  1. Review the YAML file")
         print("  2. Edit queries and add feedback")
         print("  3. Re-import: python scripts/import_golden_dataset.py")
-        print("="*70 + "\n")
+        print("=" * 70 + "\n")
 
         return 0
 

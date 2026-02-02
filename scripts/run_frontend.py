@@ -4,6 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+
 def main():
     """Run the Streamlit app."""
     project_root = Path(__file__).parent.parent
@@ -14,7 +15,7 @@ def main():
         sys.exit(1)
 
     print("Starting Streamlit app...")
-    print(f"App URL: http://localhost:8501")
+    print("App URL: http://localhost:8501")
     print("\nPress Ctrl+C to stop the server.\n")
 
     try:
@@ -29,13 +30,14 @@ def main():
                 "--server.port=8501",
                 "--server.headless=true",
             ],
-            check=True
+            check=True,
         )
     except KeyboardInterrupt:
         print("\nShutting down Streamlit app...")
     except subprocess.CalledProcessError as e:
         print(f"Error running Streamlit: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

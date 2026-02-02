@@ -8,7 +8,6 @@ MAINTAINER: QA Team
 
 import pytest
 from datetime import date
-from unittest.mock import MagicMock, patch
 
 from src.retrieval.unified_analyzer import (
     QueryIntent,
@@ -56,12 +55,7 @@ class TestQueryDimension:
     def test_full_dimension(self):
         """Test creating dimension with all fields."""
         dim = QueryDimension(
-            name="typo",
-            detected=True,
-            value="Paris",
-            original="Pari",
-            action="correct",
-            confidence=0.95
+            name="typo", detected=True, value="Paris", original="Pari", action="correct", confidence=0.95
         )
         assert dim.name == "typo"
         assert dim.detected is True

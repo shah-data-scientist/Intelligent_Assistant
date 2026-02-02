@@ -11,6 +11,7 @@ from src.models.vector_store import EventVectorStore
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 def main():
     # Load dataset
     dataset = GoldenDataset.load("data/evaluation/golden_dataset.json")
@@ -33,11 +34,7 @@ def main():
 
         # Perform retrieval with expected filters
         try:
-            docs = retriever.search_with_filters(
-                query=query.query,
-                k=5,
-                metadata_filter=query.expected_filters or None
-            )
+            docs = retriever.search_with_filters(query=query.query, k=5, metadata_filter=query.expected_filters or None)
 
             if len(docs) > 0:
                 # Use top 3 results as ground truth
@@ -48,10 +45,7 @@ def main():
                         # Assign decreasing relevance scores (1.0, 0.9, 0.8)
                         relevance_score = 1.0 - (i * 0.1)
                         ground_truth.append(
-                            RelevanceGroundTruth(
-                                event_id=event_id,
-                                relevance_score=round(relevance_score, 2)
-                            )
+                            RelevanceGroundTruth(event_id=event_id, relevance_score=round(relevance_score, 2))
                         )
                         print(f"  {i+1}. Event ID: {event_id} (score: {relevance_score:.2f})")
                         print(f"     Title: {doc.metadata.get('title', 'unknown')}")
@@ -60,7 +54,7 @@ def main():
                 updated_count += 1
                 print(f"[OK] Updated ground truth with {len(ground_truth)} events")
             else:
-                print(f"[SKIP] No results found (edge case)")
+                print("[SKIP] No results found (edge case)")
                 query.relevance_ground_truth = []
 
         except Exception as e:
@@ -69,10 +63,11 @@ def main():
 
     # Save updated dataset
     print(f"\n{'='*80}")
-    print(f"Saving updated dataset...")
+    print("Saving updated dataset...")
     print(f"Updated {updated_count}/{len(dataset.queries)} queries")
     dataset.save("data/evaluation/golden_dataset.json")
     logger.info("[OK] Dataset saved successfully")
+
 
 if __name__ == "__main__":
     main()

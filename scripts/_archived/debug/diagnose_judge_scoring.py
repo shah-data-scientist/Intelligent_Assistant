@@ -16,9 +16,9 @@ judge = LLMAsJudge(backend=judge_backend)
 # Test query - Try high-complexity multi-criteria type
 query = "Concerts classiques pour enfants de 6-12 ans le week-end dans le 75"
 
-print("="*80)
+print("=" * 80)
 print(f"QUERY: {query}")
-print("="*80)
+print("=" * 80)
 
 # Generate answer with fresh session to avoid history influence
 session_id = f"diagnostic_{uuid.uuid4().hex[:8]}"
@@ -27,20 +27,20 @@ answer = result["answer"]
 sources = result["sources"]
 
 print(f"\nANSWER ({len(answer)} chars):")
-print("-"*80)
+print("-" * 80)
 print(answer)
 print()
 
 print(f"\nSOURCES ({len(sources)} events):")
-print("-"*80)
+print("-" * 80)
 for i, src in enumerate(sources, 1):
     print(f"\nSource {i}:")
     print(f"  Title: {src.get('title', 'N/A')}")
     print(f"  City: {src.get('city', 'N/A')}")
     print(f"  Date: {src.get('date', 'N/A')}")
     print(f"  URL: {src.get('url', 'N/A')}")
-    if 'full_text' in src:
-        full_text = src['full_text']
+    if "full_text" in src:
+        full_text = src["full_text"]
         print(f"  Full text ({len(full_text)} chars): {full_text[:200]}...")
 
 # Prepare sources for judge (same as evaluator does)
@@ -56,29 +56,22 @@ for src in sources:
         sources_text.append(source_text)
 
 # Evaluate
-print("\n" + "="*80)
+print("\n" + "=" * 80)
 print("JUDGE EVALUATION")
-print("="*80)
+print("=" * 80)
 
 try:
     # Faithfulness
-    faith_result = judge.evaluate_faithfulness(
-        query=query,
-        answer=answer,
-        sources=sources_text
-    )
+    faith_result = judge.evaluate_faithfulness(query=query, answer=answer, sources=sources_text)
 
     print(f"\nFAITHFULNESS SCORE: {faith_result['score']:.2f}")
     print(f"Reasoning: {faith_result.get('reasoning', 'N/A')}")
     print(f"Violations ({len(faith_result.get('violations', []))}):")
-    for v in faith_result.get('violations', []):
+    for v in faith_result.get("violations", []):
         print(f"  - {v}")
 
     # Relevancy
-    rel_result = judge.evaluate_relevancy(
-        query=query,
-        answer=answer
-    )
+    rel_result = judge.evaluate_relevancy(query=query, answer=answer)
 
     print(f"\nRELEVANCY SCORE: {rel_result['score']:.2f}")
     print(f"Reasoning: {rel_result.get('reasoning', 'N/A')}")
@@ -88,11 +81,12 @@ try:
 except Exception as e:
     print(f"\nERROR: {e}")
     import traceback
+
     traceback.print_exc()
 
-print("\n" + "="*80)
+print("\n" + "=" * 80)
 print("ANALYSIS")
-print("="*80)
+print("=" * 80)
 print("\nIf faithfulness is low, check:")
 print("1. Are violations legitimate? (answer contains info not in sources)")
 print("2. Is judge too strict? (penalizing paraphrasing/formatting)")

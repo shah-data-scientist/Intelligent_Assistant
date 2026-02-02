@@ -27,7 +27,7 @@ from src.retrieval.chain import RAGChain
 from src.data.storage import EventStorage
 from datetime import date
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -79,39 +79,30 @@ def query_database_directly(query_data: dict, storage: EventStorage) -> dict[str
 
             # Date filter
             if date_min and date_max and event.start_date:
-                event_date = event.start_date.date() if hasattr(event.start_date, 'date') else event.start_date
+                event_date = event.start_date.date() if hasattr(event.start_date, "date") else event.start_date
                 if not (date_min <= event_date < date_max):
                     continue
 
-            matching_events.append({
-                "event_id": event.event_id,
-                "title": event.title,
-                "city": event.location.city if event.location else "Unknown",
-                "category": event.category or "Unknown",
-                "date": str(event.start_date) if event.start_date else "Unknown"
-            })
+            matching_events.append(
+                {
+                    "event_id": event.event_id,
+                    "title": event.title,
+                    "city": event.location.city if event.location else "Unknown",
+                    "category": event.category or "Unknown",
+                    "date": str(event.start_date) if event.start_date else "Unknown",
+                }
+            )
 
         return {
             "success": True,
-            "filters_used": {
-                "city": city,
-                "category": category,
-                "month": month,
-                "year": year
-            },
+            "filters_used": {"city": city, "category": category, "month": month, "year": year},
             "total_matching": len(matching_events),
             "events": matching_events[:10],  # Limit to first 10
-            "error": None
+            "error": None,
         }
     except Exception as e:
         logger.error(f"Database query failed: {e}", exc_info=True)
-        return {
-            "success": False,
-            "filters_used": {},
-            "total_matching": 0,
-            "events": [],
-            "error": str(e)
-        }
+        return {"success": False, "filters_used": {}, "total_matching": 0, "events": [], "error": str(e)}
 
 
 def run_query_and_capture(chain: RAGChain, query: str, language: str = "fr") -> dict[str, Any]:
@@ -128,40 +119,39 @@ def run_query_and_capture(chain: RAGChain, query: str, language: str = "fr") -> 
     try:
         # Use unique session_id to bypass cache (for fresh results)
         import uuid
+
         unique_session_id = f"review_{uuid.uuid4().hex[:8]}"
         result = chain.query_with_metadata(query, session_id=unique_session_id, language=language)
 
         # Format sources for readability
         formatted_sources = []
         for src in result.get("sources", []):
-            formatted_sources.append({
-                "event_id": src.get("event_id"),
-                "title": src.get("title"),
-                "city": src.get("city"),
-                "category": src.get("category"),
-                "score": src.get("score"),
-                "match_type": src.get("match_type"),
-            })
+            formatted_sources.append(
+                {
+                    "event_id": src.get("event_id"),
+                    "title": src.get("title"),
+                    "city": src.get("city"),
+                    "category": src.get("category"),
+                    "score": src.get("score"),
+                    "match_type": src.get("match_type"),
+                }
+            )
 
         return {
             "success": True,
             "answer": result.get("answer", ""),
             "sources": formatted_sources,
             "retrieval_stats": result.get("retrieval_stats", {}),
-            "error": None
+            "error": None,
         }
     except Exception as e:
         logger.error(f"Error running query '{query}': {e}")
-        return {
-            "success": False,
-            "answer": None,
-            "sources": [],
-            "retrieval_stats": {},
-            "error": str(e)
-        }
+        return {"success": False, "answer": None, "sources": [], "retrieval_stats": {}, "error": str(e)}
 
 
-def generate_review_yaml(dataset: dict, responses: dict[str, dict], db_results: dict[str, dict], output_path: str) -> None:
+def generate_review_yaml(
+    dataset: dict, responses: dict[str, dict], db_results: dict[str, dict], output_path: str
+) -> None:
     """Generate a review-friendly YAML file with queries, expected results, actual responses, and database validation.
 
     Args:
@@ -229,10 +219,10 @@ def generate_review_yaml(dataset: dict, responses: dict[str, dict], db_results: 
         yaml_lines.append("  actual_response:")
 
         if response.get("success"):
-            yaml_lines.append(f"    status: SUCCESS")
-            yaml_lines.append(f"    answer: |")
+            yaml_lines.append("    status: SUCCESS")
+            yaml_lines.append("    answer: |")
             # Indent multi-line answer
-            answer_lines = response["answer"].split('\n')
+            answer_lines = response["answer"].split("\n")
             for line in answer_lines[:10]:  # Limit to first 10 lines
                 yaml_lines.append(f"      {line}")
             if len(answer_lines) > 10:
@@ -241,9 +231,10 @@ def generate_review_yaml(dataset: dict, responses: dict[str, dict], db_results: 
 
             yaml_lines.append("    sources_returned:")
             for src in response.get("sources", [])[:5]:  # Show top 5 sources
-                score = src.get('score')
-                if score is None: score = 0.0
-                
+                score = src.get("score")
+                if score is None:
+                    score = 0.0
+
                 yaml_lines.append(f"      - event_id: \"{src['event_id']}\"")
                 yaml_lines.append(f"        title: \"{src['title']}\"")
                 yaml_lines.append(f"        city: {src.get('city', 'N/A')}")
@@ -252,12 +243,12 @@ def generate_review_yaml(dataset: dict, responses: dict[str, dict], db_results: 
                 yaml_lines.append("")
 
             stats = response.get("retrieval_stats", {})
-            yaml_lines.append(f"    retrieval_stats:")
+            yaml_lines.append("    retrieval_stats:")
             yaml_lines.append(f"      exact_matches: {stats.get('exact_count', 0)}")
             yaml_lines.append(f"      total_returned: {stats.get('total_count', 0)}")
             yaml_lines.append("")
         else:
-            yaml_lines.append(f"    status: ERROR")
+            yaml_lines.append("    status: ERROR")
             yaml_lines.append(f"    error: \"{response.get('error', 'Unknown error')}\"")
             yaml_lines.append("")
 
@@ -268,9 +259,9 @@ def generate_review_yaml(dataset: dict, responses: dict[str, dict], db_results: 
         yaml_lines.append("  database_query:")
 
         if db_result.get("success"):
-            yaml_lines.append(f"    status: SUCCESS")
+            yaml_lines.append("    status: SUCCESS")
             filters_used = db_result.get("filters_used", {})
-            yaml_lines.append(f"    filters_applied:")
+            yaml_lines.append("    filters_applied:")
             yaml_lines.append(f"      city: {filters_used.get('city', 'None')}")
             yaml_lines.append(f"      category: {filters_used.get('category', 'None')}")
             yaml_lines.append(f"      month: {filters_used.get('month', 'None')}")
@@ -296,13 +287,17 @@ def generate_review_yaml(dataset: dict, responses: dict[str, dict], db_results: 
 
             yaml_lines.append("    # INTERPRETATION:")
             yaml_lines.append("    interpretation: |")
-            yaml_lines.append(f"      Database contains {db_result.get('total_matching', 0)} events matching the filters.")
+            yaml_lines.append(
+                f"      Database contains {db_result.get('total_matching', 0)} events matching the filters."
+            )
             yaml_lines.append("      Compare this to:")
-            yaml_lines.append(f"      - Ground truth expected: {len(query_data.get('relevance_ground_truth', []))} events")
+            yaml_lines.append(
+                f"      - Ground truth expected: {len(query_data.get('relevance_ground_truth', []))} events"
+            )
             yaml_lines.append(f"      - Chatbot returned: {len(response.get('sources', []))} sources")
             yaml_lines.append("")
         else:
-            yaml_lines.append(f"    status: ERROR")
+            yaml_lines.append("    status: ERROR")
             yaml_lines.append(f"    error: \"{db_result.get('error', 'Unknown error')}\"")
             yaml_lines.append("")
 
@@ -337,44 +332,31 @@ def generate_review_yaml(dataset: dict, responses: dict[str, dict], db_results: 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(output_path, 'w', encoding='utf-8') as f:
-        f.write('\n'.join(yaml_lines))
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(yaml_lines))
 
     logger.info(f"Review YAML written to: {output_path}")
 
 
 def main():
     """Main execution."""
-    parser = argparse.ArgumentParser(
-        description="Run queries and generate review file"
-    )
+    parser = argparse.ArgumentParser(description="Run queries and generate review file")
+    parser.add_argument("--input", default="data/evaluation/golden_dataset.json", help="Input golden dataset JSON")
     parser.add_argument(
-        "--input",
-        default="data/evaluation/golden_dataset.json",
-        help="Input golden dataset JSON"
+        "--output", default="data/evaluation/golden_dataset_review.yaml", help="Output review YAML path"
     )
-    parser.add_argument(
-        "--output",
-        default="data/evaluation/golden_dataset_review.yaml",
-        help="Output review YAML path"
-    )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=None,
-        help="Limit number of queries to run (for testing)"
-    )
+    parser.add_argument("--limit", type=int, default=None, help="Limit number of queries to run (for testing)")
     args = parser.parse_args()
 
     try:
         # Load golden dataset
         logger.info(f"Loading golden dataset from {args.input}")
-        with open(args.input, 'r', encoding='utf-8') as f:
+        with open(args.input, "r", encoding="utf-8") as f:
             dataset = json.load(f)
 
         queries = dataset.get("queries", [])
         if args.limit:
-            queries = queries[:args.limit]
+            queries = queries[: args.limit]
             logger.info(f"Limited to first {args.limit} queries")
 
         # Initialize RAG chain and EventStorage
@@ -413,13 +395,13 @@ def main():
                 logger.error(f"  ✗ Database Error: {db_result['error']}")
 
         # Generate review YAML
-        logger.info(f"\nGenerating review YAML...")
+        logger.info("\nGenerating review YAML...")
         generate_review_yaml(dataset, responses, db_results, args.output)
 
         # Print summary
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("REVIEW FILE GENERATED")
-        print("="*70)
+        print("=" * 70)
         print(f"Input:  {args.input}")
         print(f"Output: {args.output}")
         print(f"Queries processed: {len(responses)}")
@@ -430,7 +412,7 @@ def main():
         print("  2. Review each query's ACTUAL vs EXPECTED results")
         print("  3. Add your feedback in the REVIEW sections")
         print("  4. Mark queries as APPROVED or NEEDS_IMPROVEMENT")
-        print("="*70 + "\n")
+        print("=" * 70 + "\n")
 
         return 0
 

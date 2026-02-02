@@ -8,7 +8,7 @@ MAINTAINER: QA Team
 
 import pytest
 import json
-from unittest.mock import patch, mock_open, MagicMock
+from unittest.mock import patch, mock_open
 
 from src.utils.i18n import (
     Translator,
@@ -35,7 +35,7 @@ class TestTranslator:
 
     def test_init_with_supported_language(self):
         """Test initialization with supported language."""
-        with patch.object(Translator, '_load_translations', return_value={}):
+        with patch.object(Translator, "_load_translations", return_value={}):
             translator = Translator("fr")
             assert translator.language == "fr"
 
@@ -44,7 +44,7 @@ class TestTranslator:
 
     def test_init_with_unsupported_language_uses_default(self):
         """Test initialization with unsupported language falls back to default."""
-        with patch.object(Translator, '_load_translations', return_value={}):
+        with patch.object(Translator, "_load_translations", return_value={}):
             translator = Translator("de")  # German not supported
             assert translator.language == DEFAULT_LANGUAGE
 
@@ -71,14 +71,14 @@ class TestTranslator:
     def test_load_translations_file_not_found(self):
         """Test handling of missing translation file."""
         # Mock Path to return a non-existent path
-        with patch('builtins.open', side_effect=FileNotFoundError()):
+        with patch("builtins.open", side_effect=FileNotFoundError()):
             translator = Translator("fr")
             assert translator.translations == {}
 
     def test_load_translations_invalid_json(self):
         """Test handling of invalid JSON in translation file."""
-        with patch('builtins.open', mock_open(read_data='{"invalid": json}')):
-            with patch('json.load', side_effect=json.JSONDecodeError("", "", 0)):
+        with patch("builtins.open", mock_open(read_data='{"invalid": json}')):
+            with patch("json.load", side_effect=json.JSONDecodeError("", "", 0)):
                 translator = Translator("fr")
                 assert translator.translations == {}
 

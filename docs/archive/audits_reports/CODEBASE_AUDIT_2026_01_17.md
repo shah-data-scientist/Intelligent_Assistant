@@ -8,7 +8,7 @@ A comprehensive audit of the `Intelligent_Assistant` codebase confirms that the 
 ## Detailed Component Analysis
 
 ### 1. Data Layer (`src/data`)
-*   **Ingestion (`api_client.py`)**: 
+*   **Ingestion (`api_client.py`)**:
     *   ✅ **Best Practice**: Uses `httpx` for robust HTTP handling with context managers.
     *   ✅ **Best Practice**: Implements clear custom exceptions (`OpenAgendaAPIError`).
     *   ℹ️ **Observation**: `fetch_all_events` is synchronous. While acceptable for current volumes, async implementation would scale better.

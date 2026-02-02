@@ -15,7 +15,6 @@ from src.evaluation.evaluators.retrieval_evaluator import RetrievalEvaluator
 from src.evaluation.evaluators.generation_evaluator import GenerationEvaluator
 from src.retrieval.manager import RetrievalManager
 from src.retrieval.chain import RAGChain
-from src.evaluation.metrics.generation import LLMAsJudge
 from src.config import settings
 
 logger = logging.getLogger(__name__)
@@ -57,7 +56,7 @@ class SystemEvaluator:
         retrieval_manager: RetrievalManager | None = None,
         rag_chain: RAGChain | None = None,
         judge_backend: str = "mistral",
-        **judge_kwargs: Any
+        **judge_kwargs: Any,
     ):
         """Initialize system evaluator.
 
@@ -70,6 +69,7 @@ class SystemEvaluator:
         # Initialize components if not provided
         if retrieval_manager is None:
             from src.models.vector_store import EventVectorStore
+
             vector_store = EventVectorStore()
             try:
                 vector_store.load_index()
@@ -82,19 +82,12 @@ class SystemEvaluator:
             rag_chain = RAGChain()
 
         self.retrieval_evaluator = RetrievalEvaluator(retrieval_manager)
-        self.generation_evaluator = GenerationEvaluator(
-            rag_chain,
-            judge_backend=judge_backend,
-            **judge_kwargs
-        )
+        self.generation_evaluator = GenerationEvaluator(rag_chain, judge_backend=judge_backend, **judge_kwargs)
 
         logger.info(f"Initialized SystemEvaluator with judge backend: {judge_backend}")
 
     def run_full_evaluation(
-        self,
-        golden_dataset_path: str | Path | None = None,
-        retrieval_k: int = 5,
-        session_id: str | None = None
+        self, golden_dataset_path: str | Path | None = None, retrieval_k: int = 5, session_id: str | None = None
     ) -> EvaluationReport:
         """Run complete system evaluation.
 
@@ -109,6 +102,7 @@ class SystemEvaluator:
         # Generate unique session ID to avoid chat history contamination
         if session_id is None:
             import uuid
+
             session_id = f"eval_{uuid.uuid4().hex[:12]}"
 
         # Load golden dataset
@@ -119,7 +113,7 @@ class SystemEvaluator:
         golden_dataset = GoldenDataset.load(golden_dataset_path)
 
         logger.info(f"\n{'='*60}")
-        logger.info(f"Starting Full System Evaluation")
+        logger.info("Starting Full System Evaluation")
         logger.info(f"{'='*60}")
         logger.info(f"Dataset: {golden_dataset.total_queries} queries")
         logger.info(f"Retrieval k: {retrieval_k}")
@@ -129,19 +123,13 @@ class SystemEvaluator:
         logger.info(f"\n{'-'*60}")
         logger.info("Phase 1: Retrieval Evaluation")
         logger.info(f"{'-'*60}")
-        retrieval_results = self.retrieval_evaluator.evaluate_dataset(
-            golden_dataset,
-            k=retrieval_k
-        )
+        retrieval_results = self.retrieval_evaluator.evaluate_dataset(golden_dataset, k=retrieval_k)
 
         # Run generation evaluation
         logger.info(f"\n{'-'*60}")
         logger.info("Phase 2: Generation Quality Evaluation")
         logger.info(f"{'-'*60}")
-        generation_results = self.generation_evaluator.evaluate_dataset(
-            golden_dataset,
-            session_id=session_id
-        )
+        generation_results = self.generation_evaluator.evaluate_dataset(golden_dataset, session_id=session_id)
 
         # Combine per-query results
         combined_results = []
@@ -165,7 +153,8 @@ class SystemEvaluator:
                 "p50_latency_ms": latencies[len(latencies) // 2],
                 "p95_latency_ms": latencies[int(len(latencies) * 0.95)] if len(latencies) > 1 else latencies[-1],
                 "p99_latency_ms": latencies[int(len(latencies) * 0.99)] if len(latencies) > 1 else latencies[-1],
-                "sla_compliance_rate": sum(1 for lat in latencies if lat < settings.evaluation_latency_sla_ms) / len(latencies),
+                "sla_compliance_rate": sum(1 for lat in latencies if lat < settings.evaluation_latency_sla_ms)
+                / len(latencies),
             }
 
         # Overall status
@@ -194,15 +183,19 @@ class SystemEvaluator:
             generation_metrics=generation_results["aggregated_metrics"],
             latency_analysis=latency_analysis,
             overall_status=overall_status,
-            per_query_results=combined_results
+            per_query_results=combined_results,
         )
 
         # Log summary
         logger.info(f"\n{'='*60}")
         logger.info("Evaluation Complete - Summary")
         logger.info(f"{'='*60}")
-        logger.info(f"Quality Score: {quality_score:.3f} (SLA: {settings.evaluation_quality_sla}) - {'✅ PASS' if quality_pass else '❌ FAIL'}")
-        logger.info(f"Avg Latency: {avg_latency:.0f}ms (SLA: {settings.evaluation_latency_sla_ms}ms) - {'✅ PASS' if latency_pass else '❌ FAIL'}")
+        logger.info(
+            f"Quality Score: {quality_score:.3f} (SLA: {settings.evaluation_quality_sla}) - {'✅ PASS' if quality_pass else '❌ FAIL'}"
+        )
+        logger.info(
+            f"Avg Latency: {avg_latency:.0f}ms (SLA: {settings.evaluation_latency_sla_ms}ms) - {'✅ PASS' if latency_pass else '❌ FAIL'}"
+        )
         logger.info(f"Overall: {'✅ PASS' if overall_pass else '❌ FAIL'}")
         logger.info(f"{'='*60}\n")
 

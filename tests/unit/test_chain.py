@@ -8,8 +8,7 @@ MAINTAINER: QA Team
 
 import pytest
 import json
-from unittest.mock import MagicMock, patch, Mock
-from datetime import date
+from unittest.mock import MagicMock, patch
 
 from src.retrieval.chain import (
     RobustJsonParser,
@@ -34,9 +33,9 @@ class TestRobustJsonParser:
 
     def test_parse_json_in_markdown_code_block(self, parser):
         """Test parsing JSON wrapped in markdown code blocks."""
-        text = '''```json
+        text = """```json
 {"answer_text": "Concert info", "events": [{"title": "Jazz Night"}]}
-```'''
+```"""
         result = parser.parse(text)
         assert result["answer_text"] == "Concert info"
         assert len(result["events"]) == 1
@@ -65,7 +64,7 @@ class TestRobustJsonParser:
 
     def test_parse_removes_trailing_incomplete_json(self, parser):
         """Test removal of trailing incomplete JSON."""
-        text = "Voici les résultats pour votre recherche. {\"answer\":"
+        text = 'Voici les résultats pour votre recherche. {"answer":'
         result = parser.parse(text)
         assert "résultats" in result["answer_text"]
 
@@ -79,10 +78,11 @@ class TestCityLocator:
 
     def test_get_city_locator_returns_instance(self):
         """Test that get_city_locator returns a CityLocator."""
-        with patch('src.retrieval.chain.CityLocator') as MockLocator:
+        with patch("src.retrieval.chain.CityLocator") as MockLocator:
             MockLocator.return_value = MagicMock()
             # Reset global
             import src.retrieval.chain as chain_module
+
             chain_module._city_locator = None
 
             locator = get_city_locator()
@@ -90,11 +90,12 @@ class TestCityLocator:
 
     def test_get_city_locator_singleton(self):
         """Test that get_city_locator returns same instance."""
-        with patch('src.retrieval.chain.CityLocator') as MockLocator:
+        with patch("src.retrieval.chain.CityLocator") as MockLocator:
             mock_instance = MagicMock()
             MockLocator.return_value = mock_instance
 
             import src.retrieval.chain as chain_module
+
             chain_module._city_locator = None
 
             locator1 = get_city_locator()
@@ -143,14 +144,15 @@ class TestBackgroundDbWrite:
 class TestRAGChainInitialization:
     """Test RAGChain initialization with mocked dependencies."""
 
-    @patch('src.retrieval.chain.EventVectorStore')
-    @patch('src.retrieval.chain.MistralLLM')
-    @patch('src.retrieval.chain.EventStorage')
-    @patch('src.retrieval.chain.ChatStorage')
+    @patch("src.retrieval.chain.EventVectorStore")
+    @patch("src.retrieval.chain.MistralLLM")
+    @patch("src.retrieval.chain.EventStorage")
+    @patch("src.retrieval.chain.ChatStorage")
     def test_rag_chain_can_be_imported(self, mock_chat, mock_event, mock_llm, mock_vs):
         """Test that RAGChain can be imported and dependencies are injectable."""
         # This tests that the module structure is correct
         from src.retrieval.chain import RAGChain
+
         assert RAGChain is not None
 
 
@@ -163,7 +165,7 @@ class TestQueryProcessing:
 
         # Test markdown code block extraction
         text = '```json\n{"key": "value"}\n```'
-        match = re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)
+        match = re.search(r"```json\s*(.*?)\s*```", text, re.DOTALL)
         assert match is not None
         assert json.loads(match.group(1)) == {"key": "value"}
 
@@ -184,12 +186,7 @@ class TestFilterBuilding:
         """Test date filter construction from intent."""
         from src.retrieval.manager import SearchIntent
 
-        intent = SearchIntent(
-            city="Paris",
-            month=6,
-            days=[15],
-            year=2026
-        )
+        intent = SearchIntent(city="Paris", month=6, days=[15], year=2026)
 
         # Build filter dict like chain does
         filters = {
@@ -233,26 +230,31 @@ class TestLanguageDetection:
     def test_detect_french_from_bonjour(self):
         """Test French detection with greeting."""
         from src.retrieval.chain import detect_language_from_query
+
         assert detect_language_from_query("Bonjour, comment ça va?") == "fr"
 
     def test_detect_french_from_merci(self):
         """Test French detection with merci."""
         from src.retrieval.chain import detect_language_from_query
+
         assert detect_language_from_query("Merci beaucoup!") == "fr"
 
     def test_detect_french_from_cherche(self):
         """Test French detection with cherche."""
         from src.retrieval.chain import detect_language_from_query
+
         assert detect_language_from_query("Je cherche des concerts") == "fr"
 
     def test_detect_english_from_plain_text(self):
         """Test English detection with no French indicators."""
         from src.retrieval.chain import detect_language_from_query
+
         assert detect_language_from_query("Find jazz concerts in Paris") == "en"
 
     def test_detect_english_from_empty(self):
         """Test empty string returns English."""
         from src.retrieval.chain import detect_language_from_query
+
         assert detect_language_from_query("") == "en"
 
 
@@ -262,12 +264,14 @@ class TestOutOfScopeCityDetection:
     def test_no_city_detected(self):
         """Test that queries without city patterns return None."""
         from src.retrieval.chain import detect_out_of_scope_city
+
         result = detect_out_of_scope_city("Show me jazz concerts")
         assert result == (None, None)
 
     def test_skip_common_words(self):
         """Test that common words are not detected as cities."""
         from src.retrieval.chain import detect_out_of_scope_city
+
         # "events" should be skipped as it's in the skip list
         result = detect_out_of_scope_city("Find events in cultural venues")
         assert result == (None, None)
@@ -275,12 +279,14 @@ class TestOutOfScopeCityDetection:
     def test_skip_date_words(self):
         """Test that month names are not detected as cities."""
         from src.retrieval.chain import detect_out_of_scope_city
+
         result = detect_out_of_scope_city("Events in March")
         assert result == (None, None)
 
     def test_skip_region_words(self):
         """Test that region words like 'ile' are skipped."""
         from src.retrieval.chain import detect_out_of_scope_city
+
         result = detect_out_of_scope_city("Events in Ile de France")
         assert result == (None, None)
 
@@ -291,6 +297,7 @@ class TestResponseDictionaries:
     def test_greeting_responses_both_languages(self):
         """Test greeting responses have both fr and en."""
         from src.retrieval.chain import GREETING_RESPONSES
+
         assert "fr" in GREETING_RESPONSES
         assert "en" in GREETING_RESPONSES
         assert len(GREETING_RESPONSES["fr"]) > 0
@@ -299,36 +306,42 @@ class TestResponseDictionaries:
     def test_chitchat_responses_both_languages(self):
         """Test chitchat responses have both fr and en."""
         from src.retrieval.chain import CHITCHAT_RESPONSES
+
         assert "fr" in CHITCHAT_RESPONSES
         assert "en" in CHITCHAT_RESPONSES
 
     def test_capability_responses_both_languages(self):
         """Test capability responses have both fr and en."""
         from src.retrieval.chain import CAPABILITY_RESPONSES
+
         assert "fr" in CAPABILITY_RESPONSES
         assert "en" in CAPABILITY_RESPONSES
 
     def test_off_topic_responses_both_languages(self):
         """Test off-topic responses have both fr and en."""
         from src.retrieval.chain import OFF_TOPIC_RESPONSES
+
         assert "fr" in OFF_TOPIC_RESPONSES
         assert "en" in OFF_TOPIC_RESPONSES
 
     def test_abuse_responses_both_languages(self):
         """Test abuse responses have both fr and en."""
         from src.retrieval.chain import ABUSE_RESPONSES
+
         assert "fr" in ABUSE_RESPONSES
         assert "en" in ABUSE_RESPONSES
 
     def test_directions_responses_both_languages(self):
         """Test directions responses have both fr and en."""
         from src.retrieval.chain import DIRECTIONS_RESPONSES
+
         assert "fr" in DIRECTIONS_RESPONSES
         assert "en" in DIRECTIONS_RESPONSES
 
     def test_out_of_scope_city_responses_have_placeholder(self):
         """Test out-of-scope city responses have city placeholder."""
         from src.retrieval.chain import OUT_OF_SCOPE_CITY_RESPONSES
+
         assert "{city}" in OUT_OF_SCOPE_CITY_RESPONSES["fr"]
         assert "{city}" in OUT_OF_SCOPE_CITY_RESPONSES["en"]
 
@@ -339,12 +352,14 @@ class TestGreetingPrefixes:
     def test_greeting_prefixes_both_languages(self):
         """Test greeting prefixes have both fr and en."""
         from src.retrieval.chain import GREETING_PREFIXES
+
         assert GREETING_PREFIXES["fr"] == "Bonjour ! "
         assert GREETING_PREFIXES["en"] == "Hello! "
 
     def test_typo_acknowledgments_have_placeholders(self):
         """Test typo acknowledgments have required placeholders."""
         from src.retrieval.chain import TYPO_ACKNOWLEDGMENTS
+
         assert "{corrected}" in TYPO_ACKNOWLEDGMENTS["fr"]
         assert "{original}" in TYPO_ACKNOWLEDGMENTS["fr"]
         assert "{corrected}" in TYPO_ACKNOWLEDGMENTS["en"]
@@ -359,10 +374,7 @@ class TestComposeResponsePrefix:
         from src.retrieval.chain import compose_response_prefix
         from src.retrieval.unified_analyzer import UnifiedAnalysisResult, QueryIntent
 
-        analysis = UnifiedAnalysisResult(
-            intent=QueryIntent.EVENT_SEARCH,
-            intent_confidence=0.9
-        )
+        analysis = UnifiedAnalysisResult(intent=QueryIntent.EVENT_SEARCH, intent_confidence=0.9)
         result = compose_response_prefix(analysis, "fr")
         assert result == ""
 
@@ -374,7 +386,7 @@ class TestComposeResponsePrefix:
         analysis = UnifiedAnalysisResult(
             intent=QueryIntent.EVENT_SEARCH,
             intent_confidence=0.9,
-            dimensions={"greeting": QueryDimension("greeting", True)}
+            dimensions={"greeting": QueryDimension("greeting", True)},
         )
         result = compose_response_prefix(analysis, "fr")
         assert "Bonjour" in result
@@ -387,10 +399,8 @@ class TestComposeResponsePrefix:
         analysis = UnifiedAnalysisResult(
             intent=QueryIntent.EVENT_SEARCH,
             intent_confidence=0.9,
-            dimensions={
-                "typo": QueryDimension("typo", True, value="Paris", original="Pari")
-            },
-            city_normalized="paris"  # Must be set for typo ack to show
+            dimensions={"typo": QueryDimension("typo", True, value="Paris", original="Pari")},
+            city_normalized="paris",  # Must be set for typo ack to show
         )
         result = compose_response_prefix(analysis, "fr")
         assert "Paris" in result
@@ -409,11 +419,7 @@ class TestSimpleSummaryBufferMemory:
         mock_chat_memory = MagicMock()
         mock_chat_memory.messages = []
 
-        memory = SimpleSummaryBufferMemory(
-            llm=mock_llm,
-            chat_memory=mock_chat_memory,
-            max_token_limit=1000
-        )
+        memory = SimpleSummaryBufferMemory(llm=mock_llm, chat_memory=mock_chat_memory, max_token_limit=1000)
         assert memory.max_token_limit == 1000
         assert memory.memory_key == "chat_history"
 
@@ -430,10 +436,7 @@ class TestSimpleSummaryBufferMemory:
             AIMessage(content="Hi there!"),
         ]
 
-        memory = SimpleSummaryBufferMemory(
-            llm=mock_llm,
-            chat_memory=mock_chat_memory
-        )
+        memory = SimpleSummaryBufferMemory(llm=mock_llm, chat_memory=mock_chat_memory)
 
         result = memory.load_memory_variables({})
         assert "chat_history" in result
@@ -448,10 +451,7 @@ class TestSimpleSummaryBufferMemory:
         mock_chat_memory = MagicMock()
         mock_chat_memory.messages = []
 
-        memory = SimpleSummaryBufferMemory(
-            llm=mock_llm,
-            chat_memory=mock_chat_memory
-        )
+        memory = SimpleSummaryBufferMemory(llm=mock_llm, chat_memory=mock_chat_memory)
 
         # Should not raise
         memory.save_context({"input": "test"}, {"output": "test"})
@@ -463,6 +463,7 @@ class TestStatisticalResponses:
     def test_statistical_responses_exist(self):
         """Test statistical responses have both languages."""
         from src.retrieval.chain import STATISTICAL_RESPONSES
+
         assert "fr" in STATISTICAL_RESPONSES
         assert "en" in STATISTICAL_RESPONSES
         assert len(STATISTICAL_RESPONSES["fr"]) > 0
@@ -475,6 +476,7 @@ class TestUseUnifiedAnalyzerFlag:
     def test_flag_is_enabled(self):
         """Test that unified analyzer is enabled by default."""
         from src.retrieval.chain import USE_UNIFIED_ANALYZER
+
         assert USE_UNIFIED_ANALYZER is True
 
 

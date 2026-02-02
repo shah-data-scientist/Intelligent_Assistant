@@ -10,6 +10,7 @@ from src.data.chat_storage import ChatStorage
 
 logger = logging.getLogger(__name__)
 
+
 class SQLiteChatMessageHistory(BaseChatMessageHistory):
     """Chat history implementation that stores messages in SQLite."""
 

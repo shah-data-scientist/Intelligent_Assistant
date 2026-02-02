@@ -34,10 +34,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 # Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -62,25 +59,17 @@ Examples:
 
   # Generate all report formats
   python scripts/run_evaluation.py --format json --format markdown --format html
-        """
+        """,
     )
 
-    parser.add_argument(
-        "--dataset",
-        default=None,
-        help="Path to golden dataset (default: from config)"
-    )
+    parser.add_argument("--dataset", default=None, help="Path to golden dataset (default: from config)")
 
-    parser.add_argument(
-        "--subset",
-        type=int,
-        help="Evaluate only first N queries (for quick tests)"
-    )
+    parser.add_argument("--subset", type=int, help="Evaluate only first N queries (for quick tests)")
 
     parser.add_argument(
         "--output-dir",
         default="data/evaluation/reports",
-        help="Directory to save reports (default: data/evaluation/reports)"
+        help="Directory to save reports (default: data/evaluation/reports)",
     )
 
     parser.add_argument(
@@ -88,45 +77,29 @@ Examples:
         action="append",
         choices=["json", "markdown", "html"],
         default=None,
-        help="Report format(s) to generate (can specify multiple, default: markdown)"
+        help="Report format(s) to generate (can specify multiple, default: markdown)",
     )
 
     parser.add_argument(
         "--judge-backend",
         choices=["mistral", "huggingface", "ollama"],
         default="mistral",
-        help="LLM backend for LLM-as-a-Judge (default: mistral)"
+        help="LLM backend for LLM-as-a-Judge (default: mistral)",
     )
 
-    parser.add_argument(
-        "--hf-token",
-        help="Hugging Face API token (or set HF_TOKEN env var)"
-    )
+    parser.add_argument("--hf-token", help="Hugging Face API token (or set HF_TOKEN env var)")
 
     parser.add_argument(
         "--hf-model",
         default="mistralai/Mistral-7B-Instruct-v0.2",
-        help="Hugging Face model ID (default: mistralai/Mistral-7B-Instruct-v0.2)"
+        help="Hugging Face model ID (default: mistralai/Mistral-7B-Instruct-v0.2)",
     )
 
-    parser.add_argument(
-        "--ollama-model",
-        default="mistral",
-        help="Ollama model name (default: mistral)"
-    )
+    parser.add_argument("--ollama-model", default="mistral", help="Ollama model name (default: mistral)")
 
-    parser.add_argument(
-        "--retrieval-k",
-        type=int,
-        default=5,
-        help="Number of documents to retrieve (default: 5)"
-    )
+    parser.add_argument("--retrieval-k", type=int, default=5, help="Number of documents to retrieve (default: 5)")
 
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Enable verbose logging"
-    )
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
 
     args = parser.parse_args()
 
@@ -145,9 +118,9 @@ Examples:
     from src.config import settings
 
     try:
-        logger.info("="*70)
+        logger.info("=" * 70)
         logger.info("RAG System Evaluation Suite")
-        logger.info("="*70)
+        logger.info("=" * 70)
 
         # Load golden dataset
         dataset_path = args.dataset or settings.golden_dataset_path
@@ -165,12 +138,12 @@ Examples:
         judge_kwargs = {}
         if args.judge_backend == "huggingface":
             import os
+
             judge_kwargs["model_id"] = args.hf_model
             judge_kwargs["api_token"] = args.hf_token or os.getenv("HF_TOKEN")
             if not judge_kwargs["api_token"]:
                 logger.error(
-                    "Hugging Face backend requires API token. "
-                    "Set HF_TOKEN environment variable or use --hf-token"
+                    "Hugging Face backend requires API token. " "Set HF_TOKEN environment variable or use --hf-token"
                 )
                 sys.exit(1)
         elif args.judge_backend == "ollama":
@@ -178,14 +151,12 @@ Examples:
 
         # Initialize evaluator
         logger.info(f"Initializing evaluator with judge backend: {args.judge_backend}")
-        evaluator = SystemEvaluator(
-            judge_backend=args.judge_backend,
-            **judge_kwargs
-        )
+        evaluator = SystemEvaluator(judge_backend=args.judge_backend, **judge_kwargs)
 
         # Save dataset to temp location for evaluation
         import tempfile
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8') as f:
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as f:
             golden_dataset.save(f.name)
             temp_dataset_path = f.name
 
@@ -194,10 +165,7 @@ Examples:
         logger.info("Starting evaluation...")
         logger.info("")
 
-        report = evaluator.run_full_evaluation(
-            golden_dataset_path=temp_dataset_path,
-            retrieval_k=args.retrieval_k
-        )
+        report = evaluator.run_full_evaluation(golden_dataset_path=temp_dataset_path, retrieval_k=args.retrieval_k)
 
         # Clean up temp file
         Path(temp_dataset_path).unlink()
@@ -209,9 +177,9 @@ Examples:
         reporter = ReportGenerator()
 
         logger.info("")
-        logger.info("="*70)
+        logger.info("=" * 70)
         logger.info("Generating Reports")
-        logger.info("="*70)
+        logger.info("=" * 70)
 
         for fmt in args.format:
             timestamp = report.timestamp.replace(":", "-").split(".")[0]
@@ -222,20 +190,24 @@ Examples:
 
         # Print summary
         logger.info("")
-        logger.info("="*70)
+        logger.info("=" * 70)
         logger.info("Evaluation Summary")
-        logger.info("="*70)
+        logger.info("=" * 70)
 
         status = report.overall_status
-        logger.info(f"Quality Score: {status['quality_score']:.3f} (SLA: {status['quality_sla']}) "
-                   f"- {'✅ PASS' if status['quality_pass'] else '❌ FAIL'}")
-        logger.info(f"Avg Latency: {status['avg_latency_ms']:.0f}ms (SLA: {status['latency_sla_ms']}ms) "
-                   f"- {'✅ PASS' if status['latency_pass'] else '❌ FAIL'}")
+        logger.info(
+            f"Quality Score: {status['quality_score']:.3f} (SLA: {status['quality_sla']}) "
+            f"- {'✅ PASS' if status['quality_pass'] else '❌ FAIL'}"
+        )
+        logger.info(
+            f"Avg Latency: {status['avg_latency_ms']:.0f}ms (SLA: {status['latency_sla_ms']}ms) "
+            f"- {'✅ PASS' if status['latency_pass'] else '❌ FAIL'}"
+        )
         logger.info(f"Overall: {'✅ PASS' if status['overall_pass'] else '❌ FAIL'}")
-        logger.info("="*70)
+        logger.info("=" * 70)
 
         # Exit code
-        sys.exit(0 if status['overall_pass'] else 1)
+        sys.exit(0 if status["overall_pass"] else 1)
 
     except KeyboardInterrupt:
         logger.info("\nEvaluation interrupted by user")

@@ -7,12 +7,13 @@ only falling back to LLM for ambiguous queries.
 
 import re
 from enum import Enum
-from typing import Optional, Tuple
+from typing import Optional
 from dataclasses import dataclass
 
 
 class IntentType(Enum):
     """Query intent types."""
+
     GREETING = "greeting"
     DIRECTIONS = "directions"
     CAPABILITY = "capability"
@@ -26,6 +27,7 @@ class IntentType(Enum):
 @dataclass
 class IntentResult:
     """Intent classification result."""
+
     intent: IntentType
     confidence: float  # 0.0 to 1.0
     matched_pattern: Optional[str] = None
@@ -48,7 +50,6 @@ class FastIntentClassifier:
             r"^(hi|hello|hey|bonjour|salut|bonsoir|coucou)\s*[!,.]?\s*$",
             r"^(good\s+(morning|afternoon|evening)|bonne\s+(journée|soirée))\s*[!,.]?\s*$",
         ],
-
         IntentType.DIRECTIONS: [
             # English
             r"\b(how\s+(do\s+i|can\s+i|to)\s+(get|go|reach|arrive)\s+(to|at|there))\b",
@@ -56,26 +57,21 @@ class FastIntentClassifier:
             r"\b(show\s+me\s+(the\s+)?way\s+to)\b",
             r"\bgo\s+from\s+\w+\s+to\s+\w+\b",
             r"\bhow\s+to\s+(get|reach)\s+there\b",
-
             # French
             r"\b(comment\s+(y\s+)?aller|comment\s+se\s+rendre)\b",
             r"\b(trajet|itinéraire|directions?)\s+(pour|vers|à)\b",
             r"\baller\s+de\s+\w+\s+(à|vers)\s+\w+\b",
         ],
-
         IntentType.CAPABILITY: [
             r"\b(what\s+(can|do)\s+you|help|aide|quoi|qu'est-ce)\b",
             r"^(help|aide)\s*[!?.]?\s*$",
         ],
-
         IntentType.CHITCHAT: [
             r"\b(how\s+are\s+you|ça\s+va|comment\s+vas-tu|how's\s+it\s+going)\b",
         ],
-
         IntentType.ABUSE: [
             r"\b(fuck|shit|merde|connard|salope)\b",
         ],
-
         IntentType.OFF_TOPIC: [
             r"\b(weather|météo|president|politique|math|calcul|recipe|recette)\b",
         ],
@@ -96,19 +92,10 @@ class FastIntentClassifier:
         for intent_type, patterns in self.PATTERNS.items():
             for pattern in patterns:
                 if re.search(pattern, query_lower, re.IGNORECASE):
-                    return IntentResult(
-                        intent=intent_type,
-                        confidence=1.0,
-                        matched_pattern=pattern,
-                        needs_llm=False
-                    )
+                    return IntentResult(intent=intent_type, confidence=1.0, matched_pattern=pattern, needs_llm=False)
 
         # No pattern matched - needs LLM for classification
-        return IntentResult(
-            intent=IntentType.UNKNOWN,
-            confidence=0.0,
-            needs_llm=True
-        )
+        return IntentResult(intent=IntentType.UNKNOWN, confidence=0.0, needs_llm=True)
 
 
 # Example usage

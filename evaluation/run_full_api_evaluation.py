@@ -13,16 +13,17 @@ import time
 from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass, asdict
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Optional
 
 # Setup
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 from dotenv import load_dotenv
 import os
 import requests
+
 load_dotenv(project_root / ".env", override=True)
 
 # API Configuration
@@ -38,6 +39,7 @@ from src.evaluation.metrics.generation import LLMAsJudge
 @dataclass
 class QueryResult:
     """Result of a single query evaluation."""
+
     query_id: str
     query: str
     query_type: str
@@ -75,12 +77,7 @@ def call_api(question: str, session_id: str) -> tuple:
 
     start = time.time()
     try:
-        response = requests.post(
-            f"{API_BASE_URL}{API_PREFIX}/chat",
-            headers=headers,
-            json=payload,
-            timeout=120
-        )
+        response = requests.post(f"{API_BASE_URL}{API_PREFIX}/chat", headers=headers, json=payload, timeout=120)
         latency = (time.time() - start) * 1000
         return response, latency, None
     except Exception as e:
@@ -103,7 +100,7 @@ def evaluate_single_query(query, judge: LLMAsJudge, session_id: str) -> QueryRes
         answer="",
         sources=[],
         error=error,
-        expected_filters=query.expected_filters
+        expected_filters=query.expected_filters,
     )
 
     if error or not response or response.status_code != 200:
@@ -117,7 +114,7 @@ def evaluate_single_query(query, judge: LLMAsJudge, session_id: str) -> QueryRes
         result.events_retrieved = len(result.sources)
 
         # Extract filters from response (look for "Filtres appliqués" line)
-        for line in result.answer.split('\n'):
+        for line in result.answer.split("\n"):
             if "Filtres appliqués" in line:
                 result.actual_filters_in_response = line
                 break
@@ -168,8 +165,10 @@ def run_evaluation(dataset: GoldenDataset, judge: LLMAsJudge) -> List[QueryResul
         result = evaluate_single_query(query, judge, session_id)
 
         status = "✅" if result.quality_score >= 0.5 else "⚠️" if result.quality_score > 0 else "❌"
-        print(f"  {status} Quality: {result.quality_score:.2f} | "
-              f"Events: {result.events_retrieved} | Latency: {result.latency_ms:.0f}ms")
+        print(
+            f"  {status} Quality: {result.quality_score:.2f} | "
+            f"Events: {result.events_retrieved} | Latency: {result.latency_ms:.0f}ms"
+        )
 
         if result.error:
             print(f"  ❌ Error: {result.error[:80]}")
@@ -188,12 +187,12 @@ def generate_report(results: List[QueryResult], dataset: GoldenDataset) -> Dict:
     # Query types to EXCLUDE from quality metrics (these intentionally return no events)
     # Greetings, off-topic, capability questions, and security blocks are correct behavior
     EXCLUDE_FROM_QUALITY = [
-        "greeting",           # "Bonjour", "Hello" - no events expected
-        "off_topic",          # "What's the weather?" - correctly rejected
-        "capability",         # "What can you do?" - capability explanation
-        "meta",               # Meta questions about the system
-        "security_injection", # Prompt injection - correctly blocked (HTTP 400/403)
-        "security_profanity", # Profanity - correctly blocked
+        "greeting",  # "Bonjour", "Hello" - no events expected
+        "off_topic",  # "What's the weather?" - correctly rejected
+        "capability",  # "What can you do?" - capability explanation
+        "meta",  # Meta questions about the system
+        "security_injection",  # Prompt injection - correctly blocked (HTTP 400/403)
+        "security_profanity",  # Profanity - correctly blocked
         "out_of_scope_city",  # Cities outside IDF - correctly rejected
     ]
 
@@ -254,16 +253,20 @@ def generate_report(results: List[QueryResult], dataset: GoldenDataset) -> Dict:
             "avg_relevancy": avg_rel,
             "avg_latency_ms": avg_latency,
             "p95_latency_ms": sorted(latencies)[int(len(latencies) * 0.95)] if latencies else 0,
-            "quality_pass_rate": len([q for q in quality_scores if q >= 0.5]) / len(quality_scores) if quality_scores else 0,
+            "quality_pass_rate": (
+                len([q for q in quality_scores if q >= 0.5]) / len(quality_scores) if quality_scores else 0
+            ),
         },
         "by_query_type": by_type,
         "issues": {
-            "low_quality_queries": [{"id": r.query_id, "query": r.query, "score": r.quality_score} for r in low_quality[:10]],
+            "low_quality_queries": [
+                {"id": r.query_id, "query": r.query, "score": r.quality_score} for r in low_quality[:10]
+            ],
             "no_events_queries": [{"id": r.query_id, "query": r.query} for r in no_events[:10]],
             "high_latency_queries": [{"id": r.query_id, "latency_ms": r.latency_ms} for r in high_latency[:10]],
             "failed_queries": [{"id": r.query_id, "error": r.error} for r in failed[:10]],
         },
-        "detailed_results": [asdict(r) for r in results]
+        "detailed_results": [asdict(r) for r in results],
     }
 
     return report
@@ -314,25 +317,25 @@ Non-event queries ({s.get('excluded_from_quality', 'N/A')} queries) like greetin
 
 ### Low Quality Responses ({len(report['issues']['low_quality_queries'])} found)
 """
-    for q in report['issues']['low_quality_queries'][:5]:
+    for q in report["issues"]["low_quality_queries"][:5]:
         md += f"- **{q['id']}**: \"{q['query'][:50]}...\" (score: {q['score']:.2f})\n"
 
     md += f"""
 ### No Events Retrieved ({len(report['issues']['no_events_queries'])} found)
 """
-    for q in report['issues']['no_events_queries'][:5]:
+    for q in report["issues"]["no_events_queries"][:5]:
         md += f"- **{q['id']}**: \"{q['query'][:50]}...\"\n"
 
     md += f"""
 ### High Latency (>30s) ({len(report['issues']['high_latency_queries'])} found)
 """
-    for q in report['issues']['high_latency_queries'][:5]:
+    for q in report["issues"]["high_latency_queries"][:5]:
         md += f"- **{q['id']}**: {q['latency_ms']:.0f}ms\n"
 
     md += f"""
 ### Failed Queries ({len(report['issues']['failed_queries'])} found)
 """
-    for q in report['issues']['failed_queries'][:5]:
+    for q in report["issues"]["failed_queries"][:5]:
         md += f"- **{q['id']}**: {q['error'][:80]}\n"
 
     md += """
@@ -345,22 +348,22 @@ Based on the evaluation results, the following issues need attention:
 """
 
     # Add root cause analysis based on metrics
-    if s['avg_faithfulness'] < 0.5:
+    if s["avg_faithfulness"] < 0.5:
         md += "### 1. Low Faithfulness (Hallucination Risk)\n"
         md += "- LLM is generating information not grounded in retrieved documents\n"
         md += "- **Action:** Review RAG prompt to emphasize source-only responses\n\n"
 
-    if s['avg_relevancy'] < 0.5:
+    if s["avg_relevancy"] < 0.5:
         md += "### 2. Low Relevancy\n"
         md += "- Responses don't adequately address user queries\n"
         md += "- **Action:** Improve query understanding and retrieval matching\n\n"
 
-    if s['avg_latency_ms'] > 10000:
+    if s["avg_latency_ms"] > 10000:
         md += "### 3. High Latency\n"
         md += "- API response times exceed acceptable thresholds\n"
         md += "- **Action:** Optimize LLM calls, add caching, reduce token usage\n\n"
 
-    if len(report['issues']['no_events_queries']) > 5:
+    if len(report["issues"]["no_events_queries"]) > 5:
         md += "### 4. Empty Results Issue\n"
         md += "- Many queries return no events\n"
         md += "- **Action:** Review filter logic and fallback mechanisms\n\n"
@@ -393,6 +396,7 @@ Based on the evaluation results, the following issues need attention:
 
 def main():
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=None, help="Limit number of queries")
     args = parser.parse_args()
@@ -436,7 +440,9 @@ def main():
     report = generate_report(results, dataset)
 
     # Save JSON report
-    json_path = project_root / "evaluation" / "reports" / f"api_evaluation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    json_path = (
+        project_root / "evaluation" / "reports" / f"api_evaluation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    )
     json_path.parent.mkdir(exist_ok=True)
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False, default=str)

@@ -82,21 +82,13 @@ class QueryCache:
         """
         # If cache is full, remove oldest entry
         if len(self._cache) >= self.max_size:
-            oldest_key = min(
-                self._cache.keys(),
-                key=lambda k: self._cache[k]["cached_at"]
-            )
+            oldest_key = min(self._cache.keys(), key=lambda k: self._cache[k]["cached_at"])
             logger.debug(f"Cache FULL, evicting oldest entry: {oldest_key}")
             del self._cache[oldest_key]
 
         key = self._generate_key(query, session_id)
 
-        self._cache[key] = {
-            "result": result,
-            "cached_at": datetime.now(),
-            "query": query,
-            "hits": 0
-        }
+        self._cache[key] = {"result": result, "cached_at": datetime.now(), "query": query, "hits": 0}
         logger.debug(f"Cache SET for query: {query[:50]}...")
 
     def clear(self) -> None:
@@ -117,5 +109,5 @@ class QueryCache:
             "size": len(self._cache),
             "max_size": self.max_size,
             "total_hits": total_hits,
-            "ttl_minutes": self.ttl.total_seconds() / 60
+            "ttl_minutes": self.ttl.total_seconds() / 60,
         }

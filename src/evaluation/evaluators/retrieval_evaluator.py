@@ -32,11 +32,7 @@ class RetrievalEvaluator:
         self.metrics = RetrievalMetrics()
         logger.info("Initialized RetrievalEvaluator with production RetrievalManager")
 
-    def evaluate_query(
-        self,
-        query: Query,
-        k: int = 5
-    ) -> dict[str, Any]:
+    def evaluate_query(self, query: Query, k: int = 5) -> dict[str, Any]:
         """Evaluate retrieval for a single query.
 
         Args:
@@ -83,22 +79,26 @@ class RetrievalEvaluator:
 
             # Add retrieval metrics if we have ground truth
             if relevant_ids:
-                metrics_result.update({
-                    "hit_rate": self.metrics.hit_rate(retrieved_ids, relevant_ids),
-                    "mrr": self.metrics.mean_reciprocal_rank(retrieved_ids, relevant_ids),
-                    f"precision@{k}": self.metrics.precision_at_k(retrieved_ids, relevant_ids, k),
-                    f"recall@{k}": self.metrics.recall_at_k(retrieved_ids, relevant_ids, k),
-                    f"f1@{k}": self.metrics.f1_score(retrieved_ids, relevant_ids, k),
-                })
+                metrics_result.update(
+                    {
+                        "hit_rate": self.metrics.hit_rate(retrieved_ids, relevant_ids),
+                        "mrr": self.metrics.mean_reciprocal_rank(retrieved_ids, relevant_ids),
+                        f"precision@{k}": self.metrics.precision_at_k(retrieved_ids, relevant_ids, k),
+                        f"recall@{k}": self.metrics.recall_at_k(retrieved_ids, relevant_ids, k),
+                        f"f1@{k}": self.metrics.f1_score(retrieved_ids, relevant_ids, k),
+                    }
+                )
             else:
                 # No ground truth, just track that retrieval succeeded
-                metrics_result.update({
-                    "hit_rate": None,
-                    "mrr": None,
-                    f"precision@{k}": None,
-                    f"recall@{k}": None,
-                    f"f1@{k}": None,
-                })
+                metrics_result.update(
+                    {
+                        "hit_rate": None,
+                        "mrr": None,
+                        f"precision@{k}": None,
+                        f"recall@{k}": None,
+                        f"f1@{k}": None,
+                    }
+                )
 
             logger.debug(
                 f"Query {query.id}: retrieved={len(retrieved_ids)}, "
@@ -118,11 +118,7 @@ class RetrievalEvaluator:
                 "latency_ms": (time.time() - start_time) * 1000,
             }
 
-    def evaluate_dataset(
-        self,
-        golden_dataset: GoldenDataset,
-        k: int = 5
-    ) -> dict[str, Any]:
+    def evaluate_dataset(self, golden_dataset: GoldenDataset, k: int = 5) -> dict[str, Any]:
         """Evaluate retrieval across entire golden dataset.
 
         Args:
@@ -176,21 +172,25 @@ class RetrievalEvaluator:
 
         # Add metric averages if we have ground truth
         if num_with_ground_truth > 0:
-            aggregated.update({
-                "overall_hit_rate": sum(hit_rates) / len(hit_rates),
-                "overall_mrr": sum(mrrs) / len(mrrs),
-                f"overall_precision@{k}": sum(precisions) / len(precisions),
-                f"overall_recall@{k}": sum(recalls) / len(recalls),
-                f"overall_f1@{k}": sum(f1s) / len(f1s),
-            })
+            aggregated.update(
+                {
+                    "overall_hit_rate": sum(hit_rates) / len(hit_rates),
+                    "overall_mrr": sum(mrrs) / len(mrrs),
+                    f"overall_precision@{k}": sum(precisions) / len(precisions),
+                    f"overall_recall@{k}": sum(recalls) / len(recalls),
+                    f"overall_f1@{k}": sum(f1s) / len(f1s),
+                }
+            )
         else:
-            aggregated.update({
-                "overall_hit_rate": None,
-                "overall_mrr": None,
-                f"overall_precision@{k}": None,
-                f"overall_recall@{k}": None,
-                f"overall_f1@{k}": None,
-            })
+            aggregated.update(
+                {
+                    "overall_hit_rate": None,
+                    "overall_mrr": None,
+                    f"overall_precision@{k}": None,
+                    f"overall_recall@{k}": None,
+                    f"overall_f1@{k}": None,
+                }
+            )
 
         logger.info(
             f"Retrieval evaluation complete: "
@@ -198,7 +198,4 @@ class RetrievalEvaluator:
             f"avg_latency={aggregated['avg_latency_ms']:.0f}ms"
         )
 
-        return {
-            "aggregated_metrics": aggregated,
-            "per_query_results": per_query_results
-        }
+        return {"aggregated_metrics": aggregated, "per_query_results": per_query_results}

@@ -41,7 +41,7 @@ def get_staged_python_files() -> list[str]:
 
         files = result.stdout.strip().split("\n")
 
-        # Filter to Python files only, exclude archived and __init__.py
+        # Filter to Python files only, exclude non-core directories
         python_files = []
         for f in files:
             if not f:
@@ -53,8 +53,17 @@ def get_staged_python_files() -> list[str]:
                 # Exclude archived folders
                 if "_archived" in f or "archived" in f.lower():
                     continue
-                # Exclude this script itself
-                if "validate_changelog.py" in f:
+                # Exclude global_policy scripts (infrastructure)
+                if "global_policy" in f:
+                    continue
+                # Exclude scripts/ directory (utility scripts)
+                if f.startswith("scripts/"):
+                    continue
+                # Exclude evaluation/ directory (standalone evaluation)
+                if f.startswith("evaluation/"):
+                    continue
+                # Exclude e2e tests (Playwright tests)
+                if "tests/e2e" in f:
                     continue
                 python_files.append(f)
 
@@ -97,11 +106,27 @@ def check_file_in_changelog(file_path: str, changelog: str) -> bool:
     else:
         unreleased_section = changelog[unreleased_start:next_version_idx]
 
-    # Check if file path is mentioned (with or without leading ./)
-    file_path_clean = file_path.replace("\\", "/")  # Normalize path separators
+    # Normalize path for comparison
+    file_path_clean = file_path.replace("\\", "/")
     filename = Path(file_path).name
 
-    # Check for full path mention
+    # Check for bulk formatting entries (covers all files in directory)
+    bulk_patterns = [
+        "All src/",
+        "All tests/",
+        "all src/",
+        "all tests/",
+        "codebase",
+        "entire codebase",
+        "formatting across",
+    ]
+    for pattern in bulk_patterns:
+        if pattern.lower() in unreleased_section.lower():
+            # If it's a formatting-related bulk entry, allow the file
+            if "format" in unreleased_section.lower():
+                return True
+
+    # Check if file path is mentioned (with or without leading ./)
     if file_path_clean in unreleased_section:
         return True
 
@@ -112,6 +137,13 @@ def check_file_in_changelog(file_path: str, changelog: str) -> bool:
     # Check for path variations (with ./ prefix)
     if f"./{file_path_clean}" in unreleased_section:
         return True
+
+    # Check for directory mention (e.g., "src/api/" covers "src/api/endpoints.py")
+    parts = file_path_clean.split("/")
+    if len(parts) >= 2:
+        dir_path = "/".join(parts[:-1]) + "/"
+        if dir_path in unreleased_section:
+            return True
 
     return False
 

@@ -23,7 +23,7 @@ sys.path.insert(0, str(project_root))
 
 from src.data.chat_storage import ChatStorage
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -75,6 +75,7 @@ def extract_feedback_queries(storage: ChatStorage) -> dict[str, list[dict]]:
 
         # Execute queries
         from sqlalchemy import text
+
         positive_results = session.execute(text(positive_query)).fetchall()
         negative_results = session.execute(text(negative_query)).fetchall()
 
@@ -103,12 +104,11 @@ def extract_feedback_queries(storage: ChatStorage) -> dict[str, list[dict]]:
             for row in negative_results
         ]
 
-        logger.info(f"Extracted {len(positive_feedback)} positive and {len(negative_feedback)} negative feedback records")
+        logger.info(
+            f"Extracted {len(positive_feedback)} positive and {len(negative_feedback)} negative feedback records"
+        )
 
-        return {
-            "positive": positive_feedback,
-            "negative": negative_feedback
-        }
+        return {"positive": positive_feedback, "negative": negative_feedback}
 
 
 def extract_conversational_patterns(storage: ChatStorage) -> list[dict]:
@@ -133,6 +133,7 @@ def extract_conversational_patterns(storage: ChatStorage) -> list[dict]:
         """
 
         from sqlalchemy import text
+
         multi_turn_results = session.execute(text(multi_turn_query)).fetchall()
 
         conversational_sessions = []
@@ -151,20 +152,17 @@ def extract_conversational_patterns(storage: ChatStorage) -> list[dict]:
 
             messages = session.execute(text(messages_query), {"session_id": session_id}).fetchall()
 
-            conversational_sessions.append({
-                "session_id": session_id,
-                "turn_count": turn_count,
-                "first_turn": _to_isoformat(row[2]),
-                "last_turn": _to_isoformat(row[3]),
-                "conversation": [
-                    {
-                        "role": msg[0],
-                        "content": msg[1],
-                        "timestamp": _to_isoformat(msg[2])
-                    }
-                    for msg in messages
-                ]
-            })
+            conversational_sessions.append(
+                {
+                    "session_id": session_id,
+                    "turn_count": turn_count,
+                    "first_turn": _to_isoformat(row[2]),
+                    "last_turn": _to_isoformat(row[3]),
+                    "conversation": [
+                        {"role": msg[0], "content": msg[1], "timestamp": _to_isoformat(msg[2])} for msg in messages
+                    ],
+                }
+            )
 
         logger.info(f"Extracted {len(conversational_sessions)} multi-turn conversations")
 
@@ -181,12 +179,7 @@ def identify_success_patterns(positive_feedback: list[dict]) -> dict[str, Any]:
         Dict with success pattern analysis
     """
     if not positive_feedback:
-        return {
-            "total_count": 0,
-            "common_keywords": {},
-            "sample_queries": [],
-            "insights": []
-        }
+        return {"total_count": 0, "common_keywords": {}, "sample_queries": [], "insights": []}
 
     # Extract keywords from queries (simple word tokenization)
     all_keywords = []
@@ -194,7 +187,7 @@ def identify_success_patterns(positive_feedback: list[dict]) -> dict[str, Any]:
         query = record["query"].lower()
         # Simple keyword extraction (remove common stopwords)
         words = query.split()
-        stopwords = {'le', 'la', 'les', 'de', 'du', 'à', 'au', 'et', 'en', 'pour', 'the', 'a', 'an', 'in', 'on', 'at'}
+        stopwords = {"le", "la", "les", "de", "du", "à", "au", "et", "en", "pour", "the", "a", "an", "in", "on", "at"}
         keywords = [w for w in words if w not in stopwords and len(w) > 3]
         all_keywords.extend(keywords)
 
@@ -204,11 +197,7 @@ def identify_success_patterns(positive_feedback: list[dict]) -> dict[str, Any]:
 
     # Sample queries (up to 10)
     sample_queries = [
-        {
-            "query": record["query"],
-            "comment": record["comment"],
-            "timestamp": record["feedback_timestamp"]
-        }
+        {"query": record["query"], "comment": record["comment"], "timestamp": record["feedback_timestamp"]}
         for record in positive_feedback[:10]
     ]
 
@@ -224,7 +213,7 @@ def identify_success_patterns(positive_feedback: list[dict]) -> dict[str, Any]:
         "total_count": len(positive_feedback),
         "common_keywords": common_keywords,
         "sample_queries": sample_queries,
-        "insights": insights
+        "insights": insights,
     }
 
 
@@ -238,12 +227,7 @@ def identify_failure_modes(negative_feedback: list[dict]) -> dict[str, Any]:
         Dict with failure mode analysis
     """
     if not negative_feedback:
-        return {
-            "total_count": 0,
-            "common_issues": {},
-            "sample_failures": [],
-            "insights": []
-        }
+        return {"total_count": 0, "common_issues": {}, "sample_failures": [], "insights": []}
 
     # Extract issues from comments (if available)
     issues = []
@@ -257,11 +241,7 @@ def identify_failure_modes(negative_feedback: list[dict]) -> dict[str, Any]:
 
     # Sample failures (up to 10)
     sample_failures = [
-        {
-            "query": record["query"],
-            "comment": record["comment"],
-            "timestamp": record["feedback_timestamp"]
-        }
+        {"query": record["query"], "comment": record["comment"], "timestamp": record["feedback_timestamp"]}
         for record in negative_feedback[:10]
     ]
 
@@ -277,7 +257,7 @@ def identify_failure_modes(negative_feedback: list[dict]) -> dict[str, Any]:
         "total_count": len(negative_feedback),
         "common_issues": common_issues,
         "sample_failures": sample_failures,
-        "insights": insights
+        "insights": insights,
     }
 
 
@@ -291,13 +271,7 @@ def analyze_conversational_patterns(sessions: list[dict]) -> dict[str, Any]:
         Dict with conversational pattern analysis
     """
     if not sessions:
-        return {
-            "total_sessions": 0,
-            "avg_turns": 0,
-            "max_turns": 0,
-            "sample_conversations": [],
-            "insights": []
-        }
+        return {"total_sessions": 0, "avg_turns": 0, "max_turns": 0, "sample_conversations": [], "insights": []}
 
     # Calculate statistics
     turn_counts = [s["turn_count"] for s in sessions]
@@ -309,7 +283,7 @@ def analyze_conversational_patterns(sessions: list[dict]) -> dict[str, Any]:
         {
             "session_id": s["session_id"],
             "turn_count": s["turn_count"],
-            "conversation": s["conversation"][:6]  # First 6 messages
+            "conversation": s["conversation"][:6],  # First 6 messages
         }
         for s in sessions[:5]
     ]
@@ -318,7 +292,7 @@ def analyze_conversational_patterns(sessions: list[dict]) -> dict[str, Any]:
     insights = [
         f"Total multi-turn sessions: {len(sessions)}",
         f"Average turns per session: {avg_turns:.1f}",
-        f"Longest conversation: {max_turns} turns"
+        f"Longest conversation: {max_turns} turns",
     ]
 
     return {
@@ -326,7 +300,7 @@ def analyze_conversational_patterns(sessions: list[dict]) -> dict[str, Any]:
         "avg_turns": round(avg_turns, 1),
         "max_turns": max_turns,
         "sample_conversations": sample_conversations,
-        "insights": insights
+        "insights": insights,
     }
 
 
@@ -354,20 +328,17 @@ def generate_feedback_report(storage: ChatStorage) -> dict[str, Any]:
 
     # Build report
     report = {
-        "analysis_metadata": {
-            "timestamp": datetime.utcnow().isoformat(),
-            "analysis_version": "1.0"
-        },
+        "analysis_metadata": {"timestamp": datetime.utcnow().isoformat(), "analysis_version": "1.0"},
         "summary": {
             "total_positive_feedback": success_patterns["total_count"],
             "total_negative_feedback": failure_modes["total_count"],
             "total_conversational_sessions": conversational_analysis["total_sessions"],
-            "avg_conversation_turns": conversational_analysis["avg_turns"]
+            "avg_conversation_turns": conversational_analysis["avg_turns"],
         },
         "success_patterns": success_patterns,
         "failure_modes": failure_modes,
         "conversational_patterns": conversational_analysis,
-        "recommendations": generate_recommendations(success_patterns, failure_modes, conversational_analysis)
+        "recommendations": generate_recommendations(success_patterns, failure_modes, conversational_analysis),
     }
 
     return report
@@ -405,23 +376,21 @@ def generate_recommendations(success_patterns: dict, failure_modes: dict, conver
     # Keyword-based recommendations
     if success_patterns.get("common_keywords"):
         top_keywords = list(success_patterns["common_keywords"].keys())[:3]
-        recommendations.append(
-            f"Create test queries focusing on popular keywords: {', '.join(top_keywords)}"
-        )
+        recommendations.append(f"Create test queries focusing on popular keywords: {', '.join(top_keywords)}")
 
     return recommendations
 
 
 def print_summary(report: dict[str, Any]) -> None:
     """Print human-readable summary to console."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("FEEDBACK ANALYSIS REPORT")
-    print("="*70)
+    print("=" * 70)
     print(f"\nAnalysis Timestamp: {report['analysis_metadata']['timestamp']}")
 
     print("\n" + "SUMMARY STATISTICS:")
     print("-" * 70)
-    summary = report['summary']
+    summary = report["summary"]
     print(f"  Positive Feedback:  {summary['total_positive_feedback']} queries")
     print(f"  Negative Feedback:  {summary['total_negative_feedback']} queries")
     print(f"  Multi-turn Sessions: {summary['total_conversational_sessions']} conversations")
@@ -429,28 +398,28 @@ def print_summary(report: dict[str, Any]) -> None:
 
     print("\n" + "SUCCESS PATTERNS:")
     print("-" * 70)
-    success = report['success_patterns']
-    if success['common_keywords']:
+    success = report["success_patterns"]
+    if success["common_keywords"]:
         print("  Top Keywords in Successful Queries:")
-        for keyword, count in list(success['common_keywords'].items())[:10]:
+        for keyword, count in list(success["common_keywords"].items())[:10]:
             print(f"    - {keyword:20s}: {count:>3} occurrences")
     else:
         print("  No success patterns identified (no positive feedback yet)")
 
     print("\n" + "FAILURE MODES:")
     print("-" * 70)
-    failure = report['failure_modes']
-    if failure['common_issues']:
+    failure = report["failure_modes"]
+    if failure["common_issues"]:
         print("  Common Issues:")
-        for issue, count in list(failure['common_issues'].items())[:5]:
+        for issue, count in list(failure["common_issues"].items())[:5]:
             print(f"    - {issue}")
     else:
         print("  No failure modes identified (no negative feedback yet)")
 
     print("\n" + "CONVERSATIONAL PATTERNS:")
     print("-" * 70)
-    conv = report['conversational_patterns']
-    if conv['total_sessions'] > 0:
+    conv = report["conversational_patterns"]
+    if conv["total_sessions"] > 0:
         print(f"  Total Sessions: {conv['total_sessions']}")
         print(f"  Average Turns:  {conv['avg_turns']:.1f}")
         print(f"  Longest Chain:  {conv['max_turns']} turns")
@@ -459,23 +428,19 @@ def print_summary(report: dict[str, Any]) -> None:
 
     print("\n" + "RECOMMENDATIONS:")
     print("-" * 70)
-    for i, rec in enumerate(report['recommendations'], 1):
+    for i, rec in enumerate(report["recommendations"], 1):
         print(f"  {i}. {rec}")
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print(f"Analysis complete. {len(report['recommendations'])} recommendations generated.")
-    print("="*70 + "\n")
+    print("=" * 70 + "\n")
 
 
 def main():
     """Main feedback analysis execution."""
-    parser = argparse.ArgumentParser(
-        description="Analyze user feedback from chat history"
-    )
+    parser = argparse.ArgumentParser(description="Analyze user feedback from chat history")
     parser.add_argument(
-        "--output",
-        default="data/evaluation/feedback_analysis.json",
-        help="Output path for JSON report"
+        "--output", default="data/evaluation/feedback_analysis.json", help="Output path for JSON report"
     )
     args = parser.parse_args()
 
@@ -494,7 +459,7 @@ def main():
         output_path = Path(args.output)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=2, ensure_ascii=False)
 
         logger.info(f"Full report saved to: {output_path}")

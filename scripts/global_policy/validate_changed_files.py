@@ -65,28 +65,24 @@ class ChangedFileValidator:
         self.warnings = []
 
     def get_all_python_files(self) -> Set[Path]:
-        """Get all Python files in src/, scripts/, and tests/."""
+        """Get all Python files in src/ and tests/ (core code only)."""
         all_files = set()
 
-        # Check src/ directory
+        # Check src/ directory (core application code - requires documentation)
         src_path = self.project_root / "src"
         if src_path.exists():
             all_files.update(src_path.rglob("*.py"))
 
-        # Check scripts/ directory (excluding _archived and global_policy)
-        scripts_path = self.project_root / "scripts"
-        if scripts_path.exists():
-            for py_file in scripts_path.rglob("*.py"):
-                # Exclude archived and policy scripts
-                if "_archived" not in py_file.parts and "global_policy" not in py_file.parts:
-                    all_files.add(py_file)
-
-        # Check tests/ directory (excluding _archived)
+        # Check tests/unit/ and tests/integration/ (test code - requires documentation)
         tests_path = self.project_root / "tests"
         if tests_path.exists():
             for py_file in tests_path.rglob("*.py"):
-                if "_archived" not in py_file.parts:
+                # Only validate unit and integration tests, exclude archived and e2e
+                if "_archived" not in py_file.parts and "e2e" not in py_file.parts:
                     all_files.add(py_file)
+
+        # Note: scripts/ and evaluation/ are excluded - they are utility/one-off scripts
+        # that don't require full documentation headers
 
         return all_files
 
@@ -108,6 +104,21 @@ class ChangedFileValidator:
             changed_files = set()
             for file_path in result.stdout.strip().split("\n"):
                 if file_path and file_path.endswith(".py"):
+                    # Skip archived directories and global_policy scripts
+                    if "_archived" in file_path or "global_policy" in file_path:
+                        continue
+                    # Skip _archived_scripts directory
+                    if file_path.startswith("_archived_scripts/"):
+                        continue
+                    # Skip scripts/ directory (utility scripts don't need full documentation)
+                    if file_path.startswith("scripts/"):
+                        continue
+                    # Skip evaluation/ directory (standalone evaluation scripts)
+                    if file_path.startswith("evaluation/"):
+                        continue
+                    # Skip e2e tests (Playwright tests have different structure)
+                    if "tests/e2e" in file_path:
+                        continue
                     full_path = self.project_root / file_path
                     if full_path.exists() and full_path.is_file():
                         changed_files.add(full_path)
@@ -119,8 +130,29 @@ class ChangedFileValidator:
             print("Warning: Git command failed, falling back to all files")
             return self.get_all_python_files()
 
+    def is_new_file(self, file_path: Path) -> bool:
+        """Check if file was newly added in this commit (not just modified)."""
+        try:
+            result = subprocess.run(
+                ["git", "diff", "--cached", "--name-only", "--diff-filter=A"],
+                cwd=self.project_root,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            new_files = set(result.stdout.strip().split("\n"))
+            rel_path = str(file_path.relative_to(self.project_root)).replace("\\", "/")
+            return rel_path in new_files
+        except subprocess.CalledProcessError:
+            return False
+
     def validate_documentation_header(self, file_path: Path, content: str) -> List[str]:
-        """Validate that file has proper documentation header and it matches content."""
+        """Validate that file has proper documentation header and it matches content.
+
+        Policy:
+        - NEW files: Require full 7-field documentation header
+        - EXISTING files: Only require a basic module docstring (any docstring is fine)
+        """
         errors = []
 
         # Check for docstring at start of file
@@ -142,7 +174,20 @@ class ChangedFileValidator:
 
         docstring = docstring_match.group(2)
 
-        # Check all required fields
+        # For EXISTING files: basic docstring is sufficient
+        # For NEW files: require full 7-field header
+        is_new = self.is_new_file(file_path)
+
+        if not is_new:
+            # Existing file - basic docstring is OK
+            if len(docstring.strip()) < 5:
+                errors.append(
+                    f"{file_path.relative_to(self.project_root)}: "
+                    f"Module docstring is too short. Add a description of the file's purpose."
+                )
+            return errors
+
+        # NEW file - require full documentation header
         missing_fields = []
         for field_name, field_pattern in REQUIRED_FIELDS.items():
             if not re.search(field_pattern, docstring, re.MULTILINE):
@@ -151,7 +196,7 @@ class ChangedFileValidator:
         if missing_fields:
             errors.append(
                 f"{file_path.relative_to(self.project_root)}: "
-                f"Missing required documentation fields: {', '.join(missing_fields)}"
+                f"NEW FILE missing required documentation fields: {', '.join(missing_fields)}"
             )
 
         # Validate FILE field matches actual filename

@@ -23,7 +23,7 @@ NEW_QUERIES = [
         query_type="price_filter",
         complexity="medium",
         expected_filters={"price": "free", "city": "Paris", "time": "weekend"},
-        relevance_ground_truth=[]  # To be filled
+        relevance_ground_truth=[],  # To be filled
     ),
     Query(
         id="Q_FREE_002",
@@ -32,9 +32,8 @@ NEW_QUERIES = [
         query_type="price_filter",
         complexity="medium",
         expected_filters={"price": "free", "category": "concerts", "month": 2},
-        relevance_ground_truth=[]
+        relevance_ground_truth=[],
     ),
-
     # Accessibility-focused queries
     Query(
         id="Q_ACCESS_001",
@@ -44,7 +43,7 @@ NEW_QUERIES = [
         complexity="medium",
         expected_categories=["theater"],
         expected_filters={"accessibility": "wheelchair", "city": "Paris"},
-        relevance_ground_truth=[]
+        relevance_ground_truth=[],
     ),
     Query(
         id="Q_ACCESS_002",
@@ -54,9 +53,8 @@ NEW_QUERIES = [
         complexity="high",
         expected_categories=["theater"],
         expected_filters={"accessibility": "subtitles OR sign language"},
-        relevance_ground_truth=[]
+        relevance_ground_truth=[],
     ),
-
     # Genre diversity - Electronic/Pop/Rock
     Query(
         id="Q_GENRE_ELEC_001",
@@ -66,7 +64,7 @@ NEW_QUERIES = [
         complexity="simple",
         expected_categories=["concerts"],
         expected_filters={"genre": "electronic OR techno", "city": "Paris"},
-        relevance_ground_truth=[]
+        relevance_ground_truth=[],
     ),
     Query(
         id="Q_GENRE_POP_001",
@@ -76,9 +74,8 @@ NEW_QUERIES = [
         complexity="simple",
         expected_categories=["concerts"],
         expected_filters={"genre": "pop OR rock"},
-        relevance_ground_truth=[]
+        relevance_ground_truth=[],
     ),
-
     # Suburb/regional queries
     Query(
         id="Q_SUBURB_001",
@@ -87,7 +84,7 @@ NEW_QUERIES = [
         query_type="location_specific",
         complexity="medium",
         expected_filters={"city": "Versailles", "month": 11},
-        relevance_ground_truth=[]
+        relevance_ground_truth=[],
     ),
     Query(
         id="Q_SUBURB_002",
@@ -97,9 +94,8 @@ NEW_QUERIES = [
         complexity="medium",
         expected_categories=["theater"],
         expected_filters={"location": "suburbs"},
-        relevance_ground_truth=[]
+        relevance_ground_truth=[],
     ),
-
     # Multi-lingual queries
     Query(
         id="Q_LANG_001",
@@ -108,9 +104,8 @@ NEW_QUERIES = [
         query_type="language",
         complexity="high",
         expected_filters={"language": "English"},
-        relevance_ground_truth=[]
+        relevance_ground_truth=[],
     ),
-
     # Age-specific queries
     Query(
         id="Q_AGE_001",
@@ -119,7 +114,7 @@ NEW_QUERIES = [
         query_type="age_filter",
         complexity="medium",
         expected_filters={"age": "all ages"},
-        relevance_ground_truth=[]
+        relevance_ground_truth=[],
     ),
     Query(
         id="Q_AGE_002",
@@ -129,9 +124,8 @@ NEW_QUERIES = [
         complexity="high",
         expected_categories=["comedy"],
         expected_filters={"age": "adults only", "city": "Paris"},
-        relevance_ground_truth=[]
+        relevance_ground_truth=[],
     ),
-
     # Combined criteria (complex)
     Query(
         id="Q_COMPLEX_001",
@@ -141,7 +135,7 @@ NEW_QUERIES = [
         complexity="high",
         expected_categories=["workshops"],
         expected_filters={"price": "free", "accessibility": "yes", "audience": "families", "time": "weekends"},
-        relevance_ground_truth=[]
+        relevance_ground_truth=[],
     ),
     Query(
         id="Q_COMPLEX_002",
@@ -151,9 +145,8 @@ NEW_QUERIES = [
         complexity="high",
         expected_categories=["concerts"],
         expected_filters={"location": "outdoor", "season": "summer", "area": "suburbs", "parking": "available"},
-        relevance_ground_truth=[]
+        relevance_ground_truth=[],
     ),
-
     # Negative criteria
     Query(
         id="Q_NEG_001",
@@ -163,9 +156,8 @@ NEW_QUERIES = [
         complexity="medium",
         expected_categories=["classical"],
         expected_filters={"exclude": "opera"},
-        relevance_ground_truth=[]
+        relevance_ground_truth=[],
     ),
-
     # Time-specific queries
     Query(
         id="Q_TIME_001",
@@ -175,7 +167,7 @@ NEW_QUERIES = [
         complexity="medium",
         expected_categories=["concerts"],
         expected_filters={"time": "evening", "start_time": "after 19:00"},
-        relevance_ground_truth=[]
+        relevance_ground_truth=[],
     ),
     Query(
         id="Q_TIME_002",
@@ -184,9 +176,8 @@ NEW_QUERIES = [
         query_type="time_filter",
         complexity="medium",
         expected_filters={"time": "matinée", "day": "weekends"},
-        relevance_ground_truth=[]
+        relevance_ground_truth=[],
     ),
-
     # Venue-specific queries
     Query(
         id="Q_VENUE_001",
@@ -195,9 +186,8 @@ NEW_QUERIES = [
         query_type="venue_specific",
         complexity="simple",
         expected_filters={"venue": "Théâtre du Châtelet"},
-        relevance_ground_truth=[]
+        relevance_ground_truth=[],
     ),
-
     # Festival/series queries
     Query(
         id="Q_SERIES_001",
@@ -206,7 +196,7 @@ NEW_QUERIES = [
         query_type="event_series",
         complexity="simple",
         expected_filters={"event_series": "Nuit Blanche", "month": 10},
-        relevance_ground_truth=[]
+        relevance_ground_truth=[],
     ),
 ]
 
@@ -241,9 +231,9 @@ def add_to_dataset():
     logger.info(f"Saving updated dataset to {dataset_path}")
     dataset.save(str(dataset_path))
 
-    logger.info("\n" + "="*80)
+    logger.info("\n" + "=" * 80)
     logger.info("DATASET EXPANSION SUMMARY")
-    logger.info("="*80)
+    logger.info("=" * 80)
     logger.info(f"Added {len(NEW_QUERIES)} new diverse queries")
     logger.info(f"Total queries: {len(dataset.queries)}")
 
@@ -260,11 +250,18 @@ def add_to_dataset():
 
     logger.info("\nBy type (new types):")
     for qtype, count in sorted(type_counts.items()):
-        if qtype in ['price_filter', 'accessibility', 'language', 'negative_filter',
-                     'time_filter', 'venue_specific', 'event_series']:
+        if qtype in [
+            "price_filter",
+            "accessibility",
+            "language",
+            "negative_filter",
+            "time_filter",
+            "venue_specific",
+            "event_series",
+        ]:
             logger.info(f"  {qtype}: {count}")
 
-    logger.info("="*80)
+    logger.info("=" * 80)
 
 
 if __name__ == "__main__":

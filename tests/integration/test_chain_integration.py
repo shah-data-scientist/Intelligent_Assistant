@@ -58,11 +58,13 @@ class TestRAGChainStructure:
     def test_chain_has_query_method(self):
         """Test that RAGChain has query method."""
         from src.retrieval.chain import RAGChain
+
         assert hasattr(RAGChain, "query")
 
     def test_chain_has_query_with_metadata_method(self):
         """Test that RAGChain has query_with_metadata method."""
         from src.retrieval.chain import RAGChain
+
         assert hasattr(RAGChain, "query_with_metadata")
 
 

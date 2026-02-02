@@ -11,10 +11,12 @@ The actual filter parsing and application happens in:
 # ========================================
 # Used by vector_store.py to identify regional terms (not specific cities)
 
-IDF_REGIONAL_TERMS = frozenset([
-    "ile de france",
-    "ile-de-france",
-    "île-de-france",
-    "idf",
-    "paris region",
-])
+IDF_REGIONAL_TERMS = frozenset(
+    [
+        "ile de france",
+        "ile-de-france",
+        "île-de-france",
+        "idf",
+        "paris region",
+    ]
+)

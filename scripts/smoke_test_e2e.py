@@ -45,7 +45,7 @@ def test_streamlit_health():
             print("[OK] Streamlit is running on http://localhost:8501")
             return True
         else:
-            print(f"[FAIL] Streamlit returned unexpected response")
+            print("[FAIL] Streamlit returned unexpected response")
             return False
     except httpx.ConnectError:
         print("[FAIL] Streamlit not accessible on http://localhost:8501")
@@ -58,9 +58,7 @@ def test_api_chat_endpoint():
     try:
         # This would require API key - just test the endpoint exists
         response = httpx.post(
-            "http://localhost:8000/chat",
-            json={"question": "test", "session_id": "smoke_test"},
-            timeout=5
+            "http://localhost:8000/chat", json={"question": "test", "session_id": "smoke_test"}, timeout=5
         )
         # Will return 401/403 without API key, but that's fine - endpoint exists
         if response.status_code in [200, 401, 403, 422]:

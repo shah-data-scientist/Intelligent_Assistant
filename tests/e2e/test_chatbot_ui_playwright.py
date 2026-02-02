@@ -120,11 +120,7 @@ class TestChatbotUI:
 
     def test_multiple_queries_in_sequence(self, browser_page: Page):
         """Test sending multiple queries in sequence (conversational flow)."""
-        queries = [
-            "Quel est ton nom?",
-            "Quels événements à Versailles?",
-            "Merci"
-        ]
+        queries = ["Quel est ton nom?", "Quels événements à Versailles?", "Merci"]
 
         for query in queries:
             chat_input = browser_page.get_by_placeholder("Ask Lumi anything", exact=False)
@@ -155,8 +151,9 @@ class TestChatbotResponses:
         page_content = browser_page.content()
 
         # Should receive a welcome/greeting response
-        assert any(word in page_content.lower() for word in ["bonjour", "salut", "hello"]), \
-            "Greeting response contains greeting"
+        assert any(
+            word in page_content.lower() for word in ["bonjour", "salut", "hello"]
+        ), "Greeting response contains greeting"
 
     def test_capability_query(self, browser_page: Page):
         """Test capability question receives explanation."""
@@ -169,8 +166,9 @@ class TestChatbotResponses:
         page_content = browser_page.content()
 
         # Should explain capabilities
-        assert any(word in page_content.lower() for word in ["événements", "événement", "events", "concert"]), \
-            "Capability response mentions events"
+        assert any(
+            word in page_content.lower() for word in ["événements", "événement", "events", "concert"]
+        ), "Capability response mentions events"
 
     def test_out_of_scope_query(self, browser_page: Page):
         """Test out-of-scope query handling."""
@@ -183,8 +181,9 @@ class TestChatbotResponses:
         page_content = browser_page.content()
 
         # Should politely redirect
-        assert "événements" in page_content.lower() or "events" in page_content.lower(), \
-            "Out-of-scope response redirects to events"
+        assert (
+            "événements" in page_content.lower() or "events" in page_content.lower()
+        ), "Out-of-scope response redirects to events"
 
 
 class TestWelcomeMessage:
@@ -198,24 +197,23 @@ class TestWelcomeMessage:
         assert "Meet Lumi" in page_content, "English title should be visible"
 
         # French welcome elements
-        assert "Bonjour" in page_content or "événements" in page_content.lower(), \
-            "French content should be visible"
+        assert "Bonjour" in page_content or "événements" in page_content.lower(), "French content should be visible"
 
     def test_welcome_expanders_present(self, browser_page: Page):
         """Test that 'What I can do' expanders are present."""
         page_content = browser_page.content()
 
         # Check for expander text
-        assert "What I can do" in page_content or "Ce que je peux faire" in page_content, \
-            "Expanders should be present"
+        assert "What I can do" in page_content or "Ce que je peux faire" in page_content, "Expanders should be present"
 
     def test_welcome_example_queries_present(self, browser_page: Page):
         """Test that example queries are shown in welcome message."""
         page_content = browser_page.content()
 
         # Should show example queries in italics
-        assert "jazz" in page_content.lower() or "concert" in page_content.lower(), \
-            "Example queries should mention events"
+        assert (
+            "jazz" in page_content.lower() or "concert" in page_content.lower()
+        ), "Example queries should mention events"
 
 
 class TestNewChatButton:
@@ -262,8 +260,9 @@ class TestFeedbackButtons:
         # Check for feedback buttons (thumbs up/down)
         page_content = browser_page.content()
         # Feedback buttons use emoji 👍 👎
-        assert "👍" in page_content or "👎" in page_content or "feedback" in page_content.lower(), \
-            "Feedback buttons should appear after response"
+        assert (
+            "👍" in page_content or "👎" in page_content or "feedback" in page_content.lower()
+        ), "Feedback buttons should appear after response"
 
     def test_thumbs_up_button_clickable(self, browser_page: Page):
         """Test that thumbs up button is clickable."""
@@ -299,12 +298,14 @@ class TestEventCards:
         page_content = browser_page.content()
 
         # Should have structured content (city, date, venue info)
-        has_event_info = any([
-            "Paris" in page_content,
-            "📍" in page_content,
-            "📅" in page_content,
-            "Venue" in page_content,
-        ])
+        has_event_info = any(
+            [
+                "Paris" in page_content,
+                "📍" in page_content,
+                "📅" in page_content,
+                "Venue" in page_content,
+            ]
+        )
         assert has_event_info, "Event response should contain structured information"
 
     def test_event_cards_show_required_fields(self, browser_page: Page):
@@ -320,15 +321,16 @@ class TestEventCards:
         # Check for presence of card elements
         # Events should show location, date, or time information
         has_structured_elements = (
-            "📍" in page_content or
-            "📅" in page_content or
-            "🕐" in page_content or
-            "Venue" in page_content or
-            "Found" in page_content
+            "📍" in page_content
+            or "📅" in page_content
+            or "🕐" in page_content
+            or "Venue" in page_content
+            or "Found" in page_content
         )
         # Even if no events found, there should be a meaningful response
-        assert len(page_content) > 2000 or has_structured_elements, \
-            "Response should have content or structured elements"
+        assert (
+            len(page_content) > 2000 or has_structured_elements
+        ), "Response should have content or structured elements"
 
 
 class TestMapDisplay:
@@ -346,10 +348,10 @@ class TestMapDisplay:
 
         # Check for map-related content (Folium maps use iframe or leaflet)
         has_map_elements = (
-            "leaflet" in page_content.lower() or
-            "map" in page_content.lower() or
-            "iframe" in page_content.lower() or
-            "Event Locations" in page_content
+            "leaflet" in page_content.lower()
+            or "map" in page_content.lower()
+            or "iframe" in page_content.lower()
+            or "Event Locations" in page_content
         )
         # Map may or may not appear depending on event data
         assert len(page_content) > 1000, "Page should have content after query"

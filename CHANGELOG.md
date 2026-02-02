@@ -33,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - [src/generation/prompts.py](src/generation/prompts.py) - Migrated system prompts to i18n framework (150+ lines → 90 lines)
 
 ### Changed
+- **Code Formatting**: Applied Black and Ruff formatting across entire codebase (128 files)
+  - Consistent line length (120 chars), import sorting, whitespace cleanup
+  - All src/, scripts/, tests/, evaluation/ Python files reformatted
+- **Pre-commit Validation Scope**: Updated validation hooks to focus on core code only
+  - [scripts/global_policy/validate_changed_files.py](scripts/global_policy/validate_changed_files.py) - Now validates src/ and tests/ only (excludes scripts/, evaluation/)
+  - [scripts/global_policy/validate_changelog.py](scripts/global_policy/validate_changelog.py) - Excludes utility scripts from changelog requirement
 - **Code Simplification**: Removed 400+ lines of duplicated French/English text across 3 files
 - **Maintainability**: All bilingual text now centralized in [data/locales/](data/locales/) JSON files
 

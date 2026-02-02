@@ -23,13 +23,13 @@ from typing import Any
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
 def load_golden_dataset(path: str) -> dict[str, Any]:
     """Load existing golden dataset."""
-    with open(path, 'r', encoding='utf-8') as f:
+    with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -57,7 +57,7 @@ def get_new_queries() -> list[dict[str, Any]]:
             "conversational_context": {
                 "parent_query_id": "Q001",
                 "turn_number": 2,
-                "chain_description": "Follow-up to jazz concerts query, testing nationality-specific search"
+                "chain_description": "Follow-up to jazz concerts query, testing nationality-specific search",
             },
             "relevance_ground_truth": [],  # To be populated from actual search
             "generation_expectations": {
@@ -65,11 +65,10 @@ def get_new_queries() -> list[dict[str, Any]]:
                 "must_not_hallucinate": True,
                 "should_ask_clarification": False,
                 "should_refuse_gracefully": False,
-                "expected_language": "en"
+                "expected_language": "en",
             },
-            "annotation_comments": "Real user query from eval sessions. Tests nationality filtering and bilingual capability."
+            "annotation_comments": "Real user query from eval sessions. Tests nationality filtering and bilingual capability.",
         },
-
         # Q120: Accessibility query (from conversational pattern)
         {
             "id": "Q120",
@@ -79,14 +78,11 @@ def get_new_queries() -> list[dict[str, Any]]:
             "complexity": "high",
             "expected_entities": ["gratuits", "accessibles", "mobilité réduite"],
             "expected_categories": [],
-            "expected_filters": {
-                "conditions": "free",
-                "accessibility": "wheelchair"
-            },
+            "expected_filters": {"conditions": "free", "accessibility": "wheelchair"},
             "conversational_context": {
                 "parent_query_id": "Q119",
                 "turn_number": 3,
-                "chain_description": "Follow-up testing accessibility and price filtering"
+                "chain_description": "Follow-up testing accessibility and price filtering",
             },
             "relevance_ground_truth": [],
             "generation_expectations": {
@@ -94,11 +90,10 @@ def get_new_queries() -> list[dict[str, Any]]:
                 "must_not_hallucinate": True,
                 "should_ask_clarification": False,
                 "should_refuse_gracefully": True,  # May have no results
-                "expected_language": "fr"
+                "expected_language": "fr",
             },
-            "annotation_comments": "Real user query. Tests edge case where accessibility data is sparse (0% coverage). Should handle gracefully with no results or suggest verification."
+            "annotation_comments": "Real user query. Tests edge case where accessibility data is sparse (0% coverage). Should handle gracefully with no results or suggest verification.",
         },
-
         # Q121: Free events general query
         {
             "id": "Q121",
@@ -108,21 +103,17 @@ def get_new_queries() -> list[dict[str, Any]]:
             "complexity": "medium",
             "expected_entities": ["free", "concerts", "weekend"],
             "expected_categories": ["Musique"],
-            "expected_filters": {
-                "conditions": "free",
-                "temporal": "weekend"
-            },
+            "expected_filters": {"conditions": "free", "temporal": "weekend"},
             "relevance_ground_truth": [],
             "generation_expectations": {
                 "must_contain_keywords": ["free", "concert"],
                 "must_not_hallucinate": True,
                 "should_ask_clarification": False,
                 "should_refuse_gracefully": False,
-                "expected_language": "en"
+                "expected_language": "en",
             },
-            "annotation_comments": "Tests free event filtering and temporal interpretation (weekend)"
+            "annotation_comments": "Tests free event filtering and temporal interpretation (weekend)",
         },
-
         # Q122: Bilingual equivalent of Q121
         {
             "id": "Q122",
@@ -132,10 +123,7 @@ def get_new_queries() -> list[dict[str, Any]]:
             "complexity": "medium",
             "expected_entities": ["gratuits", "concerts", "week-end"],
             "expected_categories": ["Musique"],
-            "expected_filters": {
-                "conditions": "free",
-                "temporal": "weekend"
-            },
+            "expected_filters": {"conditions": "free", "temporal": "weekend"},
             "bilingual_equivalent": "Q121",
             "relevance_ground_truth": [],
             "generation_expectations": {
@@ -143,11 +131,10 @@ def get_new_queries() -> list[dict[str, Any]]:
                 "must_not_hallucinate": True,
                 "should_ask_clarification": False,
                 "should_refuse_gracefully": False,
-                "expected_language": "fr"
+                "expected_language": "fr",
             },
-            "annotation_comments": "Bilingual pair with Q121. Should return 70%+ overlap in results."
+            "annotation_comments": "Bilingual pair with Q121. Should return 70%+ overlap in results.",
         },
-
         # Q123: Family-friendly events
         {
             "id": "Q123",
@@ -157,22 +144,17 @@ def get_new_queries() -> list[dict[str, Any]]:
             "complexity": "medium",
             "expected_entities": ["enfants", "Paris", "weekend"],
             "expected_categories": ["Spectacles", "Loisirs"],
-            "expected_filters": {
-                "city": "Paris",
-                "age_range": "children",
-                "temporal": "weekend"
-            },
+            "expected_filters": {"city": "Paris", "age_range": "children", "temporal": "weekend"},
             "relevance_ground_truth": [],
             "generation_expectations": {
                 "must_contain_keywords": ["enfant", "Paris"],
                 "must_not_hallucinate": True,
                 "should_ask_clarification": False,
                 "should_refuse_gracefully": False,
-                "expected_language": "fr"
+                "expected_language": "fr",
             },
-            "annotation_comments": "Tests age range filtering. Age data coverage is 40-57%, so some events may lack age info."
+            "annotation_comments": "Tests age range filtering. Age data coverage is 40-57%, so some events may lack age info.",
         },
-
         # Q124: Specific venue query
         {
             "id": "Q124",
@@ -182,22 +164,17 @@ def get_new_queries() -> list[dict[str, Any]]:
             "complexity": "medium",
             "expected_entities": ["Jass Club", "Paris", "this month"],
             "expected_categories": ["Musique"],
-            "expected_filters": {
-                "venue": "Jass Club",
-                "city": "Paris",
-                "temporal": "current_month"
-            },
+            "expected_filters": {"venue": "Jass Club", "city": "Paris", "temporal": "current_month"},
             "relevance_ground_truth": [],
             "generation_expectations": {
                 "must_contain_keywords": ["Jass Club", "Paris"],
                 "must_not_hallucinate": True,
                 "should_ask_clarification": False,
                 "should_refuse_gracefully": False,
-                "expected_language": "en"
+                "expected_language": "en",
             },
-            "annotation_comments": "Venue-specific query. Jass Club is common in dataset (many events at 141 Rue de Tolbiac)."
+            "annotation_comments": "Venue-specific query. Jass Club is common in dataset (many events at 141 Rue de Tolbiac).",
         },
-
         # Q125: Broad geographic query
         {
             "id": "Q125",
@@ -207,20 +184,17 @@ def get_new_queries() -> list[dict[str, Any]]:
             "complexity": "low",
             "expected_entities": ["Île-de-France"],
             "expected_categories": [],
-            "expected_filters": {
-                "region": "Île-de-France"
-            },
+            "expected_filters": {"region": "Île-de-France"},
             "relevance_ground_truth": [],
             "generation_expectations": {
                 "must_contain_keywords": [],
                 "must_not_hallucinate": True,
                 "should_ask_clarification": False,
                 "should_refuse_gracefully": False,
-                "expected_language": "fr"
+                "expected_language": "fr",
             },
-            "annotation_comments": "Broad query - should return many events. Tests system's handling of large result sets."
+            "annotation_comments": "Broad query - should return many events. Tests system's handling of large result sets.",
         },
-
         # Q126: No results expected
         {
             "id": "Q126",
@@ -230,22 +204,17 @@ def get_new_queries() -> list[dict[str, Any]]:
             "complexity": "high",
             "expected_entities": ["Japanese", "opera", "5-year-olds", "Bondy", "February 29"],
             "expected_categories": ["Spectacles"],
-            "expected_filters": {
-                "city": "Bondy",
-                "date": "2026-02-29",
-                "age_max": 5
-            },
+            "expected_filters": {"city": "Bondy", "date": "2026-02-29", "age_max": 5},
             "relevance_ground_truth": [],
             "generation_expectations": {
                 "must_contain_keywords": [],
                 "must_not_hallucinate": True,
                 "should_ask_clarification": False,
                 "should_refuse_gracefully": True,
-                "expected_language": "en"
+                "expected_language": "en",
             },
-            "annotation_comments": "Edge case: no results expected (overly specific, Feb 29 doesn't exist in 2026). Tests graceful failure handling."
+            "annotation_comments": "Edge case: no results expected (overly specific, Feb 29 doesn't exist in 2026). Tests graceful failure handling.",
         },
-
         # Q127: Ambiguous temporal query
         {
             "id": "Q127",
@@ -255,20 +224,17 @@ def get_new_queries() -> list[dict[str, Any]]:
             "complexity": "low",
             "expected_entities": ["expositions", "cette semaine"],
             "expected_categories": ["Arts"],
-            "expected_filters": {
-                "temporal": "this_week"
-            },
+            "expected_filters": {"temporal": "this_week"},
             "relevance_ground_truth": [],
             "generation_expectations": {
                 "must_contain_keywords": ["exposition"],
                 "must_not_hallucinate": True,
                 "should_ask_clarification": False,
                 "should_refuse_gracefully": False,
-                "expected_language": "fr"
+                "expected_language": "fr",
             },
-            "annotation_comments": "Tests temporal parsing for relative dates ('cette semaine' = this week)."
+            "annotation_comments": "Tests temporal parsing for relative dates ('cette semaine' = this week).",
         },
-
         # Q128: Multiple filters
         {
             "id": "Q128",
@@ -278,23 +244,17 @@ def get_new_queries() -> list[dict[str, Any]]:
             "complexity": "high",
             "expected_entities": ["free", "outdoor", "music", "festivals", "Paris", "summer"],
             "expected_categories": ["Musique"],
-            "expected_filters": {
-                "city": "Paris",
-                "conditions": "free",
-                "temporal": "summer",
-                "event_type": "festival"
-            },
+            "expected_filters": {"city": "Paris", "conditions": "free", "temporal": "summer", "event_type": "festival"},
             "relevance_ground_truth": [],
             "generation_expectations": {
                 "must_contain_keywords": ["free", "music", "Paris"],
                 "must_not_hallucinate": True,
                 "should_ask_clarification": False,
                 "should_refuse_gracefully": False,
-                "expected_language": "en"
+                "expected_language": "en",
             },
-            "annotation_comments": "Complex multi-filter query. Tests combination of price, season, location, and event type."
+            "annotation_comments": "Complex multi-filter query. Tests combination of price, season, location, and event type.",
         },
-
         # Q129: Negation query
         {
             "id": "Q129",
@@ -304,21 +264,17 @@ def get_new_queries() -> list[dict[str, Any]]:
             "complexity": "medium",
             "expected_entities": ["Paris", "pas de concerts"],
             "expected_categories": ["Arts", "Spectacles", "Loisirs"],
-            "expected_filters": {
-                "city": "Paris",
-                "exclude_category": "Musique"
-            },
+            "expected_filters": {"city": "Paris", "exclude_category": "Musique"},
             "relevance_ground_truth": [],
             "generation_expectations": {
                 "must_contain_keywords": ["Paris"],
                 "must_not_hallucinate": True,
                 "should_ask_clarification": False,
                 "should_refuse_gracefully": False,
-                "expected_language": "fr"
+                "expected_language": "fr",
             },
-            "annotation_comments": "Tests negation handling ('pas de concerts' = no concerts). Should exclude music category."
+            "annotation_comments": "Tests negation handling ('pas de concerts' = no concerts). Should exclude music category.",
         },
-
         # Q130: Conversational refinement
         {
             "id": "Q130",
@@ -328,14 +284,11 @@ def get_new_queries() -> list[dict[str, Any]]:
             "complexity": "high",
             "expected_entities": ["13th arrondissement"],
             "expected_categories": [],
-            "expected_filters": {
-                "arrondissement": "75013",
-                "proximity": "nearby"
-            },
+            "expected_filters": {"arrondissement": "75013", "proximity": "nearby"},
             "conversational_context": {
                 "parent_query_id": "Q001",
                 "turn_number": 4,
-                "chain_description": "Refinement query assuming context from previous jazz query. Tests geographic proximity."
+                "chain_description": "Refinement query assuming context from previous jazz query. Tests geographic proximity.",
             },
             "relevance_ground_truth": [],
             "generation_expectations": {
@@ -343,11 +296,10 @@ def get_new_queries() -> list[dict[str, Any]]:
                 "must_not_hallucinate": True,
                 "should_ask_clarification": True,  # May need context from previous query
                 "should_refuse_gracefully": False,
-                "expected_language": "en"
+                "expected_language": "en",
             },
-            "annotation_comments": "Conversational refinement. Requires context from previous query to understand what 'something' refers to."
+            "annotation_comments": "Conversational refinement. Requires context from previous query to understand what 'something' refers to.",
         },
-
         # Q131: Specific date range
         {
             "id": "Q131",
@@ -357,21 +309,17 @@ def get_new_queries() -> list[dict[str, Any]]:
             "complexity": "medium",
             "expected_entities": ["concerts", "15", "20", "février"],
             "expected_categories": ["Musique"],
-            "expected_filters": {
-                "start_date": "2026-02-15",
-                "end_date": "2026-02-20"
-            },
+            "expected_filters": {"start_date": "2026-02-15", "end_date": "2026-02-20"},
             "relevance_ground_truth": [],
             "generation_expectations": {
                 "must_contain_keywords": ["concert"],
                 "must_not_hallucinate": True,
                 "should_ask_clarification": False,
                 "should_refuse_gracefully": False,
-                "expected_language": "fr"
+                "expected_language": "fr",
             },
-            "annotation_comments": "Tests specific date range parsing (du...au = from...to)."
+            "annotation_comments": "Tests specific date range parsing (du...au = from...to).",
         },
-
         # Q132: Price range query
         {
             "id": "Q132",
@@ -381,20 +329,17 @@ def get_new_queries() -> list[dict[str, Any]]:
             "complexity": "medium",
             "expected_entities": ["affordable", "theater", "under 20 euros"],
             "expected_categories": ["Spectacles"],
-            "expected_filters": {
-                "max_price": 20
-            },
+            "expected_filters": {"max_price": 20},
             "relevance_ground_truth": [],
             "generation_expectations": {
                 "must_contain_keywords": ["theater"],
                 "must_not_hallucinate": True,
                 "should_ask_clarification": False,
                 "should_refuse_gracefully": True,  # Price data may not be available
-                "expected_language": "en"
+                "expected_language": "en",
             },
-            "annotation_comments": "Tests price range filtering. Price data coverage unknown, may need graceful handling."
+            "annotation_comments": "Tests price range filtering. Price data coverage unknown, may need graceful handling.",
         },
-
         # Q133: Vague query
         {
             "id": "Q133",
@@ -404,20 +349,17 @@ def get_new_queries() -> list[dict[str, Any]]:
             "complexity": "low",
             "expected_entities": ["fun", "weekend"],
             "expected_categories": [],
-            "expected_filters": {
-                "temporal": "weekend"
-            },
+            "expected_filters": {"temporal": "weekend"},
             "relevance_ground_truth": [],
             "generation_expectations": {
                 "must_contain_keywords": [],
                 "must_not_hallucinate": True,
                 "should_ask_clarification": True,  # Very vague query
                 "should_refuse_gracefully": False,
-                "expected_language": "en"
+                "expected_language": "en",
             },
-            "annotation_comments": "Very vague query. Tests system's ability to handle ambiguity and potentially ask for clarification."
+            "annotation_comments": "Very vague query. Tests system's ability to handle ambiguity and potentially ask for clarification.",
         },
-
         # Q134: Cultural event specific
         {
             "id": "Q134",
@@ -427,21 +369,17 @@ def get_new_queries() -> list[dict[str, Any]]:
             "complexity": "medium",
             "expected_entities": ["expositions", "art contemporain", "Versailles"],
             "expected_categories": ["Arts"],
-            "expected_filters": {
-                "city": "Versailles",
-                "event_type": "exposition"
-            },
+            "expected_filters": {"city": "Versailles", "event_type": "exposition"},
             "relevance_ground_truth": [],
             "generation_expectations": {
                 "must_contain_keywords": ["exposition", "Versailles"],
                 "must_not_hallucinate": True,
                 "should_ask_clarification": False,
                 "should_refuse_gracefully": False,
-                "expected_language": "fr"
+                "expected_language": "fr",
             },
-            "annotation_comments": "Tests specific city outside Paris (Versailles) and art subcategory (contemporary)."
+            "annotation_comments": "Tests specific city outside Paris (Versailles) and art subcategory (contemporary).",
         },
-
         # Q135: Night events
         {
             "id": "Q135",
@@ -451,20 +389,17 @@ def get_new_queries() -> list[dict[str, Any]]:
             "complexity": "medium",
             "expected_entities": ["late night", "Paris", "after 10 PM"],
             "expected_categories": [],
-            "expected_filters": {
-                "city": "Paris",
-                "start_time_after": "22:00"
-            },
+            "expected_filters": {"city": "Paris", "start_time_after": "22:00"},
             "relevance_ground_truth": [],
             "generation_expectations": {
                 "must_contain_keywords": ["Paris"],
                 "must_not_hallucinate": True,
                 "should_ask_clarification": False,
                 "should_refuse_gracefully": False,
-                "expected_language": "en"
+                "expected_language": "en",
             },
-            "annotation_comments": "Tests time-of-day filtering. Event start times may not always be available in metadata."
-        }
+            "annotation_comments": "Tests time-of-day filtering. Event start times may not always be available in metadata.",
+        },
     ]
 
     logger.info(f"Generated {len(new_queries)} new queries")
@@ -536,7 +471,7 @@ def enrich_dataset(input_path: str, output_path: str, dry_run: bool = False) -> 
     dataset["metadata"]["annotations_updated"] = updated_annotations
 
     # Summary
-    logger.info(f"\nEnrichment Summary:")
+    logger.info("\nEnrichment Summary:")
     logger.info(f"  Original queries: {original_query_count}")
     logger.info(f"  New queries added: {len(new_queries)}")
     logger.info(f"  Total queries: {len(dataset['queries'])}")
@@ -547,7 +482,7 @@ def enrich_dataset(input_path: str, output_path: str, dry_run: bool = False) -> 
         logger.info("\nDRY RUN - No changes saved")
         logger.info(f"Preview of first new query: {new_queries[0]['id']} - {new_queries[0]['query']}")
     else:
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             json.dump(dataset, f, indent=2, ensure_ascii=False)
         logger.info(f"\nEnriched dataset saved to: {output_path}")
 
@@ -556,24 +491,12 @@ def enrich_dataset(input_path: str, output_path: str, dry_run: bool = False) -> 
 
 def main():
     """Main execution."""
-    parser = argparse.ArgumentParser(
-        description="Enrich golden dataset with conversational patterns and annotations"
-    )
+    parser = argparse.ArgumentParser(description="Enrich golden dataset with conversational patterns and annotations")
+    parser.add_argument("--input", default="data/evaluation/golden_dataset.json", help="Input golden dataset path")
     parser.add_argument(
-        "--input",
-        default="data/evaluation/golden_dataset.json",
-        help="Input golden dataset path"
+        "--output", default="data/evaluation/golden_dataset.json", help="Output path for enriched dataset"
     )
-    parser.add_argument(
-        "--output",
-        default="data/evaluation/golden_dataset.json",
-        help="Output path for enriched dataset"
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Preview changes without saving"
-    )
+    parser.add_argument("--dry-run", action="store_true", help="Preview changes without saving")
     args = parser.parse_args()
 
     try:

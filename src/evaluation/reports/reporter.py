@@ -5,8 +5,6 @@ Generates human-readable reports in JSON, Markdown, and HTML formats.
 
 import json
 import logging
-from datetime import datetime
-from typing import Any
 
 from src.evaluation.evaluators.system_evaluator import EvaluationReport
 
@@ -53,8 +51,7 @@ class ReportGenerator:
 
         quality_status = "✅ PASS" if status["quality_pass"] else "❌ FAIL"
         md.append(
-            f"| Quality Score | {status['quality_score']:.3f} | "
-            f"≥ {status['quality_sla']} | {quality_status} |"
+            f"| Quality Score | {status['quality_score']:.3f} | " f"≥ {status['quality_sla']} | {quality_status} |"
         )
 
         latency_status = "✅ PASS" if status["latency_pass"] else "❌ FAIL"
@@ -90,7 +87,7 @@ class ReportGenerator:
             md.append(f"- {hit_rate*100:.0f}% of queries retrieved at least one relevant event")
 
             mrr = retr["overall_mrr"]
-            avg_rank = 1.0 / mrr if mrr > 0 else float('inf')
+            avg_rank = 1.0 / mrr if mrr > 0 else float("inf")
             md.append(f"- Average rank of first relevant result: {avg_rank:.1f}")
 
             precision = retr.get("overall_precision@5", 0)
@@ -129,7 +126,7 @@ class ReportGenerator:
             md.append(f"| Max | {lat['max_latency_ms']:.0f} |")
             md.append("")
 
-            sla_compliance = lat['sla_compliance_rate'] * 100
+            sla_compliance = lat["sla_compliance_rate"] * 100
             md.append(f"**SLA Compliance:** {sla_compliance:.0f}% of queries under 2000ms\n")
 
         # Query Type Breakdown
@@ -316,12 +313,7 @@ class ReportGenerator:
 
         return recommendations
 
-    def save_report(
-        self,
-        report: EvaluationReport,
-        output_path: str,
-        format: str = "markdown"
-    ) -> None:
+    def save_report(self, report: EvaluationReport, output_path: str, format: str = "markdown") -> None:
         """Save report to file.
 
         Args:

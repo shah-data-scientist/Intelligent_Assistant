@@ -19,13 +19,12 @@ Run: pytest tests/test_dataflow_complete.py -v
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
-from datetime import date, timedelta
 
 
 # =============================================================================
 # STEP 1: API LAYER TESTS
 # =============================================================================
+
 
 class TestStep1_APILayer:
     """Tests for Step 1: API Entry Point (endpoints.py)"""
@@ -33,40 +32,30 @@ class TestStep1_APILayer:
     @pytest.fixture
     def api_key(self):
         from src.config import settings
+
         return settings.app_api_key
 
     def test_api_key_validation_missing(self, test_client):
         """Test that missing API key returns 401 or 403."""
-        response = test_client.post(
-            "/api/v1/chat",
-            json={"question": "Hello", "session_id": "test"}
-        )
+        response = test_client.post("/api/v1/chat", json={"question": "Hello", "session_id": "test"})
         assert response.status_code in [401, 403, 422]
 
     def test_api_key_validation_invalid(self, test_client):
         """Test that invalid API key returns 401 or 403."""
         response = test_client.post(
-            "/api/v1/chat",
-            json={"question": "Hello", "session_id": "test"},
-            headers={"X-API-Key": "invalid-key"}
+            "/api/v1/chat", json={"question": "Hello", "session_id": "test"}, headers={"X-API-Key": "invalid-key"}
         )
         assert response.status_code in [401, 403]
 
     def test_request_validation_missing_question(self, test_client, api_key):
         """Test that missing question field returns 422."""
-        response = test_client.post(
-            "/api/v1/chat",
-            json={"session_id": "test"},
-            headers={"X-API-Key": api_key}
-        )
+        response = test_client.post("/api/v1/chat", json={"session_id": "test"}, headers={"X-API-Key": api_key})
         assert response.status_code == 422
 
     def test_request_validation_empty_question(self, test_client, api_key):
         """Test that empty question returns appropriate error."""
         response = test_client.post(
-            "/api/v1/chat",
-            json={"question": "", "session_id": "test"},
-            headers={"X-API-Key": api_key}
+            "/api/v1/chat", json={"question": "", "session_id": "test"}, headers={"X-API-Key": api_key}
         )
         # Should either return 422 or handle gracefully
         assert response.status_code in [200, 422]
@@ -76,12 +65,14 @@ class TestStep1_APILayer:
 # STEP 2.1: SAFETY CHECK TESTS
 # =============================================================================
 
+
 class TestStep2_1_SafetyCheck:
     """Tests for Step 2.1: Safety Check (guardrails.py)"""
 
     @pytest.fixture
     def guardrails(self):
         from src.security.guardrails import check_safety, SecurityException
+
         return check_safety, SecurityException
 
     # --- Prompt Injection Tests ---
@@ -186,12 +177,14 @@ class TestStep2_1_SafetyCheck:
 # STEP 2.2: LANGUAGE DETECTION TESTS
 # =============================================================================
 
+
 class TestStep2_2_LanguageDetection:
     """Tests for Step 2.2: Language Detection (chain.py)"""
 
     @pytest.fixture
     def detect_language(self):
         from src.retrieval.chain import detect_language_from_query
+
         return detect_language_from_query
 
     def test_detect_french_with_french_words(self, detect_language):
@@ -227,6 +220,7 @@ class TestStep2_2_LanguageDetection:
 # STEP 2.3: SPECIAL QUERY FAST PATH TESTS
 # =============================================================================
 
+
 class TestStep2_3_SpecialQueryFastPath:
     """Tests for Step 2.3: Special Query Detection (chain.py)
 
@@ -236,6 +230,7 @@ class TestStep2_3_SpecialQueryFastPath:
     @pytest.fixture
     def check_special(self):
         from src.retrieval.chain import check_special_query
+
         return check_special_query
 
     # --- Greeting Tests ---
@@ -374,6 +369,7 @@ class TestStep2_3_SpecialQueryFastPath:
 # STEP 3: EARLY BROAD QUERY CHECK TESTS
 # =============================================================================
 
+
 class TestStep3_EarlyBroadQueryCheck:
     """Tests for Step 3: Early Broad Query Check (chain.py)
 
@@ -384,6 +380,7 @@ class TestStep3_EarlyBroadQueryCheck:
     @pytest.fixture
     def is_broad_query(self):
         from src.retrieval.chain import is_broad_query
+
         return is_broad_query
 
     # --- Single Missing Criterion ---
@@ -496,6 +493,7 @@ class TestStep3_EarlyBroadQueryCheck:
 # STEP 4.3: MULTI-STAGE RETRIEVAL TESTS
 # =============================================================================
 
+
 class TestStep4_3_MultiStageRetrieval:
     """Tests for Step 4.3: Multi-Stage Retrieval (manager.py)
 
@@ -515,12 +513,7 @@ class TestStep4_3_MultiStageRetrieval:
 
     def test_parse_intent_from_filters(self, retrieval_manager):
         """Test intent parsing from filter dict."""
-        filters = {
-            "city": "Paris",
-            "month": 2,
-            "day": [15, 16],
-            "year": 2026
-        }
+        filters = {"city": "Paris", "month": 2, "day": [15, 16], "year": 2026}
         intent = retrieval_manager.parse_intent(filters)
 
         assert intent.city == "Paris"
@@ -572,10 +565,7 @@ class TestStep4_3_MultiStageRetrieval:
 
         result = retrieval_manager.execute_search("classical opera", intent)
 
-        nearby_count = sum(
-            1 for doc in result["docs"]
-            if doc.metadata.get("match_type") == "Nearby Location"
-        )
+        nearby_count = sum(1 for doc in result["docs"] if doc.metadata.get("match_type") == "Nearby Location")
         assert result["total_count"] >= 0
 
     @pytest.mark.skip(reason="Requires populated vector store")
@@ -586,10 +576,7 @@ class TestStep4_3_MultiStageRetrieval:
 
         result = retrieval_manager.execute_search("events", intent)
 
-        nearby_docs = [
-            doc for doc in result["docs"]
-            if doc.metadata.get("match_type") == "Nearby Location"
-        ]
+        nearby_docs = [doc for doc in result["docs"] if doc.metadata.get("match_type") == "Nearby Location"]
 
         if len(nearby_docs) > 1:
             distances = [doc.metadata.get("distance_km", 0) for doc in nearby_docs]
@@ -604,10 +591,7 @@ class TestStep4_3_MultiStageRetrieval:
         result = retrieval_manager.execute_search("rare opera", intent)
 
         # Check if any doc has the alternative dates note
-        has_alt_note = any(
-            "SYSTEM_NOTE" in doc.metadata.get("nearby_date_note", "")
-            for doc in result["docs"]
-        )
+        has_alt_note = any("SYSTEM_NOTE" in doc.metadata.get("nearby_date_note", "") for doc in result["docs"])
         # Note may or may not be present depending on data
         assert isinstance(has_alt_note, bool)
 
@@ -615,6 +599,7 @@ class TestStep4_3_MultiStageRetrieval:
 # =============================================================================
 # STEP 6: PERSISTENCE TESTS
 # =============================================================================
+
 
 class TestStep6_Persistence:
     """Tests for Step 6: Persistence (chat_storage.py)"""
@@ -648,9 +633,7 @@ class TestStep6_Persistence:
         """Test that message ID is returned for feedback."""
         session_id = "test_session"
 
-        message_id = chat_storage.add_chat_message(
-            session_id, "assistant", "Response"
-        )
+        message_id = chat_storage.add_chat_message(session_id, "assistant", "Response")
 
         assert message_id is not None
         assert isinstance(message_id, int)
@@ -673,6 +656,7 @@ class TestStep6_Persistence:
 # KEYWORD LOCATOR TESTS (Database-Backed Detection)
 # =============================================================================
 
+
 @pytest.mark.skipif(True, reason="Requires populated database")
 class TestKeywordLocator:
     """Tests for KeywordLocator (keywords.py)
@@ -684,6 +668,7 @@ class TestKeywordLocator:
     @pytest.fixture
     def keyword_locator(self):
         from src.utils.keywords import KeywordLocator
+
         return KeywordLocator()
 
     def test_detect_event_keyword_exact(self, keyword_locator):
@@ -732,20 +717,19 @@ class TestKeywordLocator:
 # INTEGRATION TESTS
 # =============================================================================
 
+
 class TestIntegration:
     """End-to-end integration tests."""
 
     @pytest.fixture
     def rag_chain(self):
         from src.retrieval.chain import RAGChain
+
         return RAGChain()
 
     def test_complete_query_flow(self, rag_chain):
         """Test complete query through entire pipeline."""
-        result = rag_chain.query_with_metadata(
-            "Jazz concerts in Paris this weekend",
-            session_id="integration_test"
-        )
+        result = rag_chain.query_with_metadata("Jazz concerts in Paris this weekend", session_id="integration_test")
 
         assert "answer" in result
         assert "structured_events" in result
@@ -754,10 +738,7 @@ class TestIntegration:
 
     def test_broad_query_returns_clarification(self, rag_chain):
         """Test broad query returns clarification without LLM."""
-        result = rag_chain.query_with_metadata(
-            "Paris",
-            session_id="broad_test"
-        )
+        result = rag_chain.query_with_metadata("Paris", session_id="broad_test")
 
         assert result["needs_clarification"] is True
         assert len(result.get("clarifying_questions", [])) > 0
@@ -767,10 +748,7 @@ class TestIntegration:
         import time
 
         start = time.time()
-        result = rag_chain.query_with_metadata(
-            "Bonjour!",
-            session_id="greeting_test"
-        )
+        result = rag_chain.query_with_metadata("Bonjour!", session_id="greeting_test")
         elapsed = time.time() - start
 
         # Should be fast (no LLM call)
@@ -782,11 +760,13 @@ class TestIntegration:
 # FIXTURES
 # =============================================================================
 
+
 @pytest.fixture
 def test_client():
     """Create test client for API tests."""
     from fastapi.testclient import TestClient
     from src.api.main import app
+
     return TestClient(app)
 
 
@@ -794,4 +774,5 @@ def test_client():
 def valid_api_key():
     """Return valid API key for tests."""
     from src.config import settings
+
     return settings.app_api_key

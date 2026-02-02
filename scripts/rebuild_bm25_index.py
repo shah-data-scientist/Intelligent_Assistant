@@ -27,9 +27,9 @@ sys.path.insert(0, str(project_root))
 from src.config import settings
 from src.data.storage import EventStorage
 from src.models.vector_store import EventVectorStore
-from src.utils.language import tokenize_for_bm25, detect_language
+from src.utils.language import tokenize_for_bm25
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -49,7 +49,7 @@ def backup_index(index_dir: Path, backup_dir: Path) -> None:
 
     logger.info(f"Creating backup at {backup_path}")
     shutil.copytree(index_dir, backup_path)
-    logger.info(f"Backup created successfully")
+    logger.info("Backup created successfully")
 
 
 def rebuild_index(store: EventVectorStore, language: str = "fr") -> dict[str, Any]:
@@ -62,7 +62,7 @@ def rebuild_index(store: EventVectorStore, language: str = "fr") -> dict[str, An
     Returns:
         Dict with rebuild statistics
     """
-    logger.info(f"Loading events from database...")
+    logger.info("Loading events from database...")
     events = store.storage.get_all_events()
 
     if not events:
@@ -98,19 +98,20 @@ def rebuild_index(store: EventVectorStore, language: str = "fr") -> dict[str, An
     avg_tokens_after = total_tokens_after / len(events)
     reduction_pct = ((total_tokens_before - total_tokens_after) / total_tokens_before) * 100
 
-    logger.info(f"\nTokenization Statistics:")
+    logger.info("\nTokenization Statistics:")
     logger.info(f"  Avg tokens before: {avg_tokens_before:.1f}")
     logger.info(f"  Avg tokens after:  {avg_tokens_after:.1f}")
     logger.info(f"  Token reduction:   {reduction_pct:.1f}%")
 
     # Rebuild BM25 index
-    logger.info(f"\nRebuilding BM25 index...")
+    logger.info("\nRebuilding BM25 index...")
     from rank_bm25 import BM25Okapi
+
     store.bm25 = BM25Okapi(tokenized_corpus)
-    logger.info(f"BM25 index rebuilt successfully")
+    logger.info("BM25 index rebuilt successfully")
 
     # Save updated index
-    logger.info(f"Saving updated index...")
+    logger.info("Saving updated index...")
     store.save_index()
     logger.info(f"Index saved to {settings.faiss_index_path}")
 
@@ -120,25 +121,16 @@ def rebuild_index(store: EventVectorStore, language: str = "fr") -> dict[str, An
         "avg_tokens_before": round(avg_tokens_before, 1),
         "avg_tokens_after": round(avg_tokens_after, 1),
         "token_reduction_pct": round(reduction_pct, 1),
-        "language": language
+        "language": language,
     }
 
 
 def main():
     """Main rebuild execution."""
-    parser = argparse.ArgumentParser(
-        description="Rebuild BM25 index with language-aware tokenization"
-    )
+    parser = argparse.ArgumentParser(description="Rebuild BM25 index with language-aware tokenization")
+    parser.add_argument("--skip-backup", action="store_true", help="Skip creating backup of existing index")
     parser.add_argument(
-        "--skip-backup",
-        action="store_true",
-        help="Skip creating backup of existing index"
-    )
-    parser.add_argument(
-        "--language",
-        default="fr",
-        choices=["fr", "en"],
-        help="Default language for tokenization (default: fr)"
+        "--language", default="fr", choices=["fr", "en"], help="Default language for tokenization (default: fr)"
     )
     args = parser.parse_args()
 
@@ -169,17 +161,17 @@ def main():
             return 1
 
         # Print summary
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("BM25 INDEX REBUILD SUMMARY")
-        print("="*70)
+        print("=" * 70)
         print(f"Total Events:       {stats['total_events']}")
         print(f"Language:           {stats['language']}")
         print(f"Avg Tokens Before:  {stats['avg_tokens_before']}")
         print(f"Avg Tokens After:   {stats['avg_tokens_after']}")
         print(f"Token Reduction:    {stats['token_reduction_pct']}%")
-        print("="*70)
+        print("=" * 70)
         print("\nIndex rebuilt successfully!")
-        print("="*70 + "\n")
+        print("=" * 70 + "\n")
 
         return 0
 

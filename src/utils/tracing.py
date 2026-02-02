@@ -6,7 +6,7 @@ from contextvars import ContextVar
 from typing import Optional
 
 # Context variable to store trace ID across async calls
-trace_id_var: ContextVar[Optional[str]] = ContextVar('trace_id', default=None)
+trace_id_var: ContextVar[Optional[str]] = ContextVar("trace_id", default=None)
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ def generate_trace_id() -> str:
 
 
 # Configure logging format to include trace ID
-TRACE_LOG_FORMAT = '[%(asctime)s] [%(levelname)s] [%(trace_id)s] [%(name)s:%(lineno)d] %(message)s'
+TRACE_LOG_FORMAT = "[%(asctime)s] [%(levelname)s] [%(trace_id)s] [%(name)s:%(lineno)d] %(message)s"
 
 
 def configure_trace_logging():

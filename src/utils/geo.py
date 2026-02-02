@@ -8,6 +8,7 @@ from typing import Dict, Tuple, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class CityLocator:
     def __init__(self, db_path: str = "data/events.db"):
         self.db_path = db_path
@@ -19,20 +20,22 @@ class CityLocator:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            
+
             # Get one coordinate sample per normalized city
             # Check both coordinates_json and raw_data_json (as backup)
-            cursor.execute('''
-                SELECT city, coordinates_json, raw_data_json 
-                FROM events 
+            cursor.execute(
+                """
+                SELECT city, coordinates_json, raw_data_json
+                FROM events
                 WHERE (coordinates_json IS NOT NULL OR raw_data_json IS NOT NULL)
                 GROUP BY city
-            ''')
-            
+            """
+            )
+
             for city, coords_str, raw_json in cursor.fetchall():
                 if not city:
                     continue
-                
+
                 # Try coordinates_json first
                 try:
                     if coords_str:
@@ -55,9 +58,9 @@ class CityLocator:
                             self.city_cache[key] = (float(coords["lat"]), float(coords["lon"]))
                 except (json.JSONDecodeError, ValueError):
                     continue
-            
+
             conn.close()
-            
+
             # Manual overrides for major centers and test cities
             overrides = {
                 "paris": (48.8566, 2.3522),
@@ -65,7 +68,7 @@ class CityLocator:
                 "bondy": (48.9022, 2.4828),
                 "versailles": (48.8049, 2.1204),
                 "saint-germain-en-laye": (48.8989, 2.0938),
-                "villeparisis": (48.9439, 2.6178)
+                "villeparisis": (48.9439, 2.6178),
             }
             for city_key, coords in overrides.items():
                 if city_key not in self.city_cache:
@@ -125,7 +128,7 @@ class CityLocator:
                     self.city_cache[alias] = self.city_cache[official]
 
             logger.info(f"Loaded {len(self.city_cache)} city locations from database.")
-                
+
         except Exception as e:
             logger.error(f"Failed to load city cache: {e}")
 
@@ -202,17 +205,18 @@ class CityLocator:
 
         return best_match
 
+
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Calculate distance in km between two points."""
     R = 6371  # Earth radius in km
 
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
-    
-    a = (math.sin(dlat / 2) * math.sin(dlat / 2) +
-         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
-         math.sin(dlon / 2) * math.sin(dlon / 2))
-    
+
+    a = math.sin(dlat / 2) * math.sin(dlat / 2) + math.cos(math.radians(lat1)) * math.cos(
+        math.radians(lat2)
+    ) * math.sin(dlon / 2) * math.sin(dlon / 2)
+
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    
+
     return R * c

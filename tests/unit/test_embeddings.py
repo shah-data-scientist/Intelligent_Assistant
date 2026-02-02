@@ -8,7 +8,6 @@ MAINTAINER: QA Team
 
 import pytest
 import numpy as np
-from unittest.mock import MagicMock, patch
 
 
 class TestEmbeddingMath:
@@ -72,7 +71,7 @@ class TestBatchProcessing:
         documents = [f"Document {i}" for i in range(100)]
         batch_size = 20
 
-        batches = [documents[i:i + batch_size] for i in range(0, len(documents), batch_size)]
+        batches = [documents[i : i + batch_size] for i in range(0, len(documents), batch_size)]
 
         assert len(batches) == 5
         assert all(len(batch) == 20 for batch in batches)
@@ -82,7 +81,7 @@ class TestBatchProcessing:
         documents = [f"Doc {i}" for i in range(25)]
         batch_size = 10
 
-        batches = [documents[i:i + batch_size] for i in range(0, len(documents), batch_size)]
+        batches = [documents[i : i + batch_size] for i in range(0, len(documents), batch_size)]
 
         assert len(batches) == 3
         assert len(batches[0]) == 10
@@ -168,16 +167,19 @@ class TestEmbeddingsModule:
     def test_module_can_be_imported(self):
         """Test embeddings module can be imported."""
         from src.models import embeddings
+
         assert embeddings is not None
 
     def test_embeddings_module_has_event_embedder(self):
         """Test embeddings module has EventEmbedder class."""
         from src.models.embeddings import EventEmbedder
+
         assert EventEmbedder is not None
 
     def test_embeddings_module_has_error_classes(self):
         """Test embeddings module has error classes."""
         from src.models.embeddings import EmbeddingError, EmbeddingRateLimitError
+
         assert EmbeddingError is not None
         assert EmbeddingRateLimitError is not None
 
@@ -202,8 +204,8 @@ class TestEmbeddingTextPreprocessing:
     def test_unicode_text_handling(self):
         """Test handling of unicode text."""
         text = "Événements culturels à Paris 日本語 العربية"
-        encoded = text.encode('utf-8')
-        decoded = encoded.decode('utf-8')
+        encoded = text.encode("utf-8")
+        decoded = encoded.decode("utf-8")
         assert decoded == text
 
 

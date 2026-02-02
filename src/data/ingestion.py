@@ -2,10 +2,9 @@
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any
 
-from src.config import settings
 from src.data.api_client import OpenAgendaClient
 from src.data.models import Event
 from src.data.processor import EventProcessor
@@ -50,21 +49,18 @@ class DataIngestionPipeline:
             List of transformed events
         """
         logger.info("Starting fetch of recent events...")
-        
+
         # 1. Fetch recent events from API
-        filters = {
-            "order_by": "firstdate_begin desc",
-            "where": 'location_region like "Île-de-France"'
-        }
-        
+        filters = {"order_by": "firstdate_begin desc", "where": 'location_region like "Île-de-France"'}
+
         target_fetch = max(self.min_events * 2, 2000)
-        
+
         raw_records = client.fetch_all_events(
             max_events=target_fetch,
             batch_size=batch_size,
             filters=filters,
         )
-        
+
         if not raw_records:
             logger.warning("No records fetched from API with IDF filter")
             return []
@@ -76,17 +72,16 @@ class DataIngestionPipeline:
 
         # 3. Filter for Île-de-France
         idf_events = self.processor.filter_ile_de_france_events(all_events)
-        
+
         # 4. Redistribute dates seasonally
         # We do this BEFORE selection so we select from the correct target timeframe
         transformed_events = self.processor.redistribute_events_seasonally(
-            idf_events,
-            start_date=datetime.now(timezone.utc)
+            idf_events, start_date=datetime.now(timezone.utc)
         )
 
         # 5. Select top N events
-        selected_events = transformed_events[:self.min_events]
-        
+        selected_events = transformed_events[: self.min_events]
+
         if len(selected_events) < self.min_events:
             logger.warning(
                 f"Only found {len(selected_events)} unique instances "
@@ -142,13 +137,13 @@ class DataIngestionPipeline:
             # Note: event_id is now base_id + _index, ensuring granular instances are unique
             existing_ids = self.storage.get_existing_event_ids()
             new_events = [e for e in transformed_events if e.event_id not in existing_ids]
-            
+
             if new_events:
                 logger.info(f"Adding {len(new_events)} granular event instances...")
                 # Scrape in batches
                 BATCH_SIZE = 10
                 for i in range(0, len(new_events), BATCH_SIZE):
-                    batch = new_events[i:i+BATCH_SIZE]
+                    batch = new_events[i : i + BATCH_SIZE]
                     # Only scrape if URL exists and is not already scraped
                     tasks = [self.scraper.scrape_url(e.url) for e in batch if e.url]
                     if tasks:
@@ -156,16 +151,16 @@ class DataIngestionPipeline:
                         # Map results back to events that have URLs
                         urls_in_batch = [e.url for e in batch if e.url]
                         url_to_content = dict(zip(urls_in_batch, results))
-                        
+
                         for event in batch:
                             if event.url in url_to_content and url_to_content[event.url]:
                                 event.scraped_content = url_to_content[event.url]
                                 stats["scraped_count"] += 1
-                
+
                 # Add to DB
                 new_count = self.storage.add_events_bulk(new_events)
                 stats["new_events_added"] = new_count
-                
+
                 # REBUILD INDEX if new events were added
                 if new_count > 0:
                     logger.info("Rebuilding FAISS index with new events...")
@@ -181,9 +176,7 @@ class DataIngestionPipeline:
 
             # Summary
             stats["end_time"] = datetime.now()
-            stats["duration_seconds"] = (
-                stats["end_time"] - stats["start_time"]
-            ).total_seconds()
+            stats["duration_seconds"] = (stats["end_time"] - stats["start_time"]).total_seconds()
 
             logger.info("=" * 80)
             logger.info("Ingestion Summary:")

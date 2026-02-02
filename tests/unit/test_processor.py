@@ -7,7 +7,6 @@ MAINTAINER: QA Team
 """
 
 import pytest
-from datetime import datetime
 
 from src.data.processor import EventProcessor
 
@@ -102,7 +101,7 @@ class TestProcessorHelpers:
 
     def test_junk_phrases_defined(self, processor):
         """Test that junk phrases are defined."""
-        assert hasattr(processor, 'JUNK_PHRASES')
+        assert hasattr(processor, "JUNK_PHRASES")
         assert len(processor.JUNK_PHRASES) > 0
 
 

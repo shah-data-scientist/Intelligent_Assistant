@@ -2,14 +2,8 @@
 
 import logging
 from typing import Any
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-    retry_if_exception,
-    before_sleep_log
-)
-from pybreaker import CircuitBreaker, CircuitBreakerError
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception, before_sleep_log
+from pybreaker import CircuitBreaker
 
 from langchain_core.messages import BaseMessage
 from langchain_core.outputs import ChatResult
@@ -22,13 +16,11 @@ logger = logging.getLogger(__name__)
 # DISABLED for development/testing - was causing persistent "rate limit" errors
 # by blocking all requests after initial failures, even across provider switches.
 # To re-enable for production: set ENABLE_CIRCUIT_BREAKER=true in .env
-_ENABLE_CIRCUIT_BREAKER = getattr(settings, 'enable_circuit_breaker', False)
+_ENABLE_CIRCUIT_BREAKER = getattr(settings, "enable_circuit_breaker", False)
 
 if _ENABLE_CIRCUIT_BREAKER:
     llm_breaker = CircuitBreaker(
-        fail_max=5,  # Open circuit after 5 failures
-        reset_timeout=60,  # Try again after 60 seconds
-        name="llm_breaker"
+        fail_max=5, reset_timeout=60, name="llm_breaker"  # Open circuit after 5 failures  # Try again after 60 seconds
     )
     logger.info("Circuit breaker ENABLED for LLM calls")
 else:
@@ -47,19 +39,21 @@ def is_retryable_llm_error(exception: Exception) -> bool:
     error_str = str(exception).lower()
     return (
         # Rate limit errors
-        "429" in error_str or
-        "resource_exhausted" in error_str or
-        "resource exhausted" in error_str or  # Google's plain text variant
-        ("rate" in error_str and "limit" in error_str) or
-        "too many requests" in error_str or
-        "quota" in error_str or
+        "429" in error_str
+        or "resource_exhausted" in error_str
+        or "resource exhausted" in error_str
+        or ("rate" in error_str and "limit" in error_str)  # Google's plain text variant
+        or "too many requests" in error_str
+        or "quota" in error_str
+        or
         # Server errors
-        "500" in error_str or
-        "502" in error_str or
-        "503" in error_str or
-        "internal server error" in error_str or
-        "bad gateway" in error_str or
-        "service unavailable" in error_str or
+        "500" in error_str
+        or "502" in error_str
+        or "503" in error_str
+        or "internal server error" in error_str
+        or "bad gateway" in error_str
+        or "service unavailable" in error_str
+        or
         # Connection errors
         ("connection" in error_str and ("timeout" in error_str or "refused" in error_str))
     )
@@ -72,7 +66,7 @@ llm_retry = retry(
     wait=wait_exponential(multiplier=2, min=2, max=10),
     retry=retry_if_exception(is_retryable_llm_error),
     before_sleep=before_sleep_log(logger, logging.WARNING),
-    reraise=True
+    reraise=True,
 )
 
 
@@ -91,8 +85,8 @@ def get_chat_llm(
     if backend == "ollama":
         from langchain_ollama import ChatOllama
 
-        model = model or getattr(settings, 'ollama_model', 'mistral')
-        base_url = getattr(settings, 'ollama_url', 'http://localhost:11434')
+        model = model or getattr(settings, "ollama_model", "mistral")
+        base_url = getattr(settings, "ollama_url", "http://localhost:11434")
 
         llm = ChatOllama(
             model=model,
@@ -121,13 +115,12 @@ def get_chat_llm(
         import os
         from src.generation.hf_wrapper import HuggingFaceChatWrapper
 
-        model = model or getattr(settings, 'hf_model', 'meta-llama/Llama-3.2-1B-Instruct')
-        hf_token = getattr(settings, 'hf_token', None) or os.getenv("HF_TOKEN")
+        model = model or getattr(settings, "hf_model", "meta-llama/Llama-3.2-1B-Instruct")
+        hf_token = getattr(settings, "hf_token", None) or os.getenv("HF_TOKEN")
 
         if not hf_token:
             raise ValueError(
-                "HuggingFace token required. Set HF_TOKEN environment variable "
-                "or hf_token in settings."
+                "HuggingFace token required. Set HF_TOKEN environment variable " "or hf_token in settings."
             )
 
         llm = HuggingFaceChatWrapper(

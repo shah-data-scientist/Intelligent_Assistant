@@ -7,7 +7,7 @@ This allows using the same API key as the LLM (Mistral).
 import hashlib
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from langchain_mistralai import MistralAIEmbeddings
 
@@ -21,18 +21,22 @@ logger = logging.getLogger(__name__)
 # EMBEDDING-SPECIFIC ERRORS
 # ========================================
 
+
 class EmbeddingError(Exception):
     """Base exception for embedding errors."""
+
     pass
 
 
 class EmbeddingRateLimitError(EmbeddingError):
     """Rate limit exceeded for embedding API."""
+
     pass
 
 
 class EmbeddingAuthError(EmbeddingError):
     """Authentication error for embedding API."""
+
     pass
 
 
@@ -78,6 +82,7 @@ def _handle_embedding_error(error: Exception, context: str = "embedding") -> Non
     msg = f"Embedding error during {context}: {error}"
     logger.error(f"[EMBED] {msg}")
     raise EmbeddingError(msg) from error
+
 
 # Global embedding cache for query embeddings
 _EMBEDDING_CACHE: Dict[str, Dict[str, Any]] = {}
@@ -196,18 +201,11 @@ class EventEmbedder:
         if use_cache:
             # Evict oldest if full
             if len(_EMBEDDING_CACHE) >= _CACHE_MAX_SIZE:
-                oldest_key = min(
-                    _EMBEDDING_CACHE.keys(),
-                    key=lambda k: _EMBEDDING_CACHE[k]["cached_at"]
-                )
+                oldest_key = min(_EMBEDDING_CACHE.keys(), key=lambda k: _EMBEDDING_CACHE[k]["cached_at"])
                 del _EMBEDDING_CACHE[oldest_key]
                 logger.debug("[EMBED-CACHE] Evicted oldest entry")
 
-            _EMBEDDING_CACHE[cache_key] = {
-                "embedding": embedding,
-                "cached_at": datetime.now(),
-                "query": query[:50]
-            }
+            _EMBEDDING_CACHE[cache_key] = {"embedding": embedding, "cached_at": datetime.now(), "query": query[:50]}
             logger.debug(f"[EMBED-CACHE] SET for query: {query[:40]}...")
 
         return embedding

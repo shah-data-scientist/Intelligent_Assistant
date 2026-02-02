@@ -10,19 +10,18 @@ This script tests what happens in production by calling the actual FastAPI endpo
 
 import sys
 import io
-import json
 import time
-import subprocess
 import requests
 from pathlib import Path
 
 # Setup
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 from dotenv import load_dotenv
 import os
+
 load_dotenv(project_root / ".env", override=True)
 
 # API Configuration
@@ -49,12 +48,12 @@ def print_event_table(sources: list):
     print(f"  {'─'*76}")
 
     for i, src in enumerate(sources[:10], 1):
-        score = src.get('score', 0)
-        match_type = src.get('match_type', 'Unknown')[:16]
-        title = src.get('title', 'Unknown')[:35]
-        city = src.get('city', 'Unknown')
-        date = src.get('date', 'Unknown')
-        category = src.get('category', 'Unknown')
+        score = src.get("score", 0)
+        match_type = src.get("match_type", "Unknown")[:16]
+        title = src.get("title", "Unknown")[:35]
+        city = src.get("city", "Unknown")
+        date = src.get("date", "Unknown")
+        category = src.get("category", "Unknown")
 
         print(f"  {i:<3} {score:<7.3f} {match_type:<16} {title:<35} {city}")
         print(f"      └─ 📅 {date} | 🎭 {category}")
@@ -74,22 +73,11 @@ def check_api_health():
 
 def call_chat_api(question: str, session_id: str = "trace_session"):
     """Call the /chat API endpoint."""
-    headers = {
-        "X-API-Key": API_KEY,
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "question": question,
-        "session_id": session_id
-    }
+    headers = {"X-API-Key": API_KEY, "Content-Type": "application/json"}
+    payload = {"question": question, "session_id": session_id}
 
     start_time = time.time()
-    response = requests.post(
-        f"{API_BASE_URL}{API_PREFIX}/chat",
-        headers=headers,
-        json=payload,
-        timeout=120
-    )
+    response = requests.post(f"{API_BASE_URL}{API_PREFIX}/chat", headers=headers, json=payload, timeout=120)
     latency_ms = (time.time() - start_time) * 1000
 
     return response, latency_ms
@@ -106,7 +94,7 @@ def trace_api_query(query: str, session_id: str = "trace_session"):
     print_separator("STEP 1: API REQUEST")
     print(f"\n  Endpoint: POST {API_BASE_URL}/chat")
     print(f"  Session ID: {session_id}")
-    print(f"  Question: \"{query}\"")
+    print(f'  Question: "{query}"')
 
     # ========================================
     # STEP 2: API Response
@@ -158,9 +146,9 @@ def trace_api_query(query: str, session_id: str = "trace_session"):
 
     answer = data.get("answer", "")
     print(f"\n  Response length: {len(answer)} characters")
-    print(f"\n  FULL RESPONSE:")
+    print("\n  FULL RESPONSE:")
     print(f"  {'─'*70}")
-    for line in answer.split('\n'):
+    for line in answer.split("\n"):
         print(f"  {line}")
 
     return data
@@ -216,7 +204,7 @@ def main():
     print("  TRACE SUMMARY")
     print("=" * 80)
     print(f"\n  Session ID: {session_id}")
-    print(f"  Queries tested: 2")
+    print("  Queries tested: 2")
     print(f"  Turn 1: '{query1}' -> {len(result1.get('sources', []))} events")
     if result2:
         print(f"  Turn 2: '{query2}' -> {len(result2.get('sources', []))} events")
