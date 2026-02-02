@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **UI Redesign**: Removed sidebar, added inline language selection and Start Fresh button
+  - [src/frontend/app.py](src/frontend/app.py) - Cleaner interface without collapsible sidebar
+  - Language buttons (EN/FR) now in header row
+  - Session info displayed inline with version
+
+### Fixed
+- **Venue Address Display**: Disabled ADDRESS pattern in PII detection - venue addresses are public info
+  - [src/security/sanitization.py](src/security/sanitization.py) - Removed ADDRESS from PII patterns
+  - Users need venue addresses to attend events (was showing `[ADDRESS_REDACTED]`)
+- **Category Validation**: Validate categories against whitelist to prevent invalid database filters
+  - [src/retrieval/unified_analyzer.py](src/retrieval/unified_analyzer.py) - `map_category_to_db()` now returns `None` for invalid categories like "event"
+  - Prevents generic terms from being used as category filters
+- **Database Lock Prevention**: Stop tracking `chat_history.db` as git-tracked file
+  - [.gitignore](.gitignore) - Added `data/chat_history.db` to prevent pre-commit stash failures
+  - Runtime database artifacts should not be version controlled
+
 ### Added
 - **Documentation Headers**: Added proper documentation headers to src/ and test files
   - [src/frontend/app.py](src/frontend/app.py) - Added FILE/STATUS/RESPONSIBILITY/DEPENDENCIES/IMPORTS headers

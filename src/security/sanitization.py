@@ -29,7 +29,9 @@ class PIIDetector:
     CREDIT_CARD_PATTERN = r"\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b"
     SSN_PATTERN = r"\b\d{1}\s?\d{2}\s?\d{2}\s?\d{2}\s?\d{3}\s?\d{3}\b"  # French SSN (Numéro de sécurité sociale)
 
-    ADDRESS_PATTERN = r"\b\d{1,5}\s+(rue|avenue|boulevard|place|allée|impasse|chemin|voie|cours|quai|square|passage)\s+[A-Za-zÀ-ÿ\s\'-]{3,50}"  # French addresses
+    # ADDRESS_PATTERN DISABLED - venue addresses are public information, not PII
+    # Users need venue addresses to attend events (core functionality)
+    # ADDRESS_PATTERN = r"\b\d{1,5}\s+(rue|avenue|boulevard|place|allée|impasse|chemin|voie|cours|quai|square|passage)\s+[A-Za-zÀ-ÿ\s\'-]{3,50}"
     # DOB_PATTERN DISABLED - causes false positives with event dates (core functionality)
     # DOB_PATTERN = r"\b(?:\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{4}[/-]\d{1,2}[/-]\d{1,2})\b"
     IP_PATTERN = r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b"  # IPv4 addresses
@@ -46,7 +48,7 @@ class PIIDetector:
             "PHONE": re.compile(self.PHONE_PATTERN),
             "CREDIT_CARD": re.compile(self.CREDIT_CARD_PATTERN),
             "SSN": re.compile(self.SSN_PATTERN),
-            "ADDRESS": re.compile(self.ADDRESS_PATTERN, re.IGNORECASE),
+            # ADDRESS pattern removed - venue addresses are public info, not PII
             # DOB pattern removed - event dates are core functionality, not PII
             "IP_ADDRESS": re.compile(self.IP_PATTERN),
         }
