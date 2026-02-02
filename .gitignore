@@ -81,6 +81,9 @@ nul
 temp_*.txt
 check_*.py
 
+# Local convenience scripts (contain hardcoded paths)
+start_*.bat
+
 # SQLite databases (runtime artifacts - don't track)
 data/chat_history.db
 *.db-shm
