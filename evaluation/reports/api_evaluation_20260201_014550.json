@@ -1,0 +1,1358 @@
+{
+  "timestamp": "2026-02-01T01:45:50.795674",
+  "dataset_version": "3.3",
+  "total_queries": 15,
+  "summary": {
+    "successful_queries": 14,
+    "failed_queries": 1,
+    "success_rate": 0.9333333333333333,
+    "avg_quality_score": 0.5154166666666665,
+    "avg_faithfulness": 0.6022222222222222,
+    "avg_relevancy": 0.5791666666666667,
+    "avg_latency_ms": 15898.918117795673,
+    "p95_latency_ms": 21774.07741546631,
+    "quality_pass_rate": 0.75
+  },
+  "by_query_type": {
+    "initial": {
+      "count": 5,
+      "quality_sum": 2.51,
+      "success": 4,
+      "fail": 1,
+      "avg_quality": 0.502
+    },
+    "refinement": {
+      "count": 4,
+      "quality_sum": 2.125,
+      "success": 4,
+      "fail": 0,
+      "avg_quality": 0.53125
+    },
+    "follow_up": {
+      "count": 3,
+      "quality_sum": 0.1,
+      "success": 3,
+      "fail": 0,
+      "avg_quality": 0.03333333333333333
+    },
+    "topic_shift": {
+      "count": 1,
+      "quality_sum": 0.3,
+      "success": 1,
+      "fail": 0,
+      "avg_quality": 0.3
+    },
+    "clarification_response": {
+      "count": 2,
+      "quality_sum": 1.15,
+      "success": 2,
+      "fail": 0,
+      "avg_quality": 0.575
+    }
+  },
+  "issues": {
+    "low_quality_queries": [
+      {
+        "id": "conv_001_t3",
+        "query": "Parle-moi du premier",
+        "score": 0.0
+      },
+      {
+        "id": "conv_002_t2",
+        "query": "Actually, what about theater shows in Versailles?",
+        "score": 0.3
+      },
+      {
+        "id": "conv_004_t4",
+        "query": "Non, plutôt à Versailles finalement",
+        "score": 0.0
+      },
+      {
+        "id": "conv_005_t2",
+        "query": "What's the price for the second one?",
+        "score": 0.05
+      },
+      {
+        "id": "conv_005_t3",
+        "query": "Is the first one more expensive?",
+        "score": 0.05
+      }
+    ],
+    "no_events_queries": [
+      {
+        "id": "conv_001_t3",
+        "query": "Parle-moi du premier"
+      },
+      {
+        "id": "conv_004_t4",
+        "query": "Non, plutôt à Versailles finalement"
+      }
+    ],
+    "high_latency_queries": [],
+    "failed_queries": [
+      {
+        "id": "conv_003_t1",
+        "error": "HTTP 500: {\"detail\":\"6 validation errors for ChatResponse\\nstructured_events.0.city\\n  Field required [type=missing, input_value={'title': \\\"Dracula Lucy's...bel': 'De 15 à 99 ans'}, input_type=dict]\\n    For f"
+      }
+    ]
+  },
+  "detailed_results": [
+    {
+      "query_id": "conv_001_t1",
+      "query": "Concerts de jazz à Paris",
+      "query_type": "initial",
+      "language": "fr",
+      "http_status": 200,
+      "latency_ms": 20569.032907485962,
+      "events_retrieved": 8,
+      "answer": "Voici 8 événements de musique jazz à Paris en février et mars.\n\nLe premier événement est **Zoot Sundays! Sessions Jazz du dimanche** :\n\n*   **Date:** [DOB_REDACTED]\n*   **Lieu:** JASS CLUB PARIS, [ADDRESS_REDACTED], Paris\n*   **Horaires:** 19:30, 21:30\n*   **Description:** 19h30 & 21h30 Tous les dimanches, le club vibre aux couleurs du **Zoot Collectif** ! Des formations qui changent, des idées neuves, pour vous proposer un rendez-vous jazz vivant et spontané. Les artistes du collectif présentent leurs projets du moment, leurs nouvelles compositions, mais aussi des hommages aux grands noms du jazz. Une ambiance chaleureuse à découvrir, grâce à la belle énergie du collectif ! Le Zoot, c’est qui ? Noé Codjia, David Paycha, Neil Saidi, Thomas Gomez, Clément Trimouille, Clément Daldosso, Noé Huchard, Luca Fattorini, Mathieu Najean, César Poirier, Jeanne Michard… et bien d’autres. Ce dimanche : Noé Codjia Quartet\n*   **Prix:** Tarif Réduit : 15€ | Tarif Plein : 19€\n*   **URL:** [https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-14832](https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-14832)\n*   **Type:** Exact Match\n\n📅 *Résultats filtrés sur les **30 prochains jours**.*\n\n💡 *Précisez une date, un type d'événement, ou \"gratuit\" pour affiner.*\n\n---\n**Filtres appliqués:** 📍 paris | 🎭 Musique",
+      "sources": [
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-02-22T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-4446006",
+          "score": 0.028531243721117136,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "17928543_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-02-01T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-14832",
+          "score": 0.028083267871170464,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "25919196_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-02-08T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-5604458",
+          "score": 0.027972027972027972,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "17915072_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Jorge Vistel Quartet",
+          "city": "Paris",
+          "date": "2026-02-19T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/jorge-vistel-quartet",
+          "score": 0.02758751902587519,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "88608974_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Fred Nardin Trio",
+          "city": "Paris",
+          "date": "2026-03-05T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/fred-nardin-trio-4102699",
+          "score": 0.027149321266968326,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "49647096_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-03-01T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-8772023",
+          "score": 0.027046783625730993,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "99836885_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-03-15T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-8733779",
+          "score": 0.02681010928961749,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "4451721_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-03-22T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-2127010",
+          "score": 0.026767330130404943,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "87806229_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        }
+      ],
+      "error": null,
+      "faithfulness_score": 0.4,
+      "relevancy_score": 0.8,
+      "quality_score": 0.6000000000000001,
+      "judge_reasoning": "The answer provides details about a specific jazz event, \"Zoot Sundays! Sessions Jazz du dimanche,\" including its location, schedule, description, price, and URL. However, none of these details (locat",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Musique"
+      },
+      "actual_filters_in_response": "**Filtres appliqués:** 📍 paris | 🎭 Musique"
+    },
+    {
+      "query_id": "conv_001_t2",
+      "query": "En février plutôt",
+      "query_type": "refinement",
+      "language": "fr",
+      "http_status": 200,
+      "latency_ms": 14884.339570999146,
+      "events_retrieved": 8,
+      "answer": "Voici 8 concerts de jazz à Paris en février. J'ai aussi trouvé 5 événements similaires sur des dates alternatives proches.\n\nLe premier événement est **Zoot Sundays! Sessions Jazz du dimanche** :\n\n*   **Date:** [DOB_REDACTED]\n*   **Lieu:** JASS CLUB PARIS, [ADDRESS_REDACTED], Paris\n*   **Horaires:** 19:30, 21:30\n*   **Description:** 19h30 & 21h30 Tous les dimanches, le club vibre aux couleurs du **Zoot Collectif** ! Des formations qui changent, des idées neuves, pour vous proposer un rendez-vous jazz vivant et spontané. Les artistes du collectif présentent leurs projets du moment, leurs nouvelles compositions, mais aussi des hommages aux grands noms du jazz. Une ambiance chaleureuse à découvrir, grâce à la belle énergie du collectif ! Le Zoot, c’est qui ? Noé Codjia, David Paycha, Neil Saidi, Thomas Gomez, Clément Trimouille, Clément Daldosso, Noé Huchard, Luca Fattorini, Mathieu Najean, César Poirier, Jeanne Michard… et bien d’autres. Ce dimanche : Noé Codjia Quartet\n*   **Prix:** Tarif Réduit : 15€ | Tarif Plein : 19€\n*   **URL:** [https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-14832](https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-14832)\n*   **Type:** Exact Match\n\nIl y a aussi:\n\n*   **Ava Alami Quartet feat Hermon Mehari** le [DOB_REDACTED]\n*   **Zoot Sundays! Sessions Jazz du dimanche** le [DOB_REDACTED]\n*   **Lown** le [DOB_REDACTED]\n*   **Zoot Sundays! Sessions Jazz du dimanche** le [DOB_REDACTED]\n*   **FUR Album BOND** le [DOB_REDACTED]\n*   **Jorge Vistel Quartet** le [DOB_REDACTED]\n*   **Zoot Sundays! Sessions Jazz du dimanche** le [DOB_REDACTED]\n\nY a-t-il autre chose que vous aimeriez savoir ?\n\n💡 *Précisez une date, un type d'événement, ou \"gratuit\" pour affiner.*\n\n---\n**Filtres appliqués:** 📍 paris | 📅 février | 🎭 Musique\n\n💡 *Précisez une date, un type d'événement, ou \"gratuit\" pour affiner.*\n\n---\n**Filtres appliqués:** 📍 paris | 📅 février | 🎭 Musique | 🔍 \"Concerts de jazz à Paris\" + \"En février plutôt\"",
+      "sources": [
+        {
+          "title": "FUR  Album BOND",
+          "city": "Paris",
+          "date": "2026-02-18T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/fur-album-bond",
+          "score": 0.0315136476426799,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "40987313_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-02-01T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-14832",
+          "score": 0.029418126757516764,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "25919196_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-02-22T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-4446006",
+          "score": 0.02919863597612958,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "17928543_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-02-08T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-5604458",
+          "score": 0.028790389395194696,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "17915072_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-02-15T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-6273056",
+          "score": 0.02813852813852814,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "5186457_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Ava Alami Quartet feat Hermon Mehari",
+          "city": "Paris",
+          "date": "2026-02-06T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/ava-alami-quartet-feat-hermon-mehari",
+          "score": 0.027972027972027972,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "44104225_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Jorge Vistel Quartet",
+          "city": "Paris",
+          "date": "2026-02-19T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/jorge-vistel-quartet",
+          "score": 0.027820121951219513,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "88608974_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Lown",
+          "city": "Paris",
+          "date": "2026-02-12T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/lown",
+          "score": 0.0273972602739726,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "53092101_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        }
+      ],
+      "error": null,
+      "faithfulness_score": 0.4,
+      "relevancy_score": 0.9,
+      "quality_score": 0.65,
+      "judge_reasoning": "The answer claims there are 8 jazz concerts in Paris in February, but only 5 are listed in the sources. The description of \"Zoot Sundays! Sessions Jazz du dimanche\" includes details about the location",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Musique",
+        "month": 2
+      },
+      "actual_filters_in_response": "**Filtres appliqués:** 📍 paris | 📅 février | 🎭 Musique"
+    },
+    {
+      "query_id": "conv_001_t3",
+      "query": "Parle-moi du premier",
+      "query_type": "follow_up",
+      "language": "fr",
+      "http_status": 200,
+      "latency_ms": 4599.489450454712,
+      "events_retrieved": 0,
+      "answer": "Je peux vous aider avec les directions vers un événement !\n\nPourriez-vous préciser de quel événement vous parlez ? Par exemple, citez le nom de l'événement ou la salle.\n\nUne fois identifié, je vous fournirai l'adresse et un lien Google Maps pour les directions.",
+      "sources": [],
+      "error": null,
+      "faithfulness_score": 0.0,
+      "relevancy_score": 0.0,
+      "quality_score": 0.0,
+      "judge_reasoning": "",
+      "expected_filters": {},
+      "actual_filters_in_response": ""
+    },
+    {
+      "query_id": "conv_002_t1",
+      "query": "Jazz concerts in Paris this weekend",
+      "query_type": "initial",
+      "language": "en",
+      "http_status": 200,
+      "latency_ms": 15279.76679801941,
+      "events_retrieved": 2,
+      "answer": "Here are 2 events for music happening this weekend. There is 1 event in Paris, and 1 in nearby Versailles.\n\n*Just a heads-up, I also found 14 events in Paris on alternative dates (within +/- 7 days).*\n\n💡 *Specify a date, event type, or \"free\" to refine your search.*\n\n💡 *Few results? Try broadening your search: change the date, city, or simplify your criteria.*\n\n---\n**Applied filters:** 📍 paris | 📅 7 February | 🎭 Musique",
+      "sources": [
+        {
+          "title": "Sya Sanon  Les Planètes Salignent  Sirène Édition",
+          "city": "Paris",
+          "date": "2026-02-07T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/sya-sanon-les-planetes-salignent",
+          "score": 0.019253473798928347,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "37622343_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Alex Vizorek",
+          "city": "Versailles",
+          "date": "2026-02-07T20:30:00",
+          "url": "https://openagenda.com/versailles-palais-des-congres/events/alex-vizorek-753318",
+          "score": 0.0032679738562091504,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "19296386_0",
+          "category": "Musique",
+          "match_type": "Nearby Location"
+        }
+      ],
+      "error": null,
+      "faithfulness_score": 1.0,
+      "relevancy_score": 0.6,
+      "quality_score": 0.8,
+      "judge_reasoning": "The answer accurately reflects the information provided in the sources. It correctly identifies one event in Paris and one in Versailles, both categorized as \"Musique\" and occurring on February 7, 202",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Musique"
+      },
+      "actual_filters_in_response": ""
+    },
+    {
+      "query_id": "conv_002_t2",
+      "query": "Actually, what about theater shows in Versailles?",
+      "query_type": "topic_shift",
+      "language": "en",
+      "http_status": 200,
+      "latency_ms": 17729.47406768799,
+      "events_retrieved": 5,
+      "answer": "Here are 5 events matching your search:\n\n\n**1. HAMLET  Shakespeare Mise en scène : Ivo Van Hove** - Paris\n   📅 Feb 07, 2026 at 20:00 | 🎭 Théâtre / Spectacle (Nearby Location)\n   🔗 [More info](https://openagenda.com/panthea/events/hamlet-or-shakespeare-directed-by-christiane-jatahy)\n\n**2. Petite Balade aux Enfers** - Paris\n   📅 Feb 07, 2026 at 15:00 | 🎭 Théâtre / Spectacle (Nearby Location)\n   🔗 [More info](https://openagenda.com/culture/events/petite-balade-aux-enfers-5231022)\n\n**3. Le Roi, la Reine et le Bouffon** - Paris\n   📅 Feb 07, 2026 at 20:30 | 🎭 Théâtre / Spectacle (Nearby Location)\n   🔗 [More info](https://openagenda.com/culture/events/le-roi-la-reine-et-le-bouffon-representations-5027251)\n\n**4. LE CERCLE DE CRAIE CAUCASIEN  Bertolt Brecht** - Paris\n   📅 Feb 07, 2026 at 20:00 | 🎭 Théâtre / Spectacle (Nearby Location)\n   🔗 [More info](https://openagenda.com/panthea/events/le-cercle-de-craie-caucasien-or-bertolt-brecht)\n\n**5. LES FEMMES SAVANTES  Molière Mise en scène : Emma Dante** - Paris\n   📅 Feb 07, 2026 at 20:30 | 🎭 Théâtre / Spectacle (Nearby Location)\n   🔗 [More info](https://openagenda.com/panthea/events/the-learned-ladies-or-moliere-directed-and-edited-by-emma-dante)\n\n💡 *Specify a date, event type, or \"free\" to refine your search.*\n\n💡 *Few results? Try broadening your search: change the date, city, or simplify your criteria.*\n\n---\n**Applied filters:** 📍 beynes | 📅 7 February | 🎭 Théâtre / Spectacle | 🔍 \"Jazz concerts in Paris this weekend\" + \"theater shows in Versailles\"",
+      "sources": [
+        {
+          "title": "HAMLET  Shakespeare Mise en scène : Ivo Van Hove",
+          "city": "Paris",
+          "date": "2026-02-07T20:00:00",
+          "url": "https://openagenda.com/panthea/events/hamlet-or-shakespeare-directed-by-christiane-jatahy",
+          "score": 0.010979180221210149,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "85976355_13",
+          "category": "Théâtre / Spectacle",
+          "match_type": "Nearby Location"
+        },
+        {
+          "title": "Petite Balade aux Enfers",
+          "city": "Paris",
+          "date": "2026-02-07T15:00:00",
+          "url": "https://openagenda.com/culture/events/petite-balade-aux-enfers-5231022",
+          "score": 0.005083742676214713,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "7294199_3",
+          "category": "Théâtre / Spectacle",
+          "match_type": "Nearby Location"
+        },
+        {
+          "title": "Le Roi, la Reine et le Bouffon",
+          "city": "Paris",
+          "date": "2026-02-07T20:30:00",
+          "url": "https://openagenda.com/culture/events/le-roi-la-reine-et-le-bouffon-representations-5027251",
+          "score": 0.004255492527988918,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "90738052_2",
+          "category": "Théâtre / Spectacle",
+          "match_type": "Nearby Location"
+        },
+        {
+          "title": "LE CERCLE DE CRAIE CAUCASIEN  Bertolt Brecht",
+          "city": "Paris",
+          "date": "2026-02-07T20:00:00",
+          "url": "https://openagenda.com/panthea/events/le-cercle-de-craie-caucasien-or-bertolt-brecht",
+          "score": 0.004003271652184353,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "48168738_8",
+          "category": "Théâtre / Spectacle",
+          "match_type": "Nearby Location"
+        },
+        {
+          "title": "LES FEMMES SAVANTES  Molière Mise en scène : Emma Dante",
+          "city": "Paris",
+          "date": "2026-02-07T20:30:00",
+          "url": "https://openagenda.com/panthea/events/the-learned-ladies-or-moliere-directed-and-edited-by-emma-dante",
+          "score": 0.0037064846416382255,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "97454717_21",
+          "category": "Théâtre / Spectacle",
+          "match_type": "Nearby Location"
+        }
+      ],
+      "error": null,
+      "faithfulness_score": 0.0,
+      "relevancy_score": 0.6,
+      "quality_score": 0.3,
+      "judge_reasoning": "The answer lists 5 events that are all located in Paris, while the query asks about theater shows in Versailles. The applied filters also include \"beynes\" and \"Jazz concerts in Paris this weekend\" whi",
+      "expected_filters": {
+        "city": "Versailles",
+        "category": "Théâtre / Spectacle"
+      },
+      "actual_filters_in_response": ""
+    },
+    {
+      "query_id": "conv_003_t1",
+      "query": "events",
+      "query_type": "initial",
+      "language": "en",
+      "http_status": 0,
+      "latency_ms": 27979.219436645508,
+      "events_retrieved": 0,
+      "answer": "",
+      "sources": [],
+      "error": "HTTP 500: {\"detail\":\"6 validation errors for ChatResponse\\nstructured_events.0.city\\n  Field required [type=missing, input_value={'title': \\\"Dracula Lucy's...bel': 'De 15 à 99 ans'}, input_type=dict]\\n    For f",
+      "faithfulness_score": 0.0,
+      "relevancy_score": 0.0,
+      "quality_score": 0.0,
+      "judge_reasoning": "",
+      "expected_filters": {},
+      "actual_filters_in_response": ""
+    },
+    {
+      "query_id": "conv_003_t2",
+      "query": "Art exhibitions in Paris",
+      "query_type": "clarification_response",
+      "language": "en",
+      "http_status": 200,
+      "latency_ms": 16156.426429748535,
+      "events_retrieved": 8,
+      "answer": "Here are 8 events for **art exhibitions** in **Paris**:\n\n*   **Title:** \"Vis Ma Vie\" avec Appart'City Paris la Villette 75019\n    *   **Date:** [DOB_REDACTED]\n    *   **Location:** [ADDRESS_REDACTED]75019 Paris\n    *   **Times_display:** 09:30-17:00\n    *   **Match_type:** Exact Match\n    *   **URL:** https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/votre-vis-ma-vie-avec-appartcity-paris-la-villette-75019\n*   **Title:** \"Vis Ma Vie\" avec Appart'City Paris la Villette 75019\n    *   **Date:** [DOB_REDACTED]\n    *   **Location:** [ADDRESS_REDACTED]75019 Paris\n    *   **Times_display:** 09:30-17:00\n    *   **Match_type:** Exact Match\n    *   **URL:** https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/votre-vis-ma-vie-avec-appartcity-paris-la-villette-75019-217126\n*   **Title:** \"Vis Ma Vie\" avec Appart'City Paris la Villette 75019\n    *   **Date:** [DOB_REDACTED]\n    *   **Location:** [ADDRESS_REDACTED]75019 Paris\n    *   **Times_display:** 09:30-17:00\n    *   **Match_type:** Exact Match\n    *   **URL:** https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/votre-vis-ma-vie-avec-appartcity-paris-la-villette-75019-1020500\n*   **Title:** \"Vis Ma Vie\" avec Appart'City Paris la Villette 75019\n    *   **Date:** [DOB_REDACTED]\n    *   **Location:** [ADDRESS_REDACTED]75019 Paris\n    *   **Times_display:** 09:30-17:00\n    *   **Match_type:** Exact Match\n    *   **URL:** https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/votre-vis-ma-vie-avec-appartcity-paris-la-villette-75019-466370\n*   **Title:** Session d'information en ligne Diplôme \"Arts, Science et Gestion du Vin\"\n    *   **Date:** [DOB_REDACTED]\n    *   **Location:** 13-[ADDRESS_REDACTED], 75015 Paris\n    *   **Times_display:** 17:00-18:00\n    *   **Match_type:** Exact Match\n    *   **URL:** https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/session-dinformation-en-ligne-diplome-arts-science-et-gestion-du-vin\n*   **Title:** \"Vis Ma Vie\" avec Appart'City Paris la Villette 75019\n    *   **Date:** [DOB_REDACTED]\n    *   **Location:** [ADDRESS_REDACTED]75019 Paris\n    *   **Times_display:** 09:30-17:00\n    *   **Match_type:** Exact Match\n    *   **URL:** https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/votre-vis-ma-vie-avec-appartcity-paris-la-villette-75019-4329887\n*   **Title:** Découvrir les métiers du sport SEMAINE DU TOURISME\n    *   **Date:** [DOB_REDACTED]\n    *   **Location:** 75008 Paris\n    *   **Times_display:** 10:00-11:00\n    *   **Match_type:** Exact Match\n    *   **URL:** https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/decouvrir-les-metiers-du-sport-semaine-du-tourisme\n*   **Title:** Exposition dans le cadre du festival de l'école\n    *   **Date:** [DOB_REDACTED]\n    *   **Location:** [ADDRESS_REDACTED]75019 Paris\n    *   **Times_display:** 09:00-17:30\n    *   **Match_type:** Exact Match\n    *   **URL:** https://openagenda.com/dismoidixmots-2026/events/exposition-dans-le-cadre-du-festival-de-lecole\n\n---\n\n📅 *Résultats filtrés sur les **30 prochains jours**.*\n\n💡 *Précisez une date, un type d'événement, ou \"gratuit\" pour affiner.*\n\n---\n**Filtres appliqués:** 📍 paris | 🎭 Art / Exposition",
+      "sources": [
+        {
+          "title": "Session d'information en ligne  Diplôme \"Arts, Science et Gestion du Vin\"",
+          "city": "Paris",
+          "date": "2026-02-05T17:00:00",
+          "url": "https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/session-dinformation-en-ligne-diplome-arts-science-et-gestion-du-vin",
+          "score": 0.022978347326557666,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "25319120_0",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "\"Vis Ma Vie\" avec Appart'City Paris la Villette 75019",
+          "city": "Paris",
+          "date": "2026-02-03T09:30:00",
+          "url": "https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/votre-vis-ma-vie-avec-appartcity-paris-la-villette-75019-217126",
+          "score": 0.022366522366522368,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "83028840_0",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "\"Vis Ma Vie\" avec Appart'City Paris la Villette 75019",
+          "city": "Paris",
+          "date": "2026-02-02T09:30:00",
+          "url": "https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/votre-vis-ma-vie-avec-appartcity-paris-la-villette-75019",
+          "score": 0.022203947368421052,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "27027474_0",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "\"Vis Ma Vie\" avec Appart'City Paris la Villette 75019",
+          "city": "Paris",
+          "date": "2026-02-06T09:30:00",
+          "url": "https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/votre-vis-ma-vie-avec-appartcity-paris-la-villette-75019-4329887",
+          "score": 0.022007131940906775,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "23225387_0",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "\"Vis Ma Vie\" avec Appart'City Paris la Villette 75019",
+          "city": "Paris",
+          "date": "2026-02-04T09:30:00",
+          "url": "https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/votre-vis-ma-vie-avec-appartcity-paris-la-villette-75019-1020500",
+          "score": 0.021603128054740958,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "92172000_0",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "\"Vis Ma Vie\" avec Appart'City Paris la Villette 75019",
+          "city": "Paris",
+          "date": "2026-02-05T09:30:00",
+          "url": "https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/votre-vis-ma-vie-avec-appartcity-paris-la-villette-75019-466370",
+          "score": 0.021461320846746658,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "81839888_0",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Découvrir les métiers du sport SEMAINE DU TOURISME",
+          "city": "Paris",
+          "date": "2026-02-16T10:00:00",
+          "url": "https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/decouvrir-les-metiers-du-sport-semaine-du-tourisme",
+          "score": 0.008448349459305634,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "81725912_0",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Exposition dans le cadre du festival de l'école",
+          "city": "Paris",
+          "date": "2026-06-18T09:00:00",
+          "url": "https://openagenda.com/dismoidixmots-2026/events/exposition-dans-le-cadre-du-festival-de-lecole",
+          "score": 0.008304853041695147,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "37396801_3",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        }
+      ],
+      "error": null,
+      "faithfulness_score": 0.5,
+      "relevancy_score": 0.6,
+      "quality_score": 0.55,
+      "judge_reasoning": "The answer lists 8 events as art exhibitions in Paris. While the sources do mention events in Paris categorized as 'Art / Exposition', the answer includes events that are not explicitly stated as art ",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Art / Exposition"
+      },
+      "actual_filters_in_response": "**Filtres appliqués:** 📍 paris | 🎭 Art / Exposition"
+    },
+    {
+      "query_id": "conv_003_t3",
+      "query": "In March",
+      "query_type": "clarification_response",
+      "language": "en",
+      "http_status": 200,
+      "latency_ms": 19765.384197235107,
+      "events_retrieved": 8,
+      "answer": "Here are 8 events for **art exhibitions** in **March**: 6 in Paris, and 2 in nearby towns. I also found 20 events in Paris on ALTERNATIVE DATES (within +/- 7 days).\n\n*In Paris:*\n\n*   **Title:** Dracula Lucy's Dream\n    *   **Date:** [DOB_REDACTED]\n    *   **Location:** Monfort, [ADDRESS_REDACTED], 75015 Paris\n    *   **Times_display:** 20:00\n    *   **Age_label:** De 15 à 99 ans\n    *   **Match_type:** Exact Match\n    *   **URL:** https://openagenda.com/culture/events/dracula-lucys-dream-5406866\n*   **Title:** Dracula Lucy's Dream\n    *   **Date:** [DOB_REDACTED]\n    *   **Location:** Monfort, [ADDRESS_REDACTED], 75015 Paris\n    *   **Times_display:** 20:00\n    *   **Age_label:** De 15 à 99 ans\n    *   **Match_type:** Exact Match\n    *   **URL:** https://openagenda.com/culture/events/dracula-lucys-dream-5406866\n*   **Title:** Dracula Lucy's Dream\n    *   **Date:** [DOB_REDACTED]\n    *   **Location:** Monfort, [ADDRESS_REDACTED], 75015 Paris\n    *   **Times_display:** 20:00\n    *   **Age_label:** De 15 à 99 ans\n    *   **Match_type:** Exact Match\n    *   **URL:** https://openagenda.com/culture/events/dracula-lucys-dream-5406866\n*   **Title:** Dracula Lucy's Dream\n    *   **Date:** [DOB_REDACTED]\n    *   **Location:** Monfort, [ADDRESS_REDACTED], 75015 Paris\n    *   **Times_display:** 20:00\n    *   **Age_label:** De 15 à 99 ans\n    *   **Match_type:** Exact Match\n    *   **URL:** https://openagenda.com/culture/events/dracula-lucys-dream-5406866\n*   **Title:** Dracula Lucy's Dream\n    *   **Date:** [DOB_REDACTED]\n    *   **Location:** Monfort, [ADDRESS_REDACTED], 75015 Paris\n    *   **Times_display:** 20:00\n    *   **Age_label:** De 15 à 99 ans\n    *   **Match_type:** Exact Match\n    *   **URL:** https://openagenda.com/culture/events/dracula-lucys-dream-5406866\n*   **Title:** Dracula Lucy's Dream\n    *   **Date:** [DOB_REDACTED]\n    *   **Location:** Monfort, [ADDRESS_REDACTED], 75015 Paris\n    *   **Times_display:** 20:00\n    *   **Age_label:** De 15 à 99 ans\n    *   **Match_type:** Exact Match\n    *   **URL:** https://openagenda.com/culture/events/dracula-lucys-dream-5406866\n\n*Nearby Towns:*\n\n*   **Title:** Les Journées professionnelles de Cinémas 93\n    *   **Date:** [DOB_REDACTED]\n    *   **City:** Pantin\n    *   **Location:** Ciné 104, [ADDRESS_REDACTED], 93500\n    *   **Times_display:** 09:00\n    *   **Age_label:** De 18 à 99 ans\n    *   **Match_type:** Nearby Location\n    *   **URL:** https://openagenda.com/cinemas93/events/les-journees-professionnelles-de-cinemas-93\n*   **Title:** Les Journées professionnelles de Cinémas 93\n    *   **Date:** [DOB_REDACTED]\n    *   **City:** Pantin\n    *   **Location:** Ciné 104, [ADDRESS_REDACTED], 93500\n    *   **Times_display:** 09:00\n    *   **Age_label:** De 18 à 99 ans\n    *   **Match_type:** Nearby Location\n    *   **URL:** https://openagenda.com/cinemas93/events/les-journees-professionnelles-de-cinemas-93\n\n💡 *Specify a date, event type, or \"free\" to refine your search.*\n\n---\n**Applied filters:** 📍 paris | 📅 March | 🎭 Art / Exposition | 🔍 \"Art exhibitions in Paris\" + \"In March\"",
+      "sources": [
+        {
+          "title": "Dracula  Lucy's Dream",
+          "city": "Paris",
+          "date": "2026-03-13T20:00:00",
+          "url": "https://openagenda.com/culture/events/dracula-lucys-dream-5406866",
+          "score": 0.00604103275859001,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "62485539_3",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Dracula  Lucy's Dream",
+          "city": "Paris",
+          "date": "2026-03-15T20:00:00",
+          "url": "https://openagenda.com/culture/events/dracula-lucys-dream-5406866",
+          "score": 0.0060274888689439135,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "62485539_5",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Dracula  Lucy's Dream",
+          "city": "Paris",
+          "date": "2026-03-10T20:00:00",
+          "url": "https://openagenda.com/culture/events/dracula-lucys-dream-5406866",
+          "score": 0.00600321224514872,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "62485539_0",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Dracula  Lucy's Dream",
+          "city": "Paris",
+          "date": "2026-03-12T20:00:00",
+          "url": "https://openagenda.com/culture/events/dracula-lucys-dream-5406866",
+          "score": 0.005977907732293697,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "62485539_2",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Dracula  Lucy's Dream",
+          "city": "Paris",
+          "date": "2026-03-11T20:00:00",
+          "url": "https://openagenda.com/culture/events/dracula-lucys-dream-5406866",
+          "score": 0.005972770426527099,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "62485539_1",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Dracula  Lucy's Dream",
+          "city": "Paris",
+          "date": "2026-03-14T20:00:00",
+          "url": "https://openagenda.com/culture/events/dracula-lucys-dream-5406866",
+          "score": 0.005947469746974698,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "62485539_4",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Les Journées professionnelles de Cinémas 93",
+          "city": "Pantin",
+          "date": "2026-03-18T09:00:00",
+          "url": "https://openagenda.com/cinemas93/events/les-journees-professionnelles-de-cinemas-93",
+          "score": 0.0037735849056603774,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "96034780_1",
+          "category": "Art / Exposition",
+          "match_type": "Nearby Location"
+        },
+        {
+          "title": "Les Journées professionnelles de Cinémas 93",
+          "city": "Pantin",
+          "date": "2026-03-17T09:00:00",
+          "url": "https://openagenda.com/cinemas93/events/les-journees-professionnelles-de-cinemas-93",
+          "score": 0.0037593984962406013,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "96034780_0",
+          "category": "Art / Exposition",
+          "match_type": "Nearby Location"
+        }
+      ],
+      "error": null,
+      "faithfulness_score": 0.6,
+      "relevancy_score": 0.6,
+      "quality_score": 0.6,
+      "judge_reasoning": "The answer claims there are 6 art exhibitions in Paris and 2 in nearby towns in March. The sources only provide the dates for the 'Dracula Lucy's Dream' event in Paris: March 10, 11, 12, 13, and 15. T",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Art / Exposition",
+        "month": 3
+      },
+      "actual_filters_in_response": ""
+    },
+    {
+      "query_id": "conv_004_t1",
+      "query": "Expositions à Paris",
+      "query_type": "initial",
+      "language": "fr",
+      "http_status": 200,
+      "latency_ms": 16267.594337463379,
+      "events_retrieved": 8,
+      "answer": "Voici 8 événements d'art et exposition à Paris :\n\n*   **Session d'information en ligne Diplôme \"Arts, Science et Gestion du Vin\"**\n    *   Date: [DOB_REDACTED]\n    *   Timings: 17:00 - 18:00\n    *   Location: 13-[ADDRESS_REDACTED], 75015 Paris\n    *   Url: https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/session-dinformation-en-ligne-diplome-arts-science-et-gestion-du-vin\n    *   Match type: Exact Match\n\n*   **\"Vis Ma Vie\" avec Appart'City Paris la Villette 75019**\n    *   Date: [DOB_REDACTED]\n    *   Timings: 09:30 - 17:00\n    *   Location: [ADDRESS_REDACTED]75019 Paris\n    *   Url: https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/votre-vis-ma-vie-avec-appartcity-paris-la-villette-75019\n    *   Match type: Exact Match\n\n*   **\"Vis Ma Vie\" avec Appart'City Paris la Villette 75019**\n    *   Date: [DOB_REDACTED]\n    *   Timings: 09:30 - 17:00\n    *   Location: [ADDRESS_REDACTED]75019 Paris\n    *   Url: https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/votre-vis-ma-vie-avec-appartcity-paris-la-villette-75019-217126\n    *   Match type: Exact Match\n\n*   **\"Vis Ma Vie\" avec Appart'City Paris la Villette 75019**\n    *   Date: [DOB_REDACTED]\n    *   Timings: 09:30 - 17:00\n    *   Location: [ADDRESS_REDACTED]75019 Paris\n    *   Url: https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/votre-vis-ma-vie-avec-appartcity-paris-la-villette-75019-1020500\n    *   Match type: Exact Match\n\n*   **\"Vis Ma Vie\" avec Appart'City Paris la Villette 75019**\n    *   Date: [DOB_REDACTED]\n    *   Timings: 09:30 - 17:00\n    *   Location: [ADDRESS_REDACTED]75019 Paris\n    *   Url: https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/votre-vis-ma-vie-avec-appartcity-paris-la-villette-75019-4329887\n    *   Match type: Exact Match\n\n*   **\"Vis Ma Vie\" avec Appart'City Paris la Villette 75019**\n    *   Date: [DOB_REDACTED]\n    *   Timings: 09:30 - 17:00\n    *   Location: [ADDRESS_REDACTED]75019 Paris\n    *   Url: https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/votre-vis-ma-vie-avec-appartcity-paris-la-villette-75019-466370\n    *   Match type: Exact Match\n\n*   **Découvrir les métiers du sport SEMAINE DU TOURISME**\n    *   Date: [DOB_REDACTED]\n    *   Timings: 10:00 - 11:00\n    *   Location: 75008 Paris\n    *   Url: https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/decouvrir-les-metiers-du-sport-semaine-du-tourisme\n    *   Match type: Exact Match\n\n*   **Exposition dans le cadre du festival de l'école**\n    *   Date: [DOB_REDACTED]\n    *   Timings: 09:00 - 17:30\n    *   Location: [ADDRESS_REDACTED]75019 Paris\n    *   Url: https://openagenda.com/dismoidixmots-2026/events/exposition-dans-le-cadre-du-festival-de-lecole\n    *   Match type: Exact Match\n\n📅 *Résultats filtrés sur les **30 prochains jours**.*\n\n💡 *Précisez une date, un type d'événement, ou \"gratuit\" pour affiner.*\n\n---\n**Filtres appliqués:** 📍 paris | 🎭 Art / Exposition",
+      "sources": [
+        {
+          "title": "Session d'information en ligne  Diplôme \"Arts, Science et Gestion du Vin\"",
+          "city": "Paris",
+          "date": "2026-02-05T17:00:00",
+          "url": "https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/session-dinformation-en-ligne-diplome-arts-science-et-gestion-du-vin",
+          "score": 0.0315136476426799,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "25319120_0",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "\"Vis Ma Vie\" avec Appart'City Paris la Villette 75019",
+          "city": "Paris",
+          "date": "2026-02-02T09:30:00",
+          "url": "https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/votre-vis-ma-vie-avec-appartcity-paris-la-villette-75019",
+          "score": 0.028381642512077296,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "27027474_0",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "\"Vis Ma Vie\" avec Appart'City Paris la Villette 75019",
+          "city": "Paris",
+          "date": "2026-02-03T09:30:00",
+          "url": "https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/votre-vis-ma-vie-avec-appartcity-paris-la-villette-75019-217126",
+          "score": 0.028370221327967807,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "83028840_0",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "\"Vis Ma Vie\" avec Appart'City Paris la Villette 75019",
+          "city": "Paris",
+          "date": "2026-02-04T09:30:00",
+          "url": "https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/votre-vis-ma-vie-avec-appartcity-paris-la-villette-75019-1020500",
+          "score": 0.028370221327967807,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "92172000_0",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "\"Vis Ma Vie\" avec Appart'City Paris la Villette 75019",
+          "city": "Paris",
+          "date": "2026-02-06T09:30:00",
+          "url": "https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/votre-vis-ma-vie-avec-appartcity-paris-la-villette-75019-4329887",
+          "score": 0.02821939586645469,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "23225387_0",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "\"Vis Ma Vie\" avec Appart'City Paris la Villette 75019",
+          "city": "Paris",
+          "date": "2026-02-05T09:30:00",
+          "url": "https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/votre-vis-ma-vie-avec-appartcity-paris-la-villette-75019-466370",
+          "score": 0.027212143650499815,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "81839888_0",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Découvrir les métiers du sport SEMAINE DU TOURISME",
+          "city": "Paris",
+          "date": "2026-02-16T10:00:00",
+          "url": "https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/decouvrir-les-metiers-du-sport-semaine-du-tourisme",
+          "score": 0.01000408820912392,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "81725912_0",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Exposition dans le cadre du festival de l'école",
+          "city": "Paris",
+          "date": "2026-06-18T09:00:00",
+          "url": "https://openagenda.com/dismoidixmots-2026/events/exposition-dans-le-cadre-du-festival-de-lecole",
+          "score": 0.009330143540669855,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "37396801_3",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        }
+      ],
+      "error": null,
+      "faithfulness_score": 0.5,
+      "relevancy_score": 0.7,
+      "quality_score": 0.6,
+      "judge_reasoning": "The answer lists 8 art and exposition events in Paris. However, only 5 of these events are directly supported by the provided sources. The events \"Découvrir les métiers du sport SEMAINE DU TOURISME\", ",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Art / Exposition"
+      },
+      "actual_filters_in_response": "**Filtres appliqués:** 📍 paris | 🎭 Art / Exposition"
+    },
+    {
+      "query_id": "conv_004_t2",
+      "query": "Gratuites seulement",
+      "query_type": "refinement",
+      "language": "fr",
+      "http_status": 200,
+      "latency_ms": 21774.07741546631,
+      "events_retrieved": 6,
+      "answer": "Voici 6 événements gratuits d'art et exposition, avec 1 à Paris et 5 dans les villes proches.\n\n*NOTE SYSTEME: Les dates sont dans le futur.*\n\n**Paris**\n*   **Les Rois de la Supply Chain 2026**\n    *   Date: [DOB_REDACTED]\n    *   Location: Station F, 5 Parvis Alan Turing, 75013 Paris, France\n    *   Url: https://openagenda.com/kestocal-agenda-collaboratif-evenements-supply-chain-france/events/les-rois-de-la-supply-chain-2026\n    *   Match type: Exact Match\n\n**Villes proches**\n*   **Les Journées professionnelles de Cinémas 93**\n    *   City: Pantin\n    *   Date: [DOB_REDACTED]\n    *   Timings: 09:00 - 17:30\n    *   Location: Ciné 104, [ADDRESS_REDACTED], 93500\n    *   Age_label: De 18 à 99 ans\n    *   Url: https://openagenda.com/cinemas93/events/les-journees-professionnelles-de-cinemas-93\n    *   Match type: Nearby Location\n*   **Les Journées professionnelles de Cinémas 93**\n    *   City: Pantin\n    *   Date: [DOB_REDACTED]\n    *   Timings: 09:00 - 17:30\n    *   Location: Ciné 104, [ADDRESS_REDACTED], 93500\n    *   Age_label: De 18 à 99 ans\n    *   Url: https://openagenda.com/cinemas93/events/les-journees-professionnelles-de-cinemas-93\n    *   Match type: Nearby Location\n*   **Starter hcr**\n    *   City: Stains\n    *   Date: [DOB_REDACTED]\n    *   Timings: 10:00 - 17:00\n    *   Location: [ADDRESS_REDACTED], 93240 Stains\n    *   Url: https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/starter-restaurant-ephemere\n    *   Match type: Nearby Location\n*   **Mélodies des toiles**\n    *   City: Bondy\n    *   Date: [DOB_REDACTED]\n    *   Timings: 20:30 - 22:00\n    *   Location: Auditorium Angèle et Roger Tribouilloy, 75 Av. Henri Barbusse, 93140 Bondy\n        *   Age_label: De 8 à 99 ans\n    *   Url: https://openagenda.com/saison-culturelle-conservatoire-de-bondy/events/melodies-des-toiles\n    *   Match type: Nearby Location\n*   **\\\"Transmutations : flux d'une classe à Maubuisson\\\"**\n    *   City: Saint-Ouen-L'Aumône\n    *   Date: [DOB_REDACTED]\n    *   Timings: 17:00 - 23:59\n    *   Location: avenue richard de tour saint ouen l'aumone\n    *   Url: https://openagenda.com/lclo-2026/events/transmutations-flux-dune-classe-a-maubuisson\n    *   Match type: Nearby Location\n\n📅 *Résultats filtrés sur les **30 prochains jours**.*\n\n📅 *Résultats filtrés sur les **30 prochains jours**.*\n\n💡 *Précisez une date, un type d'événement, ou \"gratuit\" pour affiner.*\n\n💡 *Peu de résultats ? Essayez d'élargir votre recherche : changez la date, la ville, ou simplifiez vos critères.*\n\n---\n**Filtres appliqués:** 📍 paris | 🎭 Art / Exposition | 🎫 gratuit | 🔍 \"Expositions à Paris\" + \"Gratuites seulement\"",
+      "sources": [
+        {
+          "title": "Les Rois de la Supply Chain 2026",
+          "city": "Paris",
+          "date": "2026-01-29T08:30:00",
+          "url": "https://openagenda.com/kestocal-agenda-collaboratif-evenements-supply-chain-france/events/les-rois-de-la-supply-chain-2026",
+          "score": 0.006372593787735801,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "89396438_0",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Les Journées professionnelles de Cinémas 93",
+          "city": "Pantin",
+          "date": "2026-03-18T09:00:00",
+          "url": "https://openagenda.com/cinemas93/events/les-journees-professionnelles-de-cinemas-93",
+          "score": 0.003787878787878788,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "96034780_1",
+          "category": "Art / Exposition",
+          "match_type": "Nearby Location"
+        },
+        {
+          "title": "Les Journées professionnelles de Cinémas 93",
+          "city": "Pantin",
+          "date": "2026-03-17T09:00:00",
+          "url": "https://openagenda.com/cinemas93/events/les-journees-professionnelles-de-cinemas-93",
+          "score": 0.0037593984962406013,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "96034780_0",
+          "category": "Art / Exposition",
+          "match_type": "Nearby Location"
+        },
+        {
+          "title": "Starter hcr",
+          "city": "Stains",
+          "date": "2026-02-02T10:00:00",
+          "url": "https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/starter-restaurant-ephemere",
+          "score": 0.0020833333333333333,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "54651373_0",
+          "category": "Art / Exposition",
+          "match_type": "Nearby Location"
+        },
+        {
+          "title": "Mélodies des toiles",
+          "city": "Bondy",
+          "date": "2026-02-13T20:30:00",
+          "url": "https://openagenda.com/saison-culturelle-conservatoire-de-bondy/events/melodies-des-toiles",
+          "score": 0.0034129692832764505,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "41058107_0",
+          "category": "Art / Exposition",
+          "match_type": "Nearby Location"
+        },
+        {
+          "title": "\"Transmutations : flux d'une classe à Maubuisson\"",
+          "city": "Saint-Ouen-L'Aumône",
+          "date": "2026-05-23T17:00:00",
+          "url": "https://openagenda.com/lclo-2026/events/transmutations-flux-dune-classe-a-maubuisson",
+          "score": 0.018090569561157795,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "18552687_0",
+          "category": "Art / Exposition",
+          "match_type": "Nearby Location"
+        }
+      ],
+      "error": null,
+      "faithfulness_score": 0.4,
+      "relevancy_score": 0.8,
+      "quality_score": 0.6000000000000001,
+      "judge_reasoning": "The answer claims there are 6 free art and exposition events, with 1 in Paris and 5 in nearby cities. The sources only provide information about the events' names, cities, dates, and categories. The a",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Art / Exposition",
+        "is_free": true
+      },
+      "actual_filters_in_response": "**Filtres appliqués:** 📍 paris | 🎭 Art / Exposition | 🎫 gratuit | 🔍 \"Expositions à Paris\" + \"Gratuites seulement\""
+    },
+    {
+      "query_id": "conv_004_t3",
+      "query": "Ce week-end",
+      "query_type": "refinement",
+      "language": "fr",
+      "http_status": 200,
+      "latency_ms": 14501.604795455933,
+      "events_retrieved": 1,
+      "answer": "Voici un événement d'art et exposition ce week-end à Paris.\n\n*NOTE SYSTEME: J'ai trouvé 6 événements à des dates alternatives (à +/- 7 jours).*\n\n*   **COURTCIRCUIT Yokai Matsuri**\n    *   Date: [DOB_REDACTED]\n    *   Timings: 19:30 - 20:30\n    *   Location: Musée Guimet, [ADDRESS_REDACTED], 75116 Paris\n    *   Url: https://openagenda.com/culture/events/yokai-matsuri\n    *   Match type: Exact Match\n\n💡 *Précisez une date, un type d'événement, ou \"gratuit\" pour affiner.*\n\n---\n**Filtres appliqués:** 📍 paris | 📅 7 février | 🎭 Art / Exposition | 🔍 \"Expositions à Paris gratuites seulement\" + \"Gratuites seulement\" + \"Ce week-end\"\n\n💡 *Précisez une date, un type d'événement, ou \"gratuit\" pour affiner.*\n\n---\n**Filtres appliqués:** 📍 paris | 📅 7 février | 🎭 Art / Exposition | 🔍 \"Expositions à Paris\" + \"Gratuites seulement\" + \"Ce week-end\"",
+      "sources": [
+        {
+          "title": "COURTCIRCUIT Yokai Matsuri",
+          "city": "Paris",
+          "date": "2026-02-07T19:30:00",
+          "url": "https://openagenda.com/culture/events/yokai-matsuri",
+          "score": 0.007237821467070479,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "11754934_0",
+          "category": "Art / Exposition",
+          "match_type": "Exact Match"
+        }
+      ],
+      "error": null,
+      "faithfulness_score": 1.0,
+      "relevancy_score": 0.75,
+      "quality_score": 0.875,
+      "judge_reasoning": "The answer accurately reflects the information provided in the source document. It correctly identifies an art/exposition event in Paris for the specified weekend, based on the provided data.",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Art / Exposition",
+        "is_free": true
+      },
+      "actual_filters_in_response": "**Filtres appliqués:** 📍 paris | 📅 7 février | 🎭 Art / Exposition | 🔍 \"Expositions à Paris gratuites seulement\" + \"Gratuites seulement\" + \"Ce week-end\""
+    },
+    {
+      "query_id": "conv_004_t4",
+      "query": "Non, plutôt à Versailles finalement",
+      "query_type": "refinement",
+      "language": "fr",
+      "http_status": 200,
+      "latency_ms": 13570.292949676514,
+      "events_retrieved": 0,
+      "answer": "Voici 0 evenements d'art / exposition gratuits à Versailles en février.\n\n---\n💡 **Affiner votre recherche ?** Vous pouvez préciser :\n- 📆 Une **date** ou **période** (ex: \"ce week-end\", \"en février\")\n- 🎫 **Événements gratuits** (ex: \"gratuit\", \"entrée libre\")\n- 👨‍👩‍👧 **Public cible** (ex: \"pour enfants\", \"en famille\")\n- 🎭 **Type d'événement** (ex: \"concerts\", \"expositions\", \"théâtre\")\n\n---\n**Filtres appliqués:** 📍 Versailles | 📅 7 février | 🎭 Art / Exposition | 🎫 gratuit | 🔍 \"Expositions à Paris\" + \"Gratuites seulement\" + \"Ce week-end\" + \"Non, plutôt à Versailles finalement\"",
+      "sources": [],
+      "error": null,
+      "faithfulness_score": 0.0,
+      "relevancy_score": 0.0,
+      "quality_score": 0.0,
+      "judge_reasoning": "",
+      "expected_filters": {
+        "city": "Versailles",
+        "category": "Art / Exposition",
+        "is_free": true
+      },
+      "actual_filters_in_response": "**Filtres appliqués:** 📍 Versailles | 📅 7 février | 🎭 Art / Exposition | 🎫 gratuit | 🔍 \"Expositions à Paris\" + \"Gratuites seulement\" + \"Ce week-end\" + \"Non, plutôt à Versailles finalement\""
+    },
+    {
+      "query_id": "conv_005_t1",
+      "query": "Classical music concerts in February in Paris",
+      "query_type": "initial",
+      "language": "en",
+      "http_status": 200,
+      "latency_ms": 16715.112686157227,
+      "events_retrieved": 8,
+      "answer": "Here are 8 events matching your search:\n\n\n**1. Tawazûn, Illyes Ferfera Quartet** - Paris\n   📅 Feb 05, 2026 at 19:30 | 🎭 Musique\n   🔗 [More info](https://openagenda.com/jassclub-paris/events/tawazun-illyes-ferfera-quartet)\n\n**2. Plume Quartet** - Paris\n   📅 Feb 26, 2026 at 19:30 | 🎭 Musique\n   🔗 [More info](https://openagenda.com/jassclub-paris/events/plume-quartet)\n\n**3. Montana, Adsuar  Renard Trio** - Paris\n   📅 Feb 25, 2026 at 19:30 | 🎭 Musique\n   🔗 [More info](https://openagenda.com/jassclub-paris/events/montana-adsuar-and-renard-trio)\n\n**4. Jorge Vistel Quartet** - Paris\n   📅 Feb 19, 2026 at 19:30 | 🎭 Musique\n   🔗 [More info](https://openagenda.com/jassclub-paris/events/jorge-vistel-quartet)\n\n**5. LE BALCON : LES LUNDIS MUSICAUX  Les Sept péchés capitaux** - Paris\n   📅 Feb 16, 2026 at 20:00 | 🎭 Musique\n   🔗 [More info](https://openagenda.com/culture/events/les-lundis-musicaux-les-sept-peches-capitaux)\n\n**6. Mario Ponce Enrile Quartet  From This Moment On** - Paris\n   📅 Feb 04, 2026 at 19:30 | 🎭 Musique\n   🔗 [More info](https://openagenda.com/jassclub-paris/events/mario-ponce-enrile-quartet-from-this-moment-on)\n\n**7. LE BALCON : LES LUNDIS MUSICAUX  Reflections** - Paris\n   📅 Feb 23, 2026 at 20:00 | 🎭 Musique\n   🔗 [More info](https://openagenda.com/culture/events/les-lundis-musicaux-reflections)\n\n**8. Ava Alami Quartet feat Hermon Mehari** - Paris\n   📅 Feb 06, 2026 at 19:30 | 🎭 Musique\n   🔗 [More info](https://openagenda.com/jassclub-paris/events/ava-alami-quartet-feat-hermon-mehari)\n\n💡 *Specify a date, event type, or \"free\" to refine your search.*\n\n---\n**Applied filters:** 📍 paris | 📅 February | 🎭 Musique",
+      "sources": [
+        {
+          "title": "Tawazûn, Illyes Ferfera Quartet",
+          "city": "Paris",
+          "date": "2026-02-05T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/tawazun-illyes-ferfera-quartet",
+          "score": 0.021450568121482425,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "3843433_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Plume Quartet",
+          "city": "Paris",
+          "date": "2026-02-26T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/plume-quartet",
+          "score": 0.02039184326269492,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "16661902_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Montana, Adsuar  Renard Trio",
+          "city": "Paris",
+          "date": "2026-02-25T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/montana-adsuar-and-renard-trio",
+          "score": 0.02031171442936149,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "49561051_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Jorge Vistel Quartet",
+          "city": "Paris",
+          "date": "2026-02-19T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/jorge-vistel-quartet",
+          "score": 0.01779500158177792,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "88608974_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "LE BALCON : LES LUNDIS MUSICAUX  Les Sept péchés capitaux",
+          "city": "Paris",
+          "date": "2026-02-16T20:00:00",
+          "url": "https://openagenda.com/culture/events/les-lundis-musicaux-les-sept-peches-capitaux",
+          "score": 0.017540708812260535,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "5142333_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Mario Ponce Enrile Quartet  From This Moment On",
+          "city": "Paris",
+          "date": "2026-02-04T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/mario-ponce-enrile-quartet-from-this-moment-on",
+          "score": 0.01743396226415094,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "38495749_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "LE BALCON : LES LUNDIS MUSICAUX  Reflections",
+          "city": "Paris",
+          "date": "2026-02-23T20:00:00",
+          "url": "https://openagenda.com/culture/events/les-lundis-musicaux-reflections",
+          "score": 0.01685215540793144,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "23586252_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Ava Alami Quartet feat Hermon Mehari",
+          "city": "Paris",
+          "date": "2026-02-06T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/ava-alami-quartet-feat-hermon-mehari",
+          "score": 0.01677018633540373,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "44104225_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        }
+      ],
+      "error": null,
+      "faithfulness_score": 0.62,
+      "relevancy_score": 0.4,
+      "quality_score": 0.51,
+      "judge_reasoning": "The answer lists 8 events, but only 5 are directly supported by the provided sources. Events 6, 7, and 8 are not present in the source documents, making them hallucinations. The dates, times, and cate",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Musique",
+        "month": 2
+      },
+      "actual_filters_in_response": ""
+    },
+    {
+      "query_id": "conv_005_t2",
+      "query": "What's the price for the second one?",
+      "query_type": "follow_up",
+      "language": "en",
+      "http_status": 200,
+      "latency_ms": 15598.227977752686,
+      "events_retrieved": 8,
+      "answer": "Here are 8 events matching your search:\n\n\n**1. Tawazûn, Illyes Ferfera Quartet** - Paris\n   📅 Feb 05, 2026 at 19:30 | 🎭 Musique\n   🔗 [More info](https://openagenda.com/jassclub-paris/events/tawazun-illyes-ferfera-quartet)\n\n**2. Plume Quartet** - Paris\n   📅 Feb 26, 2026 at 19:30 | 🎭 Musique\n   🔗 [More info](https://openagenda.com/jassclub-paris/events/plume-quartet)\n\n**3. Montana, Adsuar  Renard Trio** - Paris\n   📅 Feb 25, 2026 at 19:30 | 🎭 Musique\n   🔗 [More info](https://openagenda.com/jassclub-paris/events/montana-adsuar-and-renard-trio)\n\n**4. Jorge Vistel Quartet** - Paris\n   📅 Feb 19, 2026 at 19:30 | 🎭 Musique\n   🔗 [More info](https://openagenda.com/jassclub-paris/events/jorge-vistel-quartet)\n\n**5. LE BALCON : LES LUNDIS MUSICAUX  Les Sept péchés capitaux** - Paris\n   📅 Feb 16, 2026 at 20:00 | 🎭 Musique\n   🔗 [More info](https://openagenda.com/culture/events/les-lundis-musicaux-les-sept-peches-capitaux)\n\n**6. Mario Ponce Enrile Quartet  From This Moment On** - Paris\n   📅 Feb 04, 2026 at 19:30 | 🎭 Musique\n   🔗 [More info](https://openagenda.com/jassclub-paris/events/mario-ponce-enrile-quartet-from-this-moment-on)\n\n**7. LE BALCON : LES LUNDIS MUSICAUX  Reflections** - Paris\n   📅 Feb 23, 2026 at 20:00 | 🎭 Musique\n   🔗 [More info](https://openagenda.com/culture/events/les-lundis-musicaux-reflections)\n\n**8. Ava Alami Quartet feat Hermon Mehari** - Paris\n   📅 Feb 06, 2026 at 19:30 | 🎭 Musique\n   🔗 [More info](https://openagenda.com/jassclub-paris/events/ava-alami-quartet-feat-hermon-mehari)",
+      "sources": [
+        {
+          "title": "Et le coeur fume encore",
+          "city": "Romainville",
+          "date": "2026-02-19T18:00:00",
+          "url": "https://openagenda.com/culture/events/et-le-coeur-fume-encore-1613004",
+          "score": 0.02459016393442623,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "12016058_0",
+          "category": "Théâtre / Spectacle",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "COURTCIRCUIT  L'homme qui aimait les chiens",
+          "city": "Paris",
+          "date": "2026-02-20T20:00:00",
+          "url": "https://openagenda.com/culture/events/court-circuit-lhomme-qui-aimait-les-chiens-4478146",
+          "score": 0.024129032258064516,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "11089511_0",
+          "category": "Théâtre / Spectacle",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "COURTCIRCUIT  L'homme qui aimait les chiens",
+          "city": "Paris",
+          "date": "2026-02-19T20:00:00",
+          "url": "https://openagenda.com/culture/events/court-circuit-lhomme-qui-aimait-les-chiens",
+          "score": 0.023809523809523808,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "36311655_0",
+          "category": "Théâtre / Spectacle",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "De l'Hêtre à l'Être",
+          "city": "Arcueil",
+          "date": "2026-05-06T14:30:00",
+          "url": "https://openagenda.com/culture/events/de-lhetre-a-letre",
+          "score": 0.0236985236985237,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "95239881_0",
+          "category": "Jeunesse / Famille",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "COURTCIRCUIT  L'homme qui aimait les chiens",
+          "city": "Paris",
+          "date": "2026-02-22T16:00:00",
+          "url": "https://openagenda.com/culture/events/court-circuit-lhomme-qui-aimait-les-chiens-605992",
+          "score": 0.023689516129032258,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "10752121_0",
+          "category": "Théâtre / Spectacle",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "De l'Hêtre à l'Être",
+          "city": "Arcueil",
+          "date": "2026-05-07T10:00:00",
+          "url": "https://openagenda.com/culture/events/de-lhetre-a-letre",
+          "score": 0.0233999494055148,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "95239881_1",
+          "category": "Jeunesse / Famille",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Séminaire des enseignants,  IA et pédagogie  : Former les formateurs aux enjeux de l'IA",
+          "city": "Orsay",
+          "date": "2026-02-18T09:00:00",
+          "url": "https://openagenda.com/pops/events/seminaire-des-enseignantes-lia-dans-le-metier-denseignant",
+          "score": 0.023234683281412254,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "52218974_0",
+          "category": "Formation / Emploi",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "PARC ASTERIX : Recrutement hôtellerie et restauration  conseiller de vente  agent d'accueil et d'animation",
+          "city": "Sevran",
+          "date": "2026-02-19T13:50:00",
+          "url": "https://openagenda.com/semaine-des-metiers-du-tourisme-2026/events/parc-asterix-recrutement-hotellerie-et-restauration-conseiller-de-vente-agent-daccueil-et-danimation",
+          "score": 0.021846846846846846,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "50813936_0",
+          "category": "Formation / Emploi",
+          "match_type": "Exact Match"
+        }
+      ],
+      "error": null,
+      "faithfulness_score": 0.0,
+      "relevancy_score": 0.1,
+      "quality_score": 0.05,
+      "judge_reasoning": "The answer provides a list of events that are not present in the source documents. The events, dates, times, and URLs are all hallucinations.",
+      "expected_filters": {},
+      "actual_filters_in_response": ""
+    },
+    {
+      "query_id": "conv_005_t3",
+      "query": "Is the first one more expensive?",
+      "query_type": "follow_up",
+      "language": "en",
+      "http_status": 200,
+      "latency_ms": 15174.030065536499,
+      "events_retrieved": 8,
+      "answer": "Here are 8 events matching your search:\n\n\n**1. One titre provisoire pour planète provisoire** - Ermont\n   📅 Feb 12, 2026 at 09:15 | 🎭 Théâtre / Spectacle\n   🔗 [More info](https://openagenda.com/culture/events/one-titre-provisoire-pour-planete-provisoire-4431474)\n\n**2. Venise** - Montreuil\n   📅 Mar 08, 2026 at 17:00 | 🎭 Théâtre / Spectacle\n   🔗 [More info](https://openagenda.com/accueil-agenda-spectacle-vivant-drac-na/events/venise-6358502)\n\n**3. Venise** - Montreuil\n   📅 Mar 07, 2026 at 20:00 | 🎭 Théâtre / Spectacle\n   🔗 [More info](https://openagenda.com/accueil-agenda-spectacle-vivant-drac-na/events/venise-3464798)\n\n**4. Zoot Sundays! Sessions Jazz du dimanche** - Paris\n   📅 Feb 15, 2026 at 19:30 | 🎭 Musique\n   🔗 [More info](https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-6273056)\n\n**5. Zoot Sundays! Sessions Jazz du dimanche** - Paris\n   📅 Feb 01, 2026 at 19:30 | 🎭 Musique\n   🔗 [More info](https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-14832)\n\n**6. HAMLET  Shakespeare Mise en scène : Ivo Van Hove** - Paris\n   📅 Feb 05, 2026 at 20:00 | 🎭 Théâtre / Spectacle\n   🔗 [More info](https://openagenda.com/panthea/events/hamlet-or-shakespeare-directed-by-christiane-jatahy)\n\n**7. HAMLET  Shakespeare Mise en scène : Ivo Van Hove** - Paris\n   📅 Jan 29, 2026 at 20:00 | 🎭 Théâtre / Spectacle\n   🔗 [More info](https://openagenda.com/panthea/events/hamlet-or-shakespeare-directed-by-christiane-jatahy)\n\n**8. Zoot Sundays! Sessions Jazz du dimanche** - Paris\n   📅 Feb 08, 2026 at 19:30 | 🎭 Musique\n   🔗 [More info](https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-5604458)",
+      "sources": [
+        {
+          "title": "One titre provisoire pour planète provisoire",
+          "city": "Ermont",
+          "date": "2026-02-12T09:15:00",
+          "url": "https://openagenda.com/culture/events/one-titre-provisoire-pour-planete-provisoire-4431474",
+          "score": 0.02674825174825175,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "96952201_0",
+          "category": "Théâtre / Spectacle",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Venise",
+          "city": "Montreuil",
+          "date": "2026-03-08T17:00:00",
+          "url": "https://openagenda.com/accueil-agenda-spectacle-vivant-drac-na/events/venise-6358502",
+          "score": 0.018774772268965997,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "70170993_0",
+          "category": "Théâtre / Spectacle",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Venise",
+          "city": "Montreuil",
+          "date": "2026-03-07T20:00:00",
+          "url": "https://openagenda.com/accueil-agenda-spectacle-vivant-drac-na/events/venise-3464798",
+          "score": 0.017857142857142856,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "66932929_0",
+          "category": "Théâtre / Spectacle",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-02-15T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-6273056",
+          "score": 0.017353135521223372,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "5186457_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-02-01T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-14832",
+          "score": 0.01713204128514576,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "25919196_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "HAMLET  Shakespeare Mise en scène : Ivo Van Hove",
+          "city": "Paris",
+          "date": "2026-02-05T20:00:00",
+          "url": "https://openagenda.com/panthea/events/hamlet-or-shakespeare-directed-by-christiane-jatahy",
+          "score": 0.016944444444444446,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "85976355_11",
+          "category": "Théâtre / Spectacle",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "HAMLET  Shakespeare Mise en scène : Ivo Van Hove",
+          "city": "Paris",
+          "date": "2026-01-29T20:00:00",
+          "url": "https://openagenda.com/panthea/events/hamlet-or-shakespeare-directed-by-christiane-jatahy",
+          "score": 0.016885553470919325,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "85976355_6",
+          "category": "Théâtre / Spectacle",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-02-08T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-5604458",
+          "score": 0.016837336027307095,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "17915072_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        }
+      ],
+      "error": null,
+      "faithfulness_score": 0.0,
+      "relevancy_score": 0.1,
+      "quality_score": 0.05,
+      "judge_reasoning": "The query asks if the first event is more expensive. The provided sources do not contain any information about the prices of the events. Therefore, the answer cannot be supported by the sources.",
+      "expected_filters": {},
+      "actual_filters_in_response": ""
+    }
+  ]
+}

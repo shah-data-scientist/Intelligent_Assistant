@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-02-01T17:47:28.533814",
+  "dataset_version": "3.3",
+  "total_queries": 1,
+  "summary": {
+    "successful_queries": 0,
+    "failed_queries": 1,
+    "success_rate": 0.0,
+    "event_queries_evaluated": 0,
+    "excluded_from_quality": 0,
+    "avg_quality_score": 0,
+    "avg_faithfulness": 0,
+    "avg_relevancy": 0,
+    "avg_latency_ms": 0,
+    "p95_latency_ms": 0,
+    "quality_pass_rate": 0
+  },
+  "by_query_type": {
+    "initial": {
+      "count": 1,
+      "quality_sum": 0.0,
+      "success": 0,
+      "fail": 1,
+      "avg_quality": 0.0
+    }
+  },
+  "issues": {
+    "low_quality_queries": [],
+    "no_events_queries": [],
+    "high_latency_queries": [
+      {
+        "id": "conv_001_t1",
+        "latency_ms": 122039.95084762573
+      }
+    ],
+    "failed_queries": [
+      {
+        "id": "conv_001_t1",
+        "error": "HTTPConnectionPool(host='localhost', port=8001): Read timed out. (read timeout=120)"
+      }
+    ]
+  },
+  "detailed_results": [
+    {
+      "query_id": "conv_001_t1",
+      "query": "Concerts de jazz à Paris",
+      "query_type": "initial",
+      "language": "fr",
+      "http_status": 0,
+      "latency_ms": 122039.95084762573,
+      "events_retrieved": 0,
+      "answer": "",
+      "sources": [],
+      "error": "HTTPConnectionPool(host='localhost', port=8001): Read timed out. (read timeout=120)",
+      "faithfulness_score": 0.0,
+      "relevancy_score": 0.0,
+      "quality_score": 0.0,
+      "judge_reasoning": "",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Musique"
+      },
+      "actual_filters_in_response": ""
+    }
+  ]
+}
