@@ -30,9 +30,8 @@ class PIIDetector:
     SSN_PATTERN = r"\b\d{1}\s?\d{2}\s?\d{2}\s?\d{2}\s?\d{3}\s?\d{3}\b"  # French SSN (Numéro de sécurité sociale)
 
     ADDRESS_PATTERN = r"\b\d{1,5}\s+(rue|avenue|boulevard|place|allée|impasse|chemin|voie|cours|quai|square|passage)\s+[A-Za-zÀ-ÿ\s\'-]{3,50}"  # French addresses
-    DOB_PATTERN = (
-        r"\b(?:\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{4}[/-]\d{1,2}[/-]\d{1,2})\b"  # Date of birth (DD/MM/YYYY or YYYY-MM-DD)
-    )
+    # DOB_PATTERN DISABLED - causes false positives with event dates (core functionality)
+    # DOB_PATTERN = r"\b(?:\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{4}[/-]\d{1,2}[/-]\d{1,2})\b"
     IP_PATTERN = r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b"  # IPv4 addresses
     # Name pattern (DISABLED by default to avoid false positives with event organizers)
 
@@ -48,7 +47,7 @@ class PIIDetector:
             "CREDIT_CARD": re.compile(self.CREDIT_CARD_PATTERN),
             "SSN": re.compile(self.SSN_PATTERN),
             "ADDRESS": re.compile(self.ADDRESS_PATTERN, re.IGNORECASE),
-            "DOB": re.compile(self.DOB_PATTERN),
+            # DOB pattern removed - event dates are core functionality, not PII
             "IP_ADDRESS": re.compile(self.IP_PATTERN),
         }
 
