@@ -98,17 +98,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Critical error loading RAG Chain: {e}")
 
-    # Start background sync task
-    sync_task = asyncio.create_task(background_data_sync(app))
-
     yield
 
     logger.info("Shutting down...")
-    sync_task.cancel()
-    try:
-        await sync_task
-    except asyncio.CancelledError:
-        pass
     app.state.rag_chain = None
 
 

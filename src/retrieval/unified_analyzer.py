@@ -16,7 +16,7 @@ IMPORTS (What this file needs):
 - tenacity: Retry logic for rate limit handling (Google Gemini API)
 - src.config: LLM settings and configuration
 
-LAST MAJOR UPDATE: 2026-01-28 (Enhanced multi-dimensional classification with typo correction)
+LAST MAJOR UPDATE: 2026-02-02 (Added week-based date extraction examples to LLM prompt)
 MAINTAINER: Core Backend Team
 
 MULTI-DIMENSIONAL APPROACH:
@@ -482,7 +482,11 @@ Statistical queries always complete.
 
 **ENTITY EXTRACTION:**
 - City: Normalize to known cities
-- Dates: Calculate from TODAY (this weekend = [{this_saturday.day}, {this_sunday.day}])
+- Dates: ALWAYS extract month number, even with week/period qualifiers:
+  - "this weekend" → day=[{this_saturday.day}, {this_sunday.day}]
+  - "second week of April" → month=4
+  - "fin mars" / "end of March" → month=3
+  - "mid-February" / "mi-février" → month=2
 - Audience: kids, professional, family
 - Free: Detect "gratuit/free"
 

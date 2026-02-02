@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Date Parsing for Week Queries**: Added examples to LLM prompt for week-based date extraction
+  - [src/retrieval/unified_analyzer.py](src/retrieval/unified_analyzer.py) - "second week of April" now extracts month=4
+  - Supports patterns: "mid-February", "fin mars", "second week of X"
+- **Malformed Events Cleanup**: Deleted 8 events with corrupted titles from database
+  - Event IDs 45903430_0 through 45903430_7 had empty title `" "`
+  - Rebuilt FAISS index (1052 vectors)
+
+### Changed
+- **Background Sync Disabled**: Disabled automatic 12-hour background data sync
+  - [src/api/main.py](src/api/main.py) - Sync task commented out, run manually when needed
+
+### Fixed
 - **Audit Fixes in unified_analyzer.py**: Addressed logic issues found during deep audit
   - [src/retrieval/unified_analyzer.py](src/retrieval/unified_analyzer.py) - Issue #1: Sync city filter when validation fails (`filters.pop("city", None)`)
   - [src/retrieval/unified_analyzer.py](src/retrieval/unified_analyzer.py) - Issue #3: Extract language heuristic to `apply_language_heuristic()` helper
