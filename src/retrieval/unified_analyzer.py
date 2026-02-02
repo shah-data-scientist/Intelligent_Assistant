@@ -168,10 +168,24 @@ def map_category_to_db(category: str | None) -> str | None:
     Supports:
     - Exact match: "concert" → "Musique"
     - Word-in-phrase match: "concerts de jazz" → "Musique" (via "concert" or "jazz")
+    - Validation: Returns None for invalid categories like "event"
     """
     if not category:
         return None
     category_lower = category.lower().strip()
+
+    # Valid DB categories (the output values we accept)
+    VALID_DB_CATEGORIES = {
+        "Musique",
+        "Théâtre / Spectacle",
+        "Art / Exposition",
+        "Conférence / Débat",
+        "Atelier / Workshop",
+        "Sport / Loisirs",
+        "Jeunesse / Famille",
+        "Festival",
+        "Patrimoine",
+    }
 
     # First try exact match
     mapped = CATEGORY_MAPPING.get(category_lower)
@@ -187,8 +201,16 @@ def map_category_to_db(category: str | None) -> str | None:
             logger.info(f"[CATEGORY MAP] '{category}' → '{db_category}' (word match: '{key}')")
             return db_category
 
-    # If not in mapping, return as-is (might already be a DB category)
-    return category
+    # Third, check if it's already a valid DB category (case-insensitive)
+    for valid_cat in VALID_DB_CATEGORIES:
+        if category_lower == valid_cat.lower():
+            logger.info(f"[CATEGORY MAP] '{category}' is already a valid DB category")
+            return valid_cat
+
+    # Invalid category - return None to avoid filtering by garbage value
+    # This prevents "event" from being used as a filter
+    logger.warning(f"[CATEGORY MAP] '{category}' is not a valid category, ignoring")
+    return None
 
 
 def validate_and_correct_weekend(day_value: Any, month: int, year: int, timeframe_raw: str) -> Any:
