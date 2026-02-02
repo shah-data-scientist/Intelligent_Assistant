@@ -94,36 +94,30 @@ if "session_id" not in st.session_state:
 if "feedback_submitted" not in st.session_state:
     st.session_state.feedback_submitted = set()
 
-# Sidebar
-with st.sidebar:
-    st.title(f"🎭 {CHATBOT_NAME}")
-    st.caption("*Your cultural events companion*")
-    st.divider()
+if "language" not in st.session_state:
+    st.session_state.language = "en"
 
-    st.subheader("⚙️ Settings")
-    st.info(f"Session: `{st.session_state.session_id[:8]}...`")
+# Main UI - No sidebar, clean interface
+st.title(f"{CHATBOT_EMOJI} {CHATBOT_NAME} — Your Cultural Guide")
 
-    if st.button("🔄 Start Fresh"):
+# Header row with language selection and Start Fresh button
+col1, col2, col3, col4 = st.columns([0.15, 0.15, 0.5, 0.2])
+with col1:
+    if st.button("🇬🇧 English", use_container_width=True, type="secondary" if st.session_state.language == "en" else "primary"):
+        st.session_state.language = "en"
+        st.rerun()
+with col2:
+    if st.button("🇫🇷 Français", use_container_width=True, type="secondary" if st.session_state.language == "fr" else "primary"):
+        st.session_state.language = "fr"
+        st.rerun()
+with col4:
+    if st.button("🔄 Start Fresh", use_container_width=True):
         st.session_state.messages = [{"role": "assistant", "content": "__WELCOME__", "is_welcome": True}]
         st.session_state.session_id = str(uuid.uuid4())
         st.session_state.feedback_submitted = set()
         st.rerun()
 
-    st.divider()
-    st.subheader("💡 Quick Tips")
-    st.markdown(
-        """
-    - Be specific: *"jazz in Paris this weekend"*
-    - Ask in French or English
-    - Ask follow-ups: *"tell me more about the first one"*
-    """
-    )
-
-    st.divider()
-    st.caption(f"v1.0.0 — {settings.chatbot_name} by OpenClassrooms")
-
-# Main UI
-st.title(f"{CHATBOT_EMOJI} Meet {CHATBOT_NAME} — Your Cultural Guide")
+st.caption(f"Session: `{st.session_state.session_id[:8]}...` • v1.0.0")
 
 
 # Function to submit feedback to API
