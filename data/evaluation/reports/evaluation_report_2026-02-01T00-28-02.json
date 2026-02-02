@@ -1,0 +1,258 @@
+{
+  "timestamp": "2026-02-01T00:28:02.079547",
+  "dataset_version": "3.3",
+  "total_queries": 5,
+  "faiss_index_events": null,
+  "llm_model": null,
+  "embedding_model": null,
+  "retrieval_metrics": {
+    "total_queries": 5,
+    "successful_queries": 5,
+    "queries_with_ground_truth": 0,
+    "avg_latency_ms": 5318.8788414001465,
+    "overall_hit_rate": null,
+    "overall_mrr": null,
+    "overall_precision@5": null,
+    "overall_recall@5": null,
+    "overall_f1@5": null
+  },
+  "generation_metrics": {
+    "total_queries": 5,
+    "successful_queries": 5,
+    "avg_latency_ms": 35122.44453430176,
+    "avg_faithfulness": 0.27999999999999997,
+    "avg_relevancy": 0.37,
+    "avg_quality_score": 0.325,
+    "language_consistency_rate": 1.0
+  },
+  "latency_analysis": {
+    "avg_latency_ms": 35122.44453430176,
+    "min_latency_ms": 12187.333345413208,
+    "max_latency_ms": 105875.6365776062,
+    "p50_latency_ms": 17279.96277809143,
+    "p95_latency_ms": 105875.6365776062,
+    "p99_latency_ms": 105875.6365776062,
+    "sla_compliance_rate": 0.0
+  },
+  "overall_status": {
+    "quality_score": 0.325,
+    "quality_sla": 0.8,
+    "quality_pass": false,
+    "avg_latency_ms": 35122.44453430176,
+    "latency_sla_ms": 2000.0,
+    "latency_pass": false,
+    "overall_pass": false
+  },
+  "per_query_results": [
+    {
+      "query_id": "conv_001_t1",
+      "query": "Concerts de jazz à Paris",
+      "query_type": "initial",
+      "retrieved_count": 5,
+      "relevant_count": 0,
+      "latency_ms": 105875.6365776062,
+      "exact_matches": 24,
+      "total_in_database": 72,
+      "hit_rate": null,
+      "mrr": null,
+      "precision@5": null,
+      "recall@5": null,
+      "f1@5": null,
+      "answer": "**Limite de requetes atteinte**\n\nLe service IA est temporairement sature. Veuillez patienter 30 secondes avant de reessayer.",
+      "num_sources": 0,
+      "faithfulness_score": 0.0,
+      "relevancy_score": 0.0,
+      "language_consistent": true,
+      "quality_score": 0.0,
+      "keywords_present": false,
+      "expected_language_match": true,
+      "faithfulness_details": {
+        "score": 0.0,
+        "reasoning": "The answer states that the request limit has been reached and the AI service is temporarily saturated. This is not factual information derived from the provided sources, as there are no sources provided.",
+        "violations": []
+      },
+      "relevancy_details": {
+        "score": 0.0,
+        "reasoning": "The answer indicates that the AI service is temporarily unavailable due to reaching the request limit. It does not provide any information about jazz concerts in Paris, thus failing to address the user's query.",
+        "strengths": [],
+        "weaknesses": [
+          "Does not answer the question",
+          "Provides no useful information",
+          "Service unavailable"
+        ]
+      }
+    },
+    {
+      "query_id": "conv_001_t2",
+      "query": "En février plutôt",
+      "query_type": "refinement",
+      "retrieved_count": 5,
+      "relevant_count": 0,
+      "latency_ms": 14415.559530258179,
+      "exact_matches": 24,
+      "total_in_database": 26,
+      "hit_rate": null,
+      "mrr": null,
+      "precision@5": null,
+      "recall@5": null,
+      "f1@5": null,
+      "answer": "Voici 8 concerts de jazz à Paris en février. J'ai aussi trouvé 5 événements similaires sur des dates alternatives proches.\n\n1.  **Zoot Sundays! Sessions Jazz du dimanche**\n    *   **Date:** 2026-02-01\n    *   **Lieu:** JASS CLUB PARIS, 141 Rue de Tolbiac, Paris\n    *   **Horaires:** 19:30, 21:30\n    *   **Description:** Tous les dimanches, le club vibre aux couleurs du Zoot Collectif ! Ce dimanche : Noé Codjia Quartet\n    *   **Prix:** Tarif Réduit : 15€ | Tarif Plein : 19€\n    *   **URL:** [https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-14832](https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-14832)\n    *   **Match:** Exact Match\n\nY a-t-il autre chose que vous aimeriez savoir ?\n\n💡 *Précisez une date, un type d'événement, ou \"gratuit\" pour affiner.*\n\n---\n**Filtres appliqués:** 📍 paris | 📅 février | 🎭 Musique | 🔍 \"Concerts de jazz à Paris\" + \"En février plutôt\"",
+      "num_sources": 8,
+      "faithfulness_score": 0.7,
+      "relevancy_score": 0.8,
+      "language_consistent": true,
+      "quality_score": 0.75,
+      "keywords_present": true,
+      "expected_language_match": true,
+      "faithfulness_details": {
+        "score": 0.7,
+        "reasoning": "The answer provides information about a jazz concert in Paris in February, which is supported by the sources. However, it includes details not explicitly found in the provided sources, such as the address (141 Rue de Tolbiac), specific times (21:30), description of the event (Tous les dimanches, le club vibre aux couleurs du Zoot Collectif ! Ce dimanche : Noé Codjia Quartet), and prices (Tarif Réduit : 15€ | Tarif Plein : 19€). While the URL is correct, the additional details are not directly stated in the provided sources, making them unsupported claims.",
+        "violations": [
+          "Address: 141 Rue de Tolbiac",
+          "Times: 21:30",
+          "Description: Tous les dimanches, le club vibre aux couleurs du Zoot Collectif ! Ce dimanche : Noé Codjia Quartet",
+          "Prices: Tarif Réduit : 15€ | Tarif Plein : 19€"
+        ]
+      },
+      "relevancy_details": {
+        "score": 0.8,
+        "reasoning": "The answer directly addresses the user's query by providing a jazz concert in Paris during February. It includes the date, location, time, description, price, and a URL for more information, making it highly actionable and relevant. The prompt also indicates that it found 5 similar events, which is a proactive approach to helping the user.",
+        "strengths": [
+          "Directly answers the query.",
+          "Provides actionable information (date, location, time, price, URL).",
+          "Proactive in finding similar events.",
+          "Well-structured and easy to understand."
+        ],
+        "weaknesses": []
+      }
+    },
+    {
+      "query_id": "conv_001_t3",
+      "query": "Parle-moi du premier",
+      "query_type": "follow_up",
+      "retrieved_count": 5,
+      "relevant_count": 0,
+      "latency_ms": 12187.333345413208,
+      "exact_matches": 24,
+      "total_in_database": 500,
+      "hit_rate": null,
+      "mrr": null,
+      "precision@5": null,
+      "recall@5": null,
+      "f1@5": null,
+      "answer": "Voici 8 événements à Paris et Versailles en février.\n\nLe premier événement est **Mario Ponce Enrile Quartet From This Moment On** :\n\n*   **Date:** 2026-02-04\n*   **Lieu:** JASS CLUB PARIS, 141 Rue de Tolbiac, Paris\n*   **Horaires:** 19:30, 21:30\n*   **Description:** Issu d’une famille de musiciens, Mario Ponce-Enrile débute le chant au sein de la chorale de l’Ateneo de Manila, aux Philippines, avant de poursuivre sa formation en Italie, puis à Paris.\n*   **Prix:** Tarif Réduit : 15€ | Tarif Plein : 19€\n*   **URL:** [https://openagenda.com/jassclub-paris/events/mario-ponce-enrile-quartet-from-this-moment-on](https://openagenda.com/jassclub-paris/events/mario-ponce-enrile-quartet-from-this-moment-on)\n*   **Type:** Exact Match\n\nY a-t-il autre chose que vous aimeriez savoir ?",
+      "num_sources": 8,
+      "faithfulness_score": 0.7,
+      "relevancy_score": 0.1,
+      "language_consistent": true,
+      "quality_score": 0.39999999999999997,
+      "keywords_present": true,
+      "expected_language_match": true,
+      "faithfulness_details": {
+        "score": 0.7,
+        "reasoning": "The answer correctly identifies an event from the source documents and provides details such as date, location, and URL. However, it includes additional details not found in the provided source, such as the full address of the JASS CLUB PARIS, the specific times (19:30, 21:30), a description of Mario Ponce-Enrile, and the price information. These details are not present in Source 4, which is the only source mentioning this event.",
+        "violations": [
+          "Full address of JASS CLUB PARIS not in source",
+          "Specific times (19:30, 21:30) not in source",
+          "Description of Mario Ponce-Enrile not in source",
+          "Price information not in source"
+        ]
+      },
+      "relevancy_details": {
+        "score": 0.1,
+        "reasoning": "The answer provides a list of events in Paris and Versailles in February, but it doesn't relate to the user's query, which is \"Parle-moi du premier\". The answer doesn't understand the user's intent.",
+        "strengths": [],
+        "weaknesses": [
+          "Doesn't answer the question asked at all",
+          "Completely misses key query requirements"
+        ]
+      }
+    },
+    {
+      "query_id": "conv_002_t1",
+      "query": "Jazz concerts in Paris this weekend",
+      "query_type": "initial",
+      "retrieved_count": 5,
+      "relevant_count": 0,
+      "latency_ms": 17279.96277809143,
+      "exact_matches": 24,
+      "total_in_database": 72,
+      "hit_rate": null,
+      "mrr": null,
+      "precision@5": null,
+      "recall@5": null,
+      "f1@5": null,
+      "answer": "I found 2 music events near Asnières-sur-Seine in February that might interest you!\n\n💡 *Specify a date, event type, or \"free\" to refine your search.*\n\n💡 *Few results? Try broadening your search: change the date, city, or simplify your criteria.*\n\n---\n**Applied filters:** 📍 asnières-sur-seine | 📅 7 February | 🎭 Musique",
+      "num_sources": 2,
+      "faithfulness_score": 0.0,
+      "relevancy_score": 0.2,
+      "language_consistent": true,
+      "quality_score": 0.1,
+      "keywords_present": false,
+      "expected_language_match": true,
+      "faithfulness_details": {
+        "score": 0.0,
+        "reasoning": "The answer claims to have found music events near Asnières-sur-Seine, but the provided sources mention events in Paris and Versailles. The applied filters also include Asnières-sur-Seine, which is not mentioned in the sources. The answer also claims the events are on February 7th, which is correct, but the location is incorrect.",
+        "violations": [
+          "Location: Asnières-sur-Seine",
+          "Event type: Music"
+        ]
+      },
+      "relevancy_details": {
+        "score": 0.2,
+        "reasoning": "The answer fails to provide jazz concerts in Paris. It provides music events near Asnières-sur-Seine, which is not Paris. It also uses a specific date (7 February) without acknowledging the 'this weekend' part of the query. The suggestions to refine the search are generic and not helpful in this context.",
+        "strengths": [],
+        "weaknesses": [
+          "Wrong location",
+          "Wrong date",
+          "Doesn't address the core query",
+          "Generic suggestions"
+        ]
+      }
+    },
+    {
+      "query_id": "conv_002_t2",
+      "query": "Actually, what about theater shows in Versailles?",
+      "query_type": "topic_shift",
+      "retrieved_count": 5,
+      "relevant_count": 0,
+      "latency_ms": 25853.73044013977,
+      "exact_matches": 6,
+      "total_in_database": 6,
+      "hit_rate": null,
+      "mrr": null,
+      "precision@5": null,
+      "recall@5": null,
+      "f1@5": null,
+      "answer": "Here are 0 theater shows in Versailles and 5 in nearby towns for February 2026:\n\n💡 *Specify a date, event type, or \"free\" to refine your search.*\n\n💡 *Few results? Try broadening your search: change the date, city, or simplify your criteria.*\n\n---\n**Applied filters:** 📍 beynes | 📅 7 February | 🎭 Théâtre / Spectacle | 🔍 \"Jazz concerts in Paris this weekend\" + \"theater shows in Versailles\"",
+      "num_sources": 5,
+      "faithfulness_score": 0.0,
+      "relevancy_score": 0.75,
+      "language_consistent": true,
+      "quality_score": 0.375,
+      "keywords_present": true,
+      "expected_language_match": true,
+      "faithfulness_details": {
+        "score": 0.0,
+        "reasoning": "The answer claims there are 0 theater shows in Versailles and 5 in nearby towns. However, all the provided sources list events in Paris, not Versailles or nearby towns. This is a complete fabrication.",
+        "violations": [
+          "Claiming 0 theater shows in Versailles",
+          "Claiming 5 theater shows in nearby towns",
+          "Listing events in Paris as being in Versailles or nearby towns"
+        ]
+      },
+      "relevancy_details": {
+        "score": 0.75,
+        "reasoning": "The answer provides the number of theater shows in Versailles and nearby towns for a specific month. It also gives suggestions on how to refine the search and broaden the search criteria, which is helpful. It also shows the applied filters, which helps the user understand the context of the search.",
+        "strengths": [
+          "Provides specific information about the number of shows.",
+          "Offers suggestions to refine or broaden the search.",
+          "Shows applied filters for context."
+        ],
+        "weaknesses": [
+          "Doesn't list the specific theater shows in nearby towns, only the number."
+        ]
+      }
+    }
+  ]
+}
