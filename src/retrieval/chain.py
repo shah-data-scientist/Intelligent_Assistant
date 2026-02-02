@@ -35,8 +35,7 @@ MAINTAINER: Core Backend Team
 import logging
 import re
 import threading
-from typing import Any, Dict, List, Optional, Tuple
-from datetime import date, timedelta
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from langchain_core.output_parsers.base import BaseOutputParser
@@ -49,21 +48,24 @@ from src.generation.prompts import get_rag_prompt
 from src.retrieval.cache import QueryCache
 from src.retrieval.manager import RetrievalManager
 from src.data.chat_history import SQLiteChatMessageHistory
-from src.data.storage import EventStorage
 from src.data.chat_storage import ChatStorage
 from src.security.guardrails import check_safety
 from src.utils.geo import CityLocator
-from src.retrieval.unified_analyzer import unified_analyze, QueryIntent as UnifiedIntent, UnifiedAnalysisResult, QueryDimension, map_category_to_db
+from src.retrieval.unified_analyzer import (
+    unified_analyze,
+    QueryIntent as UnifiedIntent,
+    UnifiedAnalysisResult,
+    map_category_to_db,
+)
 from src.retrieval.response_builder import (
     ResponseBuilder,
-    build_filter_echo,
     build_statistical_response,
     build_refinement_suffix,
     apply_default_timeframe,
     should_apply_default_timeframe,
-    BROADENING_SUGGESTION,
     format_events_as_text,
-    is_summary_only_response
+    is_summary_only_response,
+    build_filter_description,
 )
 from src.config import settings
 
@@ -72,6 +74,7 @@ from src.config import settings
 # ========================================
 # Handles JSON parsing failures by extracting text content from the LLM response.
 # This is critical for HuggingFace models that may return truncated JSON.
+
 
 class RobustJsonParser(BaseOutputParser):
     """JSON parser with fallback to text extraction when JSON parsing fails.
@@ -85,7 +88,7 @@ class RobustJsonParser(BaseOutputParser):
         # First, try standard JSON parsing
         try:
             # Try to find JSON in the text (may be wrapped in markdown code blocks)
-            json_match = re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)
+            json_match = re.search(r"```json\s*(.*?)\s*```", text, re.DOTALL)
             if json_match:
                 return json.loads(json_match.group(1))
 
@@ -95,20 +98,20 @@ class RobustJsonParser(BaseOutputParser):
             pass
 
         # JSON parsing failed - extract text content as fallback
-        logger.warning(f"[ROBUST-PARSER] JSON parsing failed, extracting text fallback")
+        logger.warning("[ROBUST-PARSER] JSON parsing failed, extracting text fallback")
 
         # Try to extract answer_text from partial JSON
         answer_match = re.search(r'"answer_text"\s*:\s*"(.*?)(?:"|$)', text, re.DOTALL)
         if answer_match:
             answer_text = answer_match.group(1)
             # Unescape common JSON escapes
-            answer_text = answer_text.replace('\\n', '\n').replace('\\"', '"')
+            answer_text = answer_text.replace("\\n", "\n").replace('\\"', '"')
             logger.info(f"[ROBUST-PARSER] Extracted answer_text from partial JSON ({len(answer_text)} chars)")
             return {"answer_text": answer_text, "events": []}
 
         # Try to extract readable text before any JSON
         # HuggingFace models often produce: "Here are the events:\n1. Event A\n2. Event B\n\n{json...}"
-        json_start = text.find('{')
+        json_start = text.find("{")
         if json_start > 50:  # Significant text before JSON
             readable_text = text[:json_start].strip()
             if readable_text:
@@ -117,8 +120,8 @@ class RobustJsonParser(BaseOutputParser):
 
         # Last resort: use the entire text as the answer (cleaned up)
         # Remove any partial JSON fragments
-        clean_text = re.sub(r'\{[^}]*$', '', text)  # Remove trailing incomplete JSON
-        clean_text = re.sub(r'```json.*', '', clean_text, flags=re.DOTALL)  # Remove code blocks
+        clean_text = re.sub(r"\{[^}]*$", "", text)  # Remove trailing incomplete JSON
+        clean_text = re.sub(r"```json.*", "", clean_text, flags=re.DOTALL)  # Remove code blocks
         clean_text = clean_text.strip()
 
         if clean_text:
@@ -143,12 +146,14 @@ USE_UNIFIED_ANALYZER = True
 # Global city locator for scope validation
 _city_locator = None
 
+
 def get_city_locator() -> CityLocator:
     """Get or create the global CityLocator instance."""
     global _city_locator
     if _city_locator is None:
         _city_locator = CityLocator()
     return _city_locator
+
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +162,7 @@ logger = logging.getLogger(__name__)
 # STRUCTURED EVENT SANITIZATION
 # ========================================
 # Ensures LLM-generated events have all required fields to prevent validation errors
+
 
 def sanitize_structured_events(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Sanitize structured events to ensure all required fields are present.
@@ -214,6 +220,7 @@ def sanitize_structured_events(events: List[Dict[str, Any]]) -> List[Dict[str, A
 # ========================================
 # Fire-and-forget database writes to reduce response latency
 
+
 def _background_db_write(func, *args, **kwargs):
     """Execute a database write in a background thread (fire-and-forget).
 
@@ -225,6 +232,7 @@ def _background_db_write(func, *args, **kwargs):
         *args: Positional arguments for the function
         **kwargs: Keyword arguments for the function
     """
+
     def _worker():
         try:
             func(*args, **kwargs)
@@ -233,6 +241,7 @@ def _background_db_write(func, *args, **kwargs):
 
     thread = threading.Thread(target=_worker, daemon=True)
     thread.start()
+
 
 # ========================================
 # SPECIAL QUERY HANDLERS
@@ -255,7 +264,6 @@ Je peux vous aider a decouvrir des evenements culturels : concerts, expositions,
 - "Evenements pour enfants a Versailles"
 
 Qu'est-ce qui vous ferait plaisir aujourd'hui ?""",
-
     "en": f"""Hello! I'm **{settings.chatbot_name}**, {settings.chatbot_tagline_en}.
 
 I can help you discover cultural events: concerts, exhibitions, theater, festivals and more!
@@ -265,7 +273,7 @@ I can help you discover cultural events: concerts, exhibitions, theater, festiva
 - "Free exhibitions in February"
 - "Family events in Versailles"
 
-What would you like to explore today?"""
+What would you like to explore today?""",
 }
 
 # Chitchat responses - friendly replies to casual conversation (bilingual)
@@ -280,7 +288,6 @@ Y a-t-il un evenement que vous aimeriez decouvrir aujourd'hui ? Par exemple :
 - Des evenements pour enfants
 
 Je suis la pour vous aider !""",
-
     "en": f"""I'm doing well, thanks for asking!
 
 I'm **{settings.chatbot_name}**, your guide to cultural events in Ile-de-France.
@@ -290,7 +297,7 @@ Is there an event you'd like to discover today? For example:
 - Exhibitions or museums
 - Family events
 
-I'm here to help!"""
+I'm here to help!""",
 }
 
 # Capability responses (bilingual) - Uses centralized config for chatbot name
@@ -314,7 +321,6 @@ CAPABILITY_RESPONSES = {
 - "Evenements pour enfants a Versailles"
 
 Comment puis-je vous aider ?""",
-
     "en": f"""I'm **{settings.chatbot_name}**, {settings.chatbot_tagline_en}!
 
 **What I can do:**
@@ -333,7 +339,7 @@ Comment puis-je vous aider ?""",
 - "Free exhibitions this weekend"
 - "Family events in Versailles"
 
-How can I help you?"""
+How can I help you?""",
 }
 
 # Off-topic responses (bilingual)
@@ -347,7 +353,6 @@ Je ne peux pas vous aider avec cette demande, mais je serais ravie de vous aider
 - Des evenements pour enfants ou en famille
 
 Y a-t-il un evenement culturel que vous aimeriez decouvrir ?""",
-
     "en": """I'm sorry, but I specialize in cultural events in Ile-de-France.
 
 I can't help with that request, but I'd be happy to help you find:
@@ -356,7 +361,7 @@ I can't help with that request, but I'd be happy to help you find:
 - Theater plays or dance performances
 - Family or children's events
 
-Is there a cultural event you'd like to discover?"""
+Is there a cultural event you'd like to discover?""",
 }
 
 # Abuse/insult responses (bilingual) - polite response to rude queries
@@ -364,10 +369,9 @@ ABUSE_RESPONSES = {
     "fr": """Je comprends que vous puissiez etre frustre, mais je suis la pour vous aider a decouvrir des evenements culturels en Ile-de-France.
 
 Puis-je vous aider a trouver un concert, une exposition ou un spectacle ?""",
-
     "en": """I understand you may be frustrated, but I'm here to help you discover cultural events in Ile-de-France.
 
-Can I help you find a concert, exhibition, or show?"""
+Can I help you find a concert, exhibition, or show?""",
 }
 
 # Directions/transport responses (bilingual) - NEW
@@ -377,12 +381,11 @@ DIRECTIONS_RESPONSES = {
 Pourriez-vous préciser de quel événement vous parlez ? Par exemple, citez le nom de l'événement ou la salle.
 
 Une fois identifié, je vous fournirai l'adresse et un lien Google Maps pour les directions.""",
-
     "en": """I can help you with directions to an event!
 
 Could you specify which event you're referring to? For example, mention the event name or venue.
 
-Once identified, I'll provide the address and a Google Maps link for directions."""
+Once identified, I'll provide the address and a Google Maps link for directions.""",
 }
 
 # Out-of-scope city responses (bilingual)
@@ -395,7 +398,6 @@ Voulez-vous que je cherche des evenements dans une ville d'Ile-de-France ? Par e
 - Paris, Versailles, Saint-Denis
 - Boulogne-Billancourt, Montreuil, Nanterre
 - Fontainebleau, Meaux, Pontoise""",
-
     "en": """I'm sorry, but **{city}** is outside my coverage area.
 
 I specialize in cultural events in the **Ile-de-France** region (Paris and its surroundings).
@@ -403,7 +405,7 @@ I specialize in cultural events in the **Ile-de-France** region (Paris and its s
 Would you like me to search for events in an Ile-de-France city? For example:
 - Paris, Versailles, Saint-Denis
 - Boulogne-Billancourt, Montreuil, Nanterre
-- Fontainebleau, Meaux, Pontoise"""
+- Fontainebleau, Meaux, Pontoise""",
 }
 
 # Statistical query responses (bilingual) - Now used differently in multi-dimensional mode
@@ -418,7 +420,6 @@ STATISTICAL_RESPONSES = {
 **Exemple :** "Quels concerts de jazz y a-t-il à Paris ce week-end ?"
 
 Que souhaitez-vous découvrir ?""",
-
     "en": """I'm designed to help you **find cultural events**, not provide statistics.
 
 **I can help you:**
@@ -428,7 +429,21 @@ Que souhaitez-vous découvrir ?""",
 
 **Example:** "What jazz concerts are there in Paris this weekend?"
 
-What would you like to discover?"""
+What would you like to discover?""",
+}
+
+# Statistical query response templates (with placeholders for dynamic content)
+STATISTICAL_TEMPLATES = {
+    "fr": """J'ai trouvé **{count} événements**{filters_desc}.
+
+{event_breakdown}
+
+Souhaitez-vous voir des événements spécifiques ?""",
+    "en": """I found **{count} events**{filters_desc}.
+
+{event_breakdown}
+
+Would you like to see specific events?""",
 }
 
 # ========================================
@@ -437,18 +452,18 @@ What would you like to discover?"""
 # These are building blocks for composing multi-dimensional responses
 
 # Greeting prefixes (added to start of response when greeting dimension detected)
-GREETING_PREFIXES = {
-    "fr": "Bonjour ! ",
-    "en": "Hello! "
-}
+GREETING_PREFIXES = {"fr": "Bonjour ! ", "en": "Hello! "}
 
 # Typo correction acknowledgments (added when typo dimension detected)
 TYPO_ACKNOWLEDGMENTS = {
-    "fr": "Je suppose que vous voulez dire **{corrected}** (et non \"{original}\"). ",
-    "en": "I assume you mean **{corrected}** (not \"{original}\"). "
+    "fr": 'Je suppose que vous voulez dire **{corrected}** (et non "{original}"). ',
+    "en": 'I assume you mean **{corrected}** (not "{original}"). ',
 }
 
-def compose_response_prefix(analysis: UnifiedAnalysisResult, language: str, session_id: str = None, correction_tracker: Dict = None) -> str:
+
+def compose_response_prefix(
+    analysis: UnifiedAnalysisResult, language: str, session_id: str = None, correction_tracker: Dict = None
+) -> str:
     """Compose response prefix based on detected dimensions.
 
     Args:
@@ -494,10 +509,7 @@ def compose_response_prefix(analysis: UnifiedAnalysisResult, language: str, sess
 
 
 def build_incomplete_query_response(
-    count: int,
-    filters: Dict[str, Any],
-    category_breakdown: Dict[str, int],
-    language: str
+    count: int, filters: Dict[str, Any], category_breakdown: Dict[str, int], language: str
 ) -> str:
     """Build statistical response when count/how many dimension detected.
 
@@ -521,11 +533,8 @@ def build_incomplete_query_response(
 
     event_breakdown = "\n".join(breakdown_lines) if breakdown_lines else ""
 
-    return template.format(
-        count=count,
-        filters_desc=filters_desc,
-        event_breakdown=event_breakdown
-    )
+    return template.format(count=count, filters_desc=filters_desc, event_breakdown=event_breakdown)
+
 
 # No hardcoded out-of-scope list needed - we use the database as the source of truth.
 # If a city is in our database, it's in scope. Everything else is out of scope.
@@ -533,7 +542,19 @@ def build_incomplete_query_response(
 
 def detect_language_from_query(query: str) -> str:
     """Detect language from query (simple heuristic)."""
-    french_indicators = ["bonjour", "salut", "coucou", "merci", "s'il", "qu'est", "evenement", "cherche", "trouve", "veux", "peux"]
+    french_indicators = [
+        "bonjour",
+        "salut",
+        "coucou",
+        "merci",
+        "s'il",
+        "qu'est",
+        "evenement",
+        "cherche",
+        "trouve",
+        "veux",
+        "peux",
+    ]
     query_lower = query.lower()
     french_count = sum(1 for word in french_indicators if word in query_lower)
     return "fr" if french_count >= 1 else "en"
@@ -563,8 +584,8 @@ def detect_out_of_scope_city(query: str) -> tuple[Optional[str], Optional[str]]:
     # Check for explicit "in <city>" or "a <city>" patterns
     location_patterns = [
         r"\bin\s+([A-Za-zÀ-ÿ\-]+)",  # "in Montreal"
-        r"\ba\s+([A-Za-zÀ-ÿ\-]+)",   # "a Montreal" (French)
-        r"\bà\s+([A-Za-zÀ-ÿ\-]+)",   # "à Montreal"
+        r"\ba\s+([A-Za-zÀ-ÿ\-]+)",  # "a Montreal" (French)
+        r"\bà\s+([A-Za-zÀ-ÿ\-]+)",  # "à Montreal"
         r"\bat\s+([A-Za-zÀ-ÿ\-]+)",  # "at Montreal"
     ]
 
@@ -575,44 +596,193 @@ def detect_out_of_scope_city(query: str) -> tuple[Optional[str], Optional[str]]:
             # Skip common words that aren't cities
             skip_words = {
                 # Articles and determiners (English)
-                "the", "a", "an", "this", "that", "my", "your", "some", "any",
+                "the",
+                "a",
+                "an",
+                "this",
+                "that",
+                "my",
+                "your",
+                "some",
+                "any",
                 # Articles and determiners (French)
-                "le", "la", "les", "un", "une", "des", "ce", "cette", "mon", "ma",
+                "le",
+                "la",
+                "les",
+                "un",
+                "une",
+                "des",
+                "ce",
+                "cette",
+                "mon",
+                "ma",
                 # Question words and pronouns (CRITICAL: prevent "which" -> city)
-                "which", "what", "how", "why", "when", "where", "who", "whom",
-                "way", "order", "case", "fact", "general", "particular", "addition",
+                "which",
+                "what",
+                "how",
+                "why",
+                "when",
+                "where",
+                "who",
+                "whom",
+                "way",
+                "order",
+                "case",
+                "fact",
+                "general",
+                "particular",
+                "addition",
                 # Common nouns that appear after "in/a" (CRITICAL: prevent "events" -> city)
-                "event", "events", "evenement", "evenements", "thing", "things",
-                "place", "places", "area", "areas", "town", "towns", "city", "cities",
-                "time", "times", "day", "days", "week", "weeks", "month", "months",
-                "morning", "afternoon", "evening", "night", "weekend", "weekends",
+                "event",
+                "events",
+                "evenement",
+                "evenements",
+                "thing",
+                "things",
+                "place",
+                "places",
+                "area",
+                "areas",
+                "town",
+                "towns",
+                "city",
+                "cities",
+                "time",
+                "times",
+                "day",
+                "days",
+                "week",
+                "weeks",
+                "month",
+                "months",
+                "morning",
+                "afternoon",
+                "evening",
+                "night",
+                "weekend",
+                "weekends",
                 # Common event-related adjectives/nouns that appear after "a/in"
-                "cultural", "culturel", "culturelle", "music", "musical", "musicale",
-                "art", "artistic", "artistique", "jazz", "rock", "pop", "classical",
-                "classique", "traditional", "traditionnel", "traditionnelle",
-                "contemporary", "contemporain", "contemporaine", "modern", "moderne",
-                "free", "gratuit", "gratuite", "public", "publique", "private", "prive",
-                "local", "locale", "national", "nationale", "international", "internationale",
-                "live", "outdoor", "indoor", "virtual", "virtuel", "virtuelle",
-                "family", "familial", "familiale", "kid", "kids", "children", "enfant", "enfants",
-                "few", "many", "much", "little", "lot", "bit", "moment", "while",
-                "new", "nouveau", "nouvelle", "old", "ancien", "ancienne",
-                "great", "good", "nice", "beautiful", "beau", "belle",
-                "special", "spécial", "speciale", "unique", "rare",
-                "professional", "professionnel", "professionnelle", "corporate",
+                "cultural",
+                "culturel",
+                "culturelle",
+                "music",
+                "musical",
+                "musicale",
+                "art",
+                "artistic",
+                "artistique",
+                "jazz",
+                "rock",
+                "pop",
+                "classical",
+                "classique",
+                "traditional",
+                "traditionnel",
+                "traditionnelle",
+                "contemporary",
+                "contemporain",
+                "contemporaine",
+                "modern",
+                "moderne",
+                "free",
+                "gratuit",
+                "gratuite",
+                "public",
+                "publique",
+                "private",
+                "prive",
+                "local",
+                "locale",
+                "national",
+                "nationale",
+                "international",
+                "internationale",
+                "live",
+                "outdoor",
+                "indoor",
+                "virtual",
+                "virtuel",
+                "virtuelle",
+                "family",
+                "familial",
+                "familiale",
+                "kid",
+                "kids",
+                "children",
+                "enfant",
+                "enfants",
+                "few",
+                "many",
+                "much",
+                "little",
+                "lot",
+                "bit",
+                "moment",
+                "while",
+                "new",
+                "nouveau",
+                "nouvelle",
+                "old",
+                "ancien",
+                "ancienne",
+                "great",
+                "good",
+                "nice",
+                "beautiful",
+                "beau",
+                "belle",
+                "special",
+                "spécial",
+                "speciale",
+                "unique",
+                "rare",
+                "professional",
+                "professionnel",
+                "professionnelle",
+                "corporate",
                 # Event types that shouldn't be cities
-                "concert", "concerts", "exposition", "expositions", "expo", "expos",
-                "festival", "festivals", "spectacle", "spectacles", "show", "shows",
-                "theatre", "theater", "théâtre", "opera", "opéra", "ballet", "dance", "danse",
-                "exhibition", "exhibitions", "performance", "performances",
-                "workshop", "workshops", "atelier", "ateliers",
+                "concert",
+                "concerts",
+                "exposition",
+                "expositions",
+                "expo",
+                "expos",
+                "festival",
+                "festivals",
+                "spectacle",
+                "spectacles",
+                "show",
+                "shows",
+                "theatre",
+                "theater",
+                "théâtre",
+                "opera",
+                "opéra",
+                "ballet",
+                "dance",
+                "danse",
+                "exhibition",
+                "exhibitions",
+                "performance",
+                "performances",
+                "workshop",
+                "workshops",
+                "atelier",
+                "ateliers",
             }
 
             # Skip region-related words that aren't cities
             # Prevents "Ile de France" from being parsed as city "Ile"
             region_words = {
-                "ile", "île", "france", "region", "région", "idf",
-                "île-de-france", "ile-de-france", "iledefrance",
+                "ile",
+                "île",
+                "france",
+                "region",
+                "région",
+                "idf",
+                "île-de-france",
+                "ile-de-france",
+                "iledefrance",
             }
 
             if potential_city in region_words:
@@ -622,20 +792,75 @@ def detect_out_of_scope_city(query: str) -> tuple[Optional[str], Optional[str]]:
             # These are often falsely detected as cities in queries like "events in April"
             date_words = {
                 # Months (English)
-                "january", "february", "march", "april", "may", "june",
-                "july", "august", "september", "october", "november", "december",
+                "january",
+                "february",
+                "march",
+                "april",
+                "may",
+                "june",
+                "july",
+                "august",
+                "september",
+                "october",
+                "november",
+                "december",
                 # Months (French)
-                "janvier", "février", "fevrier", "mars", "avril", "mai", "juin",
-                "juillet", "août", "aout", "septembre", "octobre", "novembre", "décembre", "decembre",
+                "janvier",
+                "février",
+                "fevrier",
+                "mars",
+                "avril",
+                "mai",
+                "juin",
+                "juillet",
+                "août",
+                "aout",
+                "septembre",
+                "octobre",
+                "novembre",
+                "décembre",
+                "decembre",
                 # Days (English)
-                "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+                "monday",
+                "tuesday",
+                "wednesday",
+                "thursday",
+                "friday",
+                "saturday",
+                "sunday",
                 # Days (French)
-                "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche",
+                "lundi",
+                "mardi",
+                "mercredi",
+                "jeudi",
+                "vendredi",
+                "samedi",
+                "dimanche",
                 # Time indicators
-                "today", "tomorrow", "yesterday", "morning", "afternoon", "evening", "night",
-                "aujourd'hui", "demain", "hier", "matin", "après-midi", "soir", "nuit",
+                "today",
+                "tomorrow",
+                "yesterday",
+                "morning",
+                "afternoon",
+                "evening",
+                "night",
+                "aujourd'hui",
+                "demain",
+                "hier",
+                "matin",
+                "après-midi",
+                "soir",
+                "nuit",
                 # Relative time
-                "week", "weekend", "week-end", "month", "year", "semaine", "mois", "année", "annee"
+                "week",
+                "weekend",
+                "week-end",
+                "month",
+                "year",
+                "semaine",
+                "mois",
+                "année",
+                "annee",
             }
 
             if potential_city in skip_words or potential_city in date_words:
@@ -671,27 +896,25 @@ def detect_out_of_scope_city(query: str) -> tuple[Optional[str], Optional[str]]:
     return (None, None)
 
 
-
-
 class SimpleSummaryBufferMemory:
     """Custom implementation of Summary Buffer Memory with actual LLM summarization."""
-    
+
     def __init__(self, llm, chat_memory, max_token_limit=1000, memory_key="chat_history"):
         self.llm = llm
         self.chat_memory = chat_memory
         self.max_token_limit = max_token_limit
         self.memory_key = memory_key
         self.summary_key = "history_summary"
-        
+
     def load_memory_variables(self, inputs: Dict[str, Any]) -> Dict[str, List[BaseMessage]]:
         """Load history, summarizing older messages if the list is too long."""
         all_messages = self.chat_memory.messages
-        
+
         if len(all_messages) > 10:
             to_summarize = all_messages[:-10]
             to_keep = all_messages[-10:]
             history_str = "\n".join([f"{m.type}: {m.content}" for m in to_summarize])
-            
+
             try:
                 summary_prompt = f"Summarize the key facts and user preferences from this cultural events chat history in 2-3 sentences:\n\n{history_str}"
                 summary = self.llm.invoke(summary_prompt).content
@@ -700,7 +923,7 @@ class SimpleSummaryBufferMemory:
             except Exception as e:
                 logger.warning(f"Summarization failed: {e}")
                 return {self.memory_key: all_messages[-20:]}
-            
+
         return {self.memory_key: all_messages}
 
     def save_context(self, inputs: Dict[str, Any], outputs: Dict[str, str]) -> None:
@@ -726,13 +949,14 @@ class RAGChain:
 
         # Use get_chat_llm() to respect llm_backend setting (mistral/google/huggingface)
         from src.generation.llm import get_chat_llm, MistralLLM
+
         raw_llm = llm or get_chat_llm()
         # Wrap in MistralLLM for consistent interface (it expects self.llm.llm pattern)
         if isinstance(raw_llm, MistralLLM):
             self.llm = raw_llm
         else:
             # Create a simple wrapper to provide consistent interface
-            self.llm = type('LLMWrapper', (), {'llm': raw_llm, 'invoke': raw_llm.invoke})()
+            self.llm = type("LLMWrapper", (), {"llm": raw_llm, "invoke": raw_llm.invoke})()
         self.chat_storage = chat_storage or ChatStorage()
         self.k = k
 
@@ -752,13 +976,17 @@ class RAGChain:
         try:
             total_events_val = self.vector_store.storage.count_events()
             min_date, max_date = self.vector_store.storage.get_date_range()
-            date_range_val = f"{min_date.strftime('%Y-%m-%d') if min_date else '?'} to {max_date.strftime('%Y-%m-%d') if max_date else '?'}"
-        except:
+            date_range_val = (
+                f"{min_date.strftime('%Y-%m-%d') if min_date else '?'} to "
+                f"{max_date.strftime('%Y-%m-%d') if max_date else '?'}"
+            )
+        except Exception:
             total_events_val = "Unknown"
             date_range_val = "Unknown"
 
         # CRITICAL: Use dynamic date, not hardcoded
         from datetime import date
+
         current_date_val = date.today().strftime("%Y-%m-%d")
 
         # 1. Prepare Inputs - Now just passes through (no separate reformulation call)
@@ -772,7 +1000,7 @@ class RAGChain:
                 "history": history,
                 "pre_filters": inputs.get("pre_filters"),
                 "pre_refined_query": inputs.get("pre_refined_query"),
-                "language": inputs.get("language", "fr")
+                "language": inputs.get("language", "fr"),
             }
 
         # 2. Hybrid Retrieval with pre-computed filters from UnifiedAnalyzer
@@ -791,7 +1019,7 @@ class RAGChain:
                 # Use pre-computed filters from UnifiedAnalyzer
                 refined_query = pre_refined_query or input_query
                 raw_filters = pre_filters or {}
-                logger.info(f"[RETRIEVAL] Using filters from UnifiedAnalyzer")
+                logger.info("[RETRIEVAL] Using filters from UnifiedAnalyzer")
 
                 logger.info(f"[UNIFIED] Query: '{input_query}' -> Refined: '{refined_query}' | Filters: {raw_filters}")
 
@@ -808,7 +1036,7 @@ class RAGChain:
                     "total_in_database": result.get("total_in_database", result["total_count"]),
                     "filters_applied": result.get("filters_applied", {}),
                     "exact_count": result.get("exact_count", 0),
-                    "relaxation": result.get("relaxation", {})
+                    "relaxation": result.get("relaxation", {}),
                 }
             except Exception as e:
                 logger.error(f"Unified retrieval failed: {e}", exc_info=True)
@@ -817,7 +1045,7 @@ class RAGChain:
         def format_docs(docs, filters):
             if not docs:
                 return "NO RELEVANT EVENTS FOUND.", 0
-            
+
             formatted = []
             system_notes = []
             source_num = 1
@@ -825,12 +1053,13 @@ class RAGChain:
                 meta = doc.metadata
                 if "nearby_date_note" in meta:
                     system_notes.append(meta["nearby_date_note"])
-                if meta.get("match_type") == "System": continue
-                
+                if meta.get("match_type") == "System":
+                    continue
+
                 header = f"=== SOURCE {source_num} (Title: {meta.get('title')}, City: {meta.get('city')}, Date: {meta.get('start_date')}, Match: {meta.get('match_type')}, Distance: {meta.get('distance_km', 0):.1f}km) ==="
                 formatted.append(f"{header}\n{doc.page_content}")
                 source_num += 1
-            
+
             final_text = ""
             if system_notes:
                 final_text += "SYSTEM NOTES:\n" + "\n".join(set(system_notes)) + "\n\n"
@@ -848,7 +1077,7 @@ class RAGChain:
                 retrieved_data=RunnableLambda(prepare_inputs) | retrieve_docs_hybrid,
                 total_events=lambda _: str(total_events_val),
                 date_range=lambda _: date_range_val,
-                current_date=lambda _: current_date_val
+                current_date=lambda _: current_date_val,
             )
             .assign(
                 formatting_results=lambda x: format_docs(x["retrieved_data"]["docs"], x["retrieved_data"]["filters"])
@@ -859,16 +1088,22 @@ class RAGChain:
                         context=lambda x: x["formatting_results"][0],
                         k=lambda x: str(x["formatting_results"][1]),
                         today=lambda x: x["current_date"],
-                        total_matching=lambda x: str(x["retrieved_data"].get("total_in_database", x["formatting_results"][1])),
+                        total_matching=lambda x: str(
+                            x["retrieved_data"].get("total_in_database", x["formatting_results"][1])
+                        ),
                         filters_applied=lambda x: str(x["retrieved_data"].get("filters_applied", {})),
-                        exact_count=lambda x: str(min(x["retrieved_data"].get("exact_count", 0), x["formatting_results"][1])),
-                        nearby_count=lambda x: str(max(0, x["formatting_results"][1] - x["retrieved_data"].get("exact_count", 0)))
+                        exact_count=lambda x: str(
+                            min(x["retrieved_data"].get("exact_count", 0), x["formatting_results"][1])
+                        ),
+                        nearby_count=lambda x: str(
+                            max(0, x["formatting_results"][1] - x["retrieved_data"].get("exact_count", 0))
+                        ),
                     )
                     | RunnableLambda(select_prompt)
                     | self.llm.llm
                     | RobustJsonParser()
                 ),
-                context=lambda x: x["retrieved_data"]["docs"]
+                context=lambda x: x["retrieved_data"]["docs"],
             )
         )
 
@@ -896,12 +1131,7 @@ class RAGChain:
             logger.warning(f"Failed to extract previous events: {e}")
             return None
 
-    def _build_event_detail_response(
-        self,
-        event: Dict[str, Any],
-        detail_type: str,
-        language: str
-    ) -> str:
+    def _build_event_detail_response(self, event: Dict[str, Any], detail_type: str, language: str) -> str:
         """Build a response with details about a specific event.
 
         Args:
@@ -1008,7 +1238,8 @@ class RAGChain:
         """
         # Store a copy to avoid mutation issues
         stored = {
-            k: v for k, v in filters.items()
+            k: v
+            for k, v in filters.items()
             if v is not None and not k.startswith("_")  # Exclude None and internal keys
         }
 
@@ -1020,15 +1251,17 @@ class RAGChain:
             stored["_search_terms"] = [refined_query]
 
         self._session_filters[session_id] = stored
-        filters_only = {k: v for k, v in stored.items() if not k.startswith('_')}
-        logger.info(f"[SESSION-FILTERS] Stored for {session_id}: filters={filters_only}, search_terms={stored.get('_search_terms', [])}")
+        filters_only = {k: v for k, v in stored.items() if not k.startswith("_")}
+        logger.info(
+            f"[SESSION-FILTERS] Stored for {session_id}: filters={filters_only}, search_terms={stored.get('_search_terms', [])}"
+        )
 
     def _merge_with_previous_filters(
         self,
         session_id: str,
         current_filters: Dict[str, Any],
         current_refined_query: str = None,
-        analysis: "UnifiedAnalysisResult" = None
+        analysis: "UnifiedAnalysisResult" = None,
     ) -> Tuple[Dict[str, Any], str]:
         """Merge current filters with previous session filters and accumulate search terms.
 
@@ -1063,22 +1296,22 @@ class RAGChain:
 
         # Rule 1: If scope="all" (any kind of event), DON'T carry over category
         wants_all_events = False
-        if analysis and hasattr(analysis, 'wants_all_events'):
+        if analysis and hasattr(analysis, "wants_all_events"):
             wants_all_events = analysis.wants_all_events
             if wants_all_events:
                 cleared.append("category (scope=all)")
-                logger.info(f"[FILTER-CLEAR] User wants all events - NOT carrying over category")
+                logger.info("[FILTER-CLEAR] User wants all events - NOT carrying over category")
 
         # Rule 2: If user specifies a new month, DON'T carry over day
         # (e.g., "in February" should clear day=18 from March)
         month_changed = (
-            merged.get("month") is not None and
-            previous.get("month") is not None and
-            merged.get("month") != previous.get("month")
+            merged.get("month") is not None
+            and previous.get("month") is not None
+            and merged.get("month") != previous.get("month")
         )
         if month_changed:
             cleared.append(f"day (month changed from {previous.get('month')} to {merged.get('month')})")
-            logger.info(f"[FILTER-CLEAR] Month changed - NOT carrying over day")
+            logger.info("[FILTER-CLEAR] Month changed - NOT carrying over day")
 
         # Only carry over if current value is None, prior turn has a value,
         # AND smart clearing rules allow it
@@ -1131,7 +1364,9 @@ class RAGChain:
             except Exception as e:
                 logger.warning(f"Could not load FAISS index: {e}.")
 
-    def _unified_pre_analysis(self, question: str, chat_history: List[BaseMessage], language: str, session_id: str = None) -> Optional[Dict[str, Any]]:
+    def _unified_pre_analysis(
+        self, question: str, chat_history: List[BaseMessage], language: str, session_id: str = None
+    ) -> Optional[Dict[str, Any]]:
         """Use unified LLM analyzer for MULTI-DIMENSIONAL intent analysis.
 
         This performs multi-dimensional classification where a query can have
@@ -1167,15 +1402,13 @@ class RAGChain:
 
             # CRITICAL: Update language from analysis IMMEDIATELY (before any early returns)
             # This ensures all responses use the correct detected language
-            detected_lang = getattr(analysis, 'detected_language', language)
+            detected_lang = getattr(analysis, "detected_language", language)
             if detected_lang in ["fr", "en"]:
                 language = detected_lang
                 logger.info(f"[LANGUAGE] Updated from LLM analysis: {language}")
 
             # Log dimensions
-            dims_str = ", ".join([
-                f"{k}={v.detected}" for k, v in analysis.dimensions.items() if v.detected
-            ]) or "none"
+            dims_str = ", ".join([f"{k}={v.detected}" for k, v in analysis.dimensions.items() if v.detected]) or "none"
             logger.info(
                 f"[MULTI-DIM] intent={analysis.intent.value}, "
                 f"city={analysis.city_normalized}, "
@@ -1193,7 +1426,9 @@ class RAGChain:
                 event_name = coreference.get("event_name")
                 reference_type = coreference.get("reference_type", "none")
 
-                logger.info(f"[COREFERENCE] Detected reference to previous event: '{event_name}', type={reference_type}")
+                logger.info(
+                    f"[COREFERENCE] Detected reference to previous event: '{event_name}', type={reference_type}"
+                )
 
                 # Try to find the referenced event
                 referenced_event = None
@@ -1223,30 +1458,22 @@ class RAGChain:
                     # Detect if asking about price
                     if any(w in query_lower for w in ["price", "prix", "cost", "coût", "cher", "expensive"]):
                         # Need to fetch full event details from database for price
-                        response = self._build_event_detail_response(
-                            referenced_event, "price", language
-                        )
+                        response = self._build_event_detail_response(referenced_event, "price", language)
                     # Detect if asking about location/directions
                     elif any(w in query_lower for w in ["where", "où", "location", "address", "adresse", "how to get"]):
-                        response = self._build_event_detail_response(
-                            referenced_event, "location", language
-                        )
+                        response = self._build_event_detail_response(referenced_event, "location", language)
                     # Detect if asking about date/time
                     elif any(w in query_lower for w in ["when", "quand", "time", "date", "heure", "horaire"]):
-                        response = self._build_event_detail_response(
-                            referenced_event, "time", language
-                        )
+                        response = self._build_event_detail_response(referenced_event, "time", language)
                     else:
                         # General details about the event
-                        response = self._build_event_detail_response(
-                            referenced_event, "general", language
-                        )
+                        response = self._build_event_detail_response(referenced_event, "general", language)
 
                     return {
                         "early_response": response,
                         "query_type": "coreference_resolution",
                         "referenced_event": referenced_event,
-                        "analysis": analysis
+                        "analysis": analysis,
                     }
                 else:
                     logger.warning(f"[COREFERENCE] Could not resolve event reference: '{event_name}'")
@@ -1259,7 +1486,7 @@ class RAGChain:
             if analysis.intent != UnifiedIntent.EVENT_SEARCH and analysis.intent_confidence >= 0.7:
                 # Pure non-event intent (not a compound query like "hello, find me concerts")
                 # CRITICAL: Use detected_language from analysis (not fallback language parameter)
-                detected_lang = getattr(analysis, 'detected_language', language)
+                detected_lang = getattr(analysis, "detected_language", language)
                 if detected_lang not in ["fr", "en"]:
                     detected_lang = "fr"  # Normalize to valid values
 
@@ -1276,7 +1503,7 @@ class RAGChain:
                 return {
                     "early_response": responses[detected_lang],
                     "query_type": analysis.intent.value,
-                    "analysis": analysis
+                    "analysis": analysis,
                 }
 
             # ========================================
@@ -1284,7 +1511,7 @@ class RAGChain:
             # ========================================
             if analysis.city and not analysis.city_normalized:
                 # Use detected language from analysis
-                detected_lang = getattr(analysis, 'detected_language', language)
+                detected_lang = getattr(analysis, "detected_language", language)
                 if detected_lang not in ["fr", "en"]:
                     detected_lang = "fr"
 
@@ -1295,11 +1522,7 @@ class RAGChain:
                     response = prefix + OUT_OF_SCOPE_CITY_RESPONSES["fr"].format(city=analysis.city.title())
                 else:
                     response = prefix + OUT_OF_SCOPE_CITY_RESPONSES["en"].format(city=analysis.city.title())
-                return {
-                    "early_response": response,
-                    "query_type": "out_of_scope_city",
-                    "analysis": analysis
-                }
+                return {"early_response": response, "query_type": "out_of_scope_city", "analysis": analysis}
 
             # ========================================
             # STATISTICAL QUERIES (how many, count, total)
@@ -1314,7 +1537,7 @@ class RAGChain:
                     "filters": analysis.filters,
                     "refined_query": analysis.refined_query,
                     "analysis": analysis,
-                    "response_prefix": compose_response_prefix(analysis, language)
+                    "response_prefix": compose_response_prefix(analysis, language),
                 }
 
             # ========================================
@@ -1333,12 +1556,12 @@ class RAGChain:
                         "**API Error: Rate limit reached**\n\n"
                         "The AI service is temporarily unavailable (too many requests). "
                         "Please wait 30 seconds before trying again."
-                    )
+                    ),
                 }
                 return {
                     "early_response": rate_limit_messages.get(language, rate_limit_messages["en"]),
                     "query_type": "rate_limit_error",
-                    "analysis": analysis
+                    "analysis": analysis,
                 }
 
             # ========================================
@@ -1351,6 +1574,7 @@ class RAGChain:
 
             if not analysis.is_complete and analysis.missing_criteria and not has_session_context:
                 from src.retrieval.clarifications import get_clarification_response
+
                 # Convert missing to format expected by clarifications
                 reason = "missing_" + "+".join(analysis.missing_criteria)
                 backup_prefix, backup_questions = get_clarification_response(reason, language)
@@ -1364,11 +1588,7 @@ class RAGChain:
                     # CRITICAL FIX: Store partial filters for follow-up query merging
                     # Without this, user's clarification response would be treated as new standalone query
                     if session_id and (analysis.filters or analysis.refined_query):
-                        self._store_session_filters(
-                            session_id,
-                            analysis.filters or {},
-                            analysis.refined_query
-                        )
+                        self._store_session_filters(session_id, analysis.filters or {}, analysis.refined_query)
                         logger.info(f"[CLARIFICATION] Stored partial context for follow-up: filters={analysis.filters}")
 
                     return {
@@ -1376,10 +1596,12 @@ class RAGChain:
                         "query_type": "broad_query",
                         "needs_clarification": True,
                         "clarifying_questions": backup_questions,
-                        "analysis": analysis
+                        "analysis": analysis,
                     }
             elif has_session_context and not analysis.is_complete:
-                logger.info(f"[FOLLOW-UP] Query incomplete but session has context - continuing to RAG with filter merge")
+                logger.info(
+                    "[FOLLOW-UP] Query incomplete but session has context - continuing to RAG with filter merge"
+                )
 
             # ========================================
             # VALID EVENT SEARCH - CONTINUE TO RAG
@@ -1393,7 +1615,7 @@ class RAGChain:
                 "filters": analysis.filters,
                 "refined_query": analysis.refined_query,
                 "analysis": analysis,
-                "response_prefix": response_prefix
+                "response_prefix": response_prefix,
             }
 
         except Exception as e:
@@ -1405,7 +1627,9 @@ class RAGChain:
         result = self.query_with_metadata(question, session_id)
         return result["answer"]
 
-    def query_with_metadata(self, question: str, session_id: str = "default_session", language: str = None) -> Dict[str, Any]:
+    def query_with_metadata(
+        self, question: str, session_id: str = "default_session", language: str = None
+    ) -> Dict[str, Any]:
         # OPTIMIZATION D: Ensure index is loaded (lazy init on first query)
         self._ensure_ready()
 
@@ -1423,7 +1647,7 @@ class RAGChain:
         if self.cache:
             cached = self.cache.get(question, session_id)
             if cached:
-                logger.debug(f"[CACHE] Returning cached response")
+                logger.debug("[CACHE] Returning cached response")
                 return cached
 
         memory = self._get_memory(session_id)
@@ -1464,7 +1688,7 @@ class RAGChain:
                         "sources": [],
                         "structured_events": [],
                         "message_id": message_id,
-                        "query_type": query_type
+                        "query_type": query_type,
                     }
                     if unified_result.get("needs_clarification"):
                         result_dict["needs_clarification"] = True
@@ -1504,13 +1728,15 @@ class RAGChain:
                     raw_category = pre_filters["category"]
                     pre_filters["category"] = map_category_to_db(raw_category)
                     if pre_filters["category"] != raw_category:
-                        logger.info(f"[CATEGORY-MAP] Post-merge mapping: '{raw_category}' → '{pre_filters['category']}'")
+                        logger.info(
+                            f"[CATEGORY-MAP] Post-merge mapping: '{raw_category}' → '{pre_filters['category']}'"
+                        )
 
             # Apply default timeframe if none specified (Option B: auto-apply next 30 days)
             if pre_filters and should_apply_default_timeframe(pre_filters):
                 pre_filters = apply_default_timeframe(pre_filters)
                 default_timeframe_applied = True
-                logger.info(f"[DEFAULT-TIMEFRAME] Auto-applied 30-day default to filters")
+                logger.info("[DEFAULT-TIMEFRAME] Auto-applied 30-day default to filters")
 
             logger.info(f"[OPTIMIZED] Passing unified analyzer filters to RAG: {pre_filters}")
             if response_prefix:
@@ -1521,13 +1747,15 @@ class RAGChain:
         # Track if this is an error response (don't cache errors)
         _is_error_response = False
         try:
-            result = self.rag_chain.invoke({
-                "input": question,
-                "chat_history": chat_history,
-                "language": language,
-                "pre_filters": pre_filters,
-                "pre_refined_query": pre_refined_query
-            })
+            result = self.rag_chain.invoke(
+                {
+                    "input": question,
+                    "chat_history": chat_history,
+                    "language": language,
+                    "pre_filters": pre_filters,
+                    "pre_refined_query": pre_refined_query,
+                }
+            )
 
             logger.debug(f"[DEBUG-ANSWER] result['answer'] type: {type(result.get('answer'))}")
             if isinstance(result["answer"], dict):
@@ -1566,14 +1794,16 @@ class RAGChain:
                 sources_data = []
                 for doc in sources_for_formatting:
                     meta = doc.metadata
-                    sources_data.append({
-                        "title": meta.get("title"),
-                        "city": meta.get("city"),
-                        "date": meta.get("start_date"),
-                        "url": meta.get("url"),
-                        "category": meta.get("category"),
-                        "match_type": meta.get("match_type", "Exact Match"),
-                    })
+                    sources_data.append(
+                        {
+                            "title": meta.get("title"),
+                            "city": meta.get("city"),
+                            "date": meta.get("start_date"),
+                            "url": meta.get("url"),
+                            "category": meta.get("category"),
+                            "match_type": meta.get("match_type", "Exact Match"),
+                        }
+                    )
                 # Replace summary with formatted events
                 answer_text = format_events_as_text(sources_data, language=language, max_events=8)
 
@@ -1600,7 +1830,7 @@ class RAGChain:
                         count=total_count,
                         filters=analysis.filters,
                         category_breakdown=category_counts,
-                        language=language
+                        language=language,
                     )
                     answer_text = stat_response
                     logger.info(f"[MULTI-DIM] Built statistical response for {total_count} events")
@@ -1631,9 +1861,7 @@ class RAGChain:
 
                 # Add refinement suffix (default timeframe notice, hints)
                 refinement_suffix = build_refinement_suffix(
-                    filters=pre_filters,
-                    has_results=has_results,
-                    language=language
+                    filters=pre_filters, has_results=has_results, language=language
                 )
                 builder.add_refinement_suffix(refinement_suffix)
 
@@ -1664,7 +1892,11 @@ class RAGChain:
 
             # Provide clear, user-friendly error message based on error type
             # HuggingFace-specific: Model loading (cold start)
-            if isinstance(e, HuggingFaceModelLoadingError) or "model is currently loading" in error_str or "is currently loading" in error_str:
+            if (
+                isinstance(e, HuggingFaceModelLoadingError)
+                or "model is currently loading" in error_str
+                or "is currently loading" in error_str
+            ):
                 error_messages = {
                     "fr": (
                         "**Modele en cours de chargement**\n\n"
@@ -1675,10 +1907,16 @@ class RAGChain:
                         "**Model Loading**\n\n"
                         "The AI model is starting up (this can take 20-30 seconds). "
                         "Please try again in a moment."
-                    )
+                    ),
                 }
             # HuggingFace-specific: Rate limit
-            elif isinstance(e, HuggingFaceRateLimitError) or "rate" in error_str and "limit" in error_str or "429" in error_str or "resource_exhausted" in error_str:
+            elif (
+                isinstance(e, HuggingFaceRateLimitError)
+                or "rate" in error_str
+                and "limit" in error_str
+                or "429" in error_str
+                or "resource_exhausted" in error_str
+            ):
                 error_messages = {
                     "fr": (
                         "**Limite de requetes atteinte**\n\n"
@@ -1689,7 +1927,7 @@ class RAGChain:
                         "**Rate Limit Reached**\n\n"
                         "The AI service is temporarily busy. "
                         "Please wait 30 seconds before trying again."
-                    )
+                    ),
                 }
             # HuggingFace-specific: Queue/timeout
             elif isinstance(e, HuggingFaceQueueError) or "queue" in error_str:
@@ -1703,7 +1941,7 @@ class RAGChain:
                         "**Service Busy**\n\n"
                         "The AI service is processing many requests. "
                         "Please try again in a few seconds."
-                    )
+                    ),
                 }
             # General: Connection/timeout errors
             elif "timeout" in error_str or "connection" in error_str:
@@ -1717,7 +1955,7 @@ class RAGChain:
                         "**Connection Error**\n\n"
                         "Unable to reach the AI service. "
                         "Please check your internet connection and try again."
-                    )
+                    ),
                 }
             # General: Unknown error
             else:
@@ -1731,7 +1969,7 @@ class RAGChain:
                         "**Unexpected Error**\n\n"
                         "An error occurred while processing your request. "
                         "Please rephrase your question or try again later."
-                    )
+                    ),
                 }
 
             answer_text = error_messages.get(language, error_messages["en"])
@@ -1746,60 +1984,73 @@ class RAGChain:
         sources = []
         for d in result.get("context", []):
             meta = d.metadata
-            sources.append({
-                "event_id": meta.get("event_id"),
-                "title": meta.get("title"),
-                "city": meta.get("city"),
-                "category": meta.get("category"),
-                "date": meta.get("start_date"),
-                "url": meta.get("url"),
-                "score": meta.get("score", 0.0),
-                "match_type": meta.get("match_type", "Unknown"),
-                # Enriched fields for display
-                "price_label": meta.get("price_label", "Non spécifié"),
-                "age_label": meta.get("age_label", "Tout public"),
-                "timings": meta.get("timings", []),
-                "periods": meta.get("periods", []),
-                "is_full_day": meta.get("is_full_day", False),
-                "conditions": meta.get("conditions"),
-                "age_min": meta.get("age_min"),
-                "age_max": meta.get("age_max"),
-                "address": meta.get("address"),
-                "postal_code": meta.get("postal_code"),
-            })
+            sources.append(
+                {
+                    "event_id": meta.get("event_id"),
+                    "title": meta.get("title"),
+                    "city": meta.get("city"),
+                    "category": meta.get("category"),
+                    "date": meta.get("start_date"),
+                    "url": meta.get("url"),
+                    "score": meta.get("score", 0.0),
+                    "match_type": meta.get("match_type", "Unknown"),
+                    # Enriched fields for display
+                    "price_label": meta.get("price_label", "Non spécifié"),
+                    "age_label": meta.get("age_label", "Tout public"),
+                    "timings": meta.get("timings", []),
+                    "periods": meta.get("periods", []),
+                    "is_full_day": meta.get("is_full_day", False),
+                    "conditions": meta.get("conditions"),
+                    "age_min": meta.get("age_min"),
+                    "age_max": meta.get("age_max"),
+                    "address": meta.get("address"),
+                    "postal_code": meta.get("postal_code"),
+                }
+            )
 
         # Prepare retrieved_events for coreference resolution (includes details for follow-up queries)
-        retrieved_events = [
-            {
-                "event_id": s["event_id"],
-                "title": s["title"],
-                "city": s["city"],
-                "address": s.get("address"),
-                "category": s["category"],
-                # Additional fields for coreference resolution (price, time, url)
-                "price_label": s.get("price_label", "Non spécifié"),
-                "date": s.get("date"),
-                "url": s.get("url"),
-                "times_display": next(
-                    (t.get("display", "") for t in s.get("timings", []) if isinstance(t, dict) and t.get("display")),
-                    "Non spécifié"
-                ) if s.get("timings") else "Non spécifié",
-            }
-            for s in sources[:10]  # Limit to top 10 events to avoid bloating context
-        ] if sources else None
+        retrieved_events = (
+            [
+                {
+                    "event_id": s["event_id"],
+                    "title": s["title"],
+                    "city": s["city"],
+                    "address": s.get("address"),
+                    "category": s["category"],
+                    # Additional fields for coreference resolution (price, time, url)
+                    "price_label": s.get("price_label", "Non spécifié"),
+                    "date": s.get("date"),
+                    "url": s.get("url"),
+                    "times_display": (
+                        next(
+                            (
+                                t.get("display", "")
+                                for t in s.get("timings", [])
+                                if isinstance(t, dict) and t.get("display")
+                            ),
+                            "Non spécifié",
+                        )
+                        if s.get("timings")
+                        else "Non spécifié"
+                    ),
+                }
+                for s in sources[:10]  # Limit to top 10 events to avoid bloating context
+            ]
+            if sources
+            else None
+        )
 
         # Save to persistent storage (user msg async, assistant sync for message_id)
         _background_db_write(self.chat_storage.add_chat_message, session_id, "user", question)
         message_id = self.chat_storage.add_chat_message(
-            session_id,
-            "assistant",
-            answer_text,
-            retrieved_events=retrieved_events
+            session_id, "assistant", answer_text, retrieved_events=retrieved_events
         )
 
         # Add retrieval stats with transparency counts
         retrieval_stats = result.get("retrieved_data", {})
-        exact_count = retrieval_stats.get("exact_count", sum(1 for s in sources if s.get("match_type") == "Exact Match"))
+        exact_count = retrieval_stats.get(
+            "exact_count", sum(1 for s in sources if s.get("match_type") == "Exact Match")
+        )
         nearby_count = len(sources) - exact_count
 
         res = {
@@ -1810,11 +2061,11 @@ class RAGChain:
             "retrieval_stats": {
                 "total_count": retrieval_stats.get("actual_k", len(sources)),
                 "exact_count": exact_count,
-                "nearby_count": nearby_count
+                "nearby_count": nearby_count,
             },
             # Include clarification info for transparency
             "needs_clarification": needs_clarification,
-            "clarifying_questions": clarifying_questions
+            "clarifying_questions": clarifying_questions,
         }
 
         # Store filters and search terms for follow-up query merging

@@ -1,8 +1,21 @@
-"""Output sanitization to detect and remove PII from LLM responses."""
+"""
+FILE: sanitization.py
+STATUS: Active
+RESPONSIBILITY: Output sanitization to detect and remove PII from LLM responses.
+
+DEPENDENCIES (Who uses this file):
+- src/api/endpoints.py: Sanitizes responses before returning to client
+
+IMPORTS (What this file needs):
+- logging: For logging PII detections
+- re: For regex-based pattern matching
+
+LAST MAJOR UPDATE: 2026-02-02
+MAINTAINER: Security Team
+"""
 
 import logging
 import re
-from typing import Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -11,14 +24,16 @@ class PIIDetector:
     """Detect personally identifiable information in text with enhanced patterns."""
 
     # Regex patterns for common PII
-    EMAIL_PATTERN = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-    PHONE_PATTERN = r'\b(?:\+33|0)[1-9](?:[\s.-]?\d{2}){4}\b'  # French phone numbers
-    CREDIT_CARD_PATTERN = r'\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b'
-    SSN_PATTERN = r'\b\d{1}\s?\d{2}\s?\d{2}\s?\d{2}\s?\d{3}\s?\d{3}\b'  # French SSN (Numéro de sécurité sociale)
+    EMAIL_PATTERN = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
+    PHONE_PATTERN = r"\b(?:\+33|0)[1-9](?:[\s.-]?\d{2}){4}\b"  # French phone numbers
+    CREDIT_CARD_PATTERN = r"\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b"
+    SSN_PATTERN = r"\b\d{1}\s?\d{2}\s?\d{2}\s?\d{2}\s?\d{3}\s?\d{3}\b"  # French SSN (Numéro de sécurité sociale)
 
-    ADDRESS_PATTERN = r'\b\d{1,5}\s+(rue|avenue|boulevard|place|allée|impasse|chemin|voie|cours|quai|square|passage)\s+[A-Za-zÀ-ÿ\s\'-]{3,50}'  # French addresses
-    DOB_PATTERN = r'\b(?:\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{4}[/-]\d{1,2}[/-]\d{1,2})\b'  # Date of birth (DD/MM/YYYY or YYYY-MM-DD)
-    IP_PATTERN = r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'  # IPv4 addresses
+    ADDRESS_PATTERN = r"\b\d{1,5}\s+(rue|avenue|boulevard|place|allée|impasse|chemin|voie|cours|quai|square|passage)\s+[A-Za-zÀ-ÿ\s\'-]{3,50}"  # French addresses
+    DOB_PATTERN = (
+        r"\b(?:\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{4}[/-]\d{1,2}[/-]\d{1,2})\b"  # Date of birth (DD/MM/YYYY or YYYY-MM-DD)
+    )
+    IP_PATTERN = r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b"  # IPv4 addresses
     # Name pattern (DISABLED by default to avoid false positives with event organizers)
 
     def __init__(self, detect_names: bool = False):
@@ -28,13 +43,13 @@ class PIIDetector:
             detect_names: If True, enable name pattern detection (may have false positives)
         """
         self.patterns = {
-            'EMAIL': re.compile(self.EMAIL_PATTERN),
-            'PHONE': re.compile(self.PHONE_PATTERN),
-            'CREDIT_CARD': re.compile(self.CREDIT_CARD_PATTERN),
-            'SSN': re.compile(self.SSN_PATTERN),
-            'ADDRESS': re.compile(self.ADDRESS_PATTERN, re.IGNORECASE),
-            'DOB': re.compile(self.DOB_PATTERN),
-            'IP_ADDRESS': re.compile(self.IP_PATTERN),
+            "EMAIL": re.compile(self.EMAIL_PATTERN),
+            "PHONE": re.compile(self.PHONE_PATTERN),
+            "CREDIT_CARD": re.compile(self.CREDIT_CARD_PATTERN),
+            "SSN": re.compile(self.SSN_PATTERN),
+            "ADDRESS": re.compile(self.ADDRESS_PATTERN, re.IGNORECASE),
+            "DOB": re.compile(self.DOB_PATTERN),
+            "IP_ADDRESS": re.compile(self.IP_PATTERN),
         }
 
         # Optional: Enable name detection (higher false positive rate)
@@ -56,11 +71,7 @@ class PIIDetector:
 
         for pii_type, pattern in self.patterns.items():
             for match in pattern.finditer(text):
-                pii_entry = {
-                    "type": pii_type,
-                    "match": match.group(),
-                    "position": match.start()
-                }
+                pii_entry = {"type": pii_type, "match": match.group(), "position": match.start()}
                 found_pii.append(pii_entry)
                 logger.warning(f"Detected {pii_type} in output: {match.group()}")
 
@@ -81,9 +92,9 @@ class PIIDetector:
         # Redact or remove each PII type
         for pii_type, pattern in self.patterns.items():
             if redact:
-                replacement = f'[{pii_type.upper()}_REDACTED]'
+                replacement = f"[{pii_type.upper()}_REDACTED]"
             else:
-                replacement = ''
+                replacement = ""
 
             sanitized = pattern.sub(replacement, sanitized)
 
@@ -129,14 +140,6 @@ def scan_for_pii(text: str, redact: bool = False) -> dict:
 
         if redact:
             sanitized = detector.sanitize(text, redact=True)
-            return {
-                "sanitized_text": sanitized,
-                "pii_found": pii_found,
-                "has_pii": True
-            }
+            return {"sanitized_text": sanitized, "pii_found": pii_found, "has_pii": True}
 
-    return {
-        "sanitized_text": text,
-        "pii_found": pii_found,
-        "has_pii": has_pii
-    }
+    return {"sanitized_text": text, "pii_found": pii_found, "has_pii": has_pii}

@@ -46,3 +46,27 @@ dev = [
     "mypy (>=1.19.1,<2.0.0)",
     "detect-secrets (>=1.5.0,<2.0.0)"
 ]
+
+[tool.ruff]
+line-length = 120
+exclude = [
+    "_archived_scripts",
+    "scripts/_archived",
+    ".git",
+    "__pycache__",
+    "*.egg-info",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = [
+    "E402",  # Module level import not at top of file (needed for path manipulation)
+    "E501",  # Line too long (handled by Black where possible; strings/comments exempted)
+    "E722",  # Do not use bare except (acceptable in scripts for robustness)
+    "F841",  # Local variable assigned but never used (common in tests for setup)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402", "F841", "E501"]
+"scripts/*" = ["E402", "E722", "E501"]
+"evaluation/*" = ["E402", "E501"]

@@ -2,12 +2,22 @@
 FILE: test_endpoints.py
 STATUS: Active
 RESPONSIBILITY: Unit tests for FastAPI API endpoints.
-LAST MAJOR UPDATE: 2026-01-31
+
+DEPENDENCIES (Who uses this file):
+- CI/CD: Runs during test suite
+
+IMPORTS (What this file needs):
+- pytest: Test framework
+- unittest.mock: For mocking dependencies
+- fastapi: For app creation
+- fastapi.testclient: For testing endpoints
+
+LAST MAJOR UPDATE: 2026-02-02
 MAINTAINER: QA Team
 """
 
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
@@ -17,9 +27,12 @@ from fastapi.testclient import TestClient
 def mock_rag_chain_import():
     """Mock RAGChain import at module level."""
     mock_chain_class = MagicMock()
-    with patch.dict('sys.modules', {
-        'src.retrieval.chain': MagicMock(RAGChain=mock_chain_class),
-    }):
+    with patch.dict(
+        "sys.modules",
+        {
+            "src.retrieval.chain": MagicMock(RAGChain=mock_chain_class),
+        },
+    ):
         yield mock_chain_class
 
 
@@ -28,25 +41,27 @@ class TestVerifyApiKey:
 
     def test_valid_api_key(self):
         """Test that valid API key passes verification."""
-        with patch('src.api.endpoints.settings') as mock_settings:
-            mock_settings.app_api_key = "test-key"
+        with patch("src.api.endpoints.settings") as mock_settings:
+            mock_settings.app_api_key = "test-key"  # pragma: allowlist secret
 
             # Import after mocking
             from src.api.endpoints import verify_api_key
 
             # Run async function
             import asyncio
+
             result = asyncio.run(verify_api_key("test-key"))
             assert result == "test-key"
 
     def test_invalid_api_key(self):
         """Test that invalid API key raises HTTPException."""
-        with patch('src.api.endpoints.settings') as mock_settings:
-            mock_settings.app_api_key = "correct-key"
+        with patch("src.api.endpoints.settings") as mock_settings:
+            mock_settings.app_api_key = "correct-key"  # pragma: allowlist secret
 
             from src.api.endpoints import verify_api_key
 
             import asyncio
+
             with pytest.raises(HTTPException) as exc_info:
                 asyncio.run(verify_api_key("wrong-key"))
 
@@ -90,8 +105,9 @@ class TestHealthEndpoint:
         app = FastAPI()
 
         # Import router after mocking dependencies
-        with patch('src.retrieval.chain.RAGChain'):
+        with patch("src.retrieval.chain.RAGChain"):
             from src.api.endpoints import router
+
             app.include_router(router)
 
         # Set up app state
@@ -104,8 +120,9 @@ class TestHealthEndpoint:
         """Create test app without RAG chain."""
         app = FastAPI()
 
-        with patch('src.retrieval.chain.RAGChain'):
+        with patch("src.retrieval.chain.RAGChain"):
             from src.api.endpoints import router
+
             app.include_router(router)
 
         return app
@@ -141,17 +158,18 @@ class TestChatEndpoint:
 
         # Mock all dependencies
         with (
-            patch('src.retrieval.chain.RAGChain'),
-            patch('src.api.endpoints.check_safety'),
-            patch('src.api.endpoints.scan_for_pii') as mock_scan,
-            patch('src.api.endpoints.generate_trace_id', return_value="trace-123"),
-            patch('src.api.endpoints.clear_trace_id'),
-            patch('src.api.endpoints.settings') as mock_settings,
+            patch("src.retrieval.chain.RAGChain"),
+            patch("src.api.endpoints.check_safety"),
+            patch("src.api.endpoints.scan_for_pii") as mock_scan,
+            patch("src.api.endpoints.generate_trace_id", return_value="trace-123"),
+            patch("src.api.endpoints.clear_trace_id"),
+            patch("src.api.endpoints.settings") as mock_settings,
         ):
-            mock_settings.app_api_key = "test-api-key"
+            mock_settings.app_api_key = "test-api-key"  # pragma: allowlist secret
             mock_scan.return_value = {"sanitized_text": "Test answer", "has_pii": False}
 
             from src.api.endpoints import router
+
             app.include_router(router)
 
         # Set up mock chain
@@ -162,7 +180,7 @@ class TestChatEndpoint:
             "structured_events": [],
             "message_id": "msg-123",
             "needs_clarification": False,
-            "clarifying_questions": []
+            "clarifying_questions": [],
         }
         app.state.rag_chain = mock_chain
 
@@ -177,15 +195,11 @@ class TestChatEndpoint:
 
     def test_chat_with_wrong_api_key(self, mock_app):
         """Test chat endpoint with wrong API key returns 403."""
-        with patch('src.api.endpoints.settings') as mock_settings:
-            mock_settings.app_api_key = "correct-key"
+        with patch("src.api.endpoints.settings") as mock_settings:
+            mock_settings.app_api_key = "correct-key"  # pragma: allowlist secret
 
             client = TestClient(mock_app)
-            response = client.post(
-                "/chat",
-                json={"question": "Test?"},
-                headers={"X-API-Key": "wrong-key"}
-            )
+            response = client.post("/chat", json={"question": "Test?"}, headers={"X-API-Key": "wrong-key"})
 
             assert response.status_code == 403
 
@@ -199,12 +213,13 @@ class TestFeedbackEndpoint:
         app = FastAPI()
 
         with (
-            patch('src.retrieval.chain.RAGChain'),
-            patch('src.api.endpoints.settings') as mock_settings,
+            patch("src.retrieval.chain.RAGChain"),
+            patch("src.api.endpoints.settings") as mock_settings,
         ):
-            mock_settings.app_api_key = "test-api-key"
+            mock_settings.app_api_key = "test-api-key"  # pragma: allowlist secret
 
             from src.api.endpoints import router
+
             app.include_router(router)
 
         mock_chain = MagicMock()
@@ -216,10 +231,7 @@ class TestFeedbackEndpoint:
     def test_feedback_without_api_key(self, mock_app):
         """Test feedback endpoint without API key returns 403."""
         client = TestClient(mock_app)
-        response = client.post("/feedback", json={
-            "message_id": "msg-123",
-            "is_positive": True
-        })
+        response = client.post("/feedback", json={"message_id": "msg-123", "is_positive": True})
 
         assert response.status_code == 403
 
@@ -232,8 +244,9 @@ class TestMetricsEndpoint:
         """Create test app for metrics tests."""
         app = FastAPI()
 
-        with patch('src.retrieval.chain.RAGChain'):
+        with patch("src.retrieval.chain.RAGChain"):
             from src.api.endpoints import router
+
             app.include_router(router)
 
         return app
@@ -247,7 +260,7 @@ class TestMetricsEndpoint:
         mock_breaker.fail_max = 5
         mock_breaker.reset_timeout = 60
 
-        with patch('src.api.endpoints.llm_breaker', mock_breaker):
+        with patch("src.api.endpoints.llm_breaker", mock_breaker):
             client = TestClient(mock_app)
             response = client.get("/metrics")
 
@@ -259,7 +272,7 @@ class TestMetricsEndpoint:
 
     def test_metrics_with_breaker_disabled(self, mock_app):
         """Test metrics when circuit breaker is disabled."""
-        with patch('src.api.endpoints.llm_breaker', None):
+        with patch("src.api.endpoints.llm_breaker", None):
             client = TestClient(mock_app)
             response = client.get("/metrics")
 

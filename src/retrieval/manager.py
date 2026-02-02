@@ -1,13 +1,24 @@
 """
 FILE: manager.py
 STATUS: Active
-RESPONSIBILITY: Manages multi-stage event retrieval using vector store and search intents
-LAST MAJOR UPDATE: 2026-01-31
-MAINTAINER: Team
+RESPONSIBILITY: Manages multi-stage event retrieval using vector store and search intents.
+
+DEPENDENCIES (Who uses this file):
+- src/retrieval/chain.py: Uses RetrievalManager for search orchestration
+
+IMPORTS (What this file needs):
+- logging: For debug output
+- datetime: For date handling
+- typing: For type annotations
+- dataclasses: For SearchIntent structure
+- langchain_core: For Document type
+
+LAST MAJOR UPDATE: 2026-02-02
+MAINTAINER: Core Backend Team
 """
 
 import logging
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta
 from typing import Any, Dict, List, Optional, Tuple, Set, Union
 from dataclasses import dataclass
 
@@ -18,9 +29,11 @@ from src.data.models import Event
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class SearchIntent:
     """Normalized search requirements extracted from user query."""
+
     city: Optional[str] = None
     target_date: Optional[date] = None
     days: List[int] = None
@@ -40,10 +53,11 @@ class SearchIntent:
 @dataclass
 class FilterRelaxation:
     """Tracks what filters were relaxed to find results."""
-    is_free_relaxed: bool = False      # "free" filter was removed
-    category_relaxed: bool = False      # Category was broadened
-    date_relaxed: bool = False          # Date window was expanded
-    city_relaxed: bool = False          # City filter was removed (nearby)
+
+    is_free_relaxed: bool = False  # "free" filter was removed
+    category_relaxed: bool = False  # Category was broadened
+    date_relaxed: bool = False  # Date window was expanded
+    city_relaxed: bool = False  # City filter was removed (nearby)
     original_is_free: Optional[bool] = None
     original_category: Optional[str] = None
     original_date_desc: Optional[str] = None  # "February 15, 2026" or "this weekend"
@@ -55,12 +69,12 @@ class FilterRelaxation:
         Uses i18n for proper translations.
         Returns empty string if no relaxations occurred.
         """
-        if not any([self.is_free_relaxed, self.category_relaxed,
-                    self.date_relaxed, self.city_relaxed]):
+        if not any([self.is_free_relaxed, self.category_relaxed, self.date_relaxed, self.city_relaxed]):
             return ""
 
         try:
             from src.utils.i18n import get_translator
+
             t = get_translator(language)
 
             parts = []
@@ -104,6 +118,7 @@ class FilterRelaxation:
             msg += "\n\n💡 *Not what you're looking for? Try refining your search.*"
             return msg
 
+
 class RetrievalManager:
     """Manages multi-stage retrieval: Exact -> Nearby Location -> Alt Date Check."""
 
@@ -131,16 +146,16 @@ class RetrievalManager:
             year=filters.get("year", 2026),
             category=filters.get("category"),
             is_free=filters.get("is_free"),
-            audience=filters.get("audience")
+            audience=filters.get("audience"),
         )
-        
+
         # Handle Days (single or list)
         days = filters.get("day")
         if isinstance(days, list):
             intent.days = days
         elif isinstance(days, int):
             intent.days = [days]
-            
+
         # Handle Date Range
         if "date_min" in filters:
             val = filters["date_min"]
@@ -148,18 +163,18 @@ class RetrievalManager:
         if "date_max" in filters:
             val = filters["date_max"]
             intent.date_max = val if isinstance(val, date) else date.fromisoformat(val)
-            
+
         # Set a primary target date for distance calculations/windows
         if intent.month and intent.days:
             try:
                 # Handle multi-month: use first month for target_date
                 first_month = intent.month[0] if isinstance(intent.month, list) else intent.month
                 intent.target_date = date(intent.year, first_month, intent.days[0])
-            except:
+            except (ValueError, IndexError, TypeError):
                 pass
         elif intent.date_min:
             intent.target_date = intent.date_min
-            
+
         return intent
 
     def execute_search(self, refined_query: str, intent: SearchIntent, language: str = "fr") -> Dict[str, Any]:
@@ -183,7 +198,7 @@ class RetrievalManager:
             original_is_free=intent.is_free,
             original_category=intent.category,
             original_city=intent.city,
-            original_date_desc=self._format_date_desc(intent)
+            original_date_desc=self._format_date_desc(intent),
         )
 
         final_events: List[Tuple[Event, float, str, float]] = []  # (Event, Score, MatchType, Distance)
@@ -212,7 +227,7 @@ class RetrievalManager:
                 date_max=intent.date_max,
                 category=intent.category,
                 is_free=None,  # Relaxed
-                audience=intent.audience
+                audience=intent.audience,
             )
             paid_results = self._search_exact(refined_query, relaxed_intent)
             for evt, score in paid_results:
@@ -239,7 +254,7 @@ class RetrievalManager:
                 date_max=relaxed_date_max,
                 category=intent.category,
                 is_free=None if relaxation.is_free_relaxed else intent.is_free,
-                audience=intent.audience
+                audience=intent.audience,
             )
             expanded_results = self._search_exact(refined_query, relaxed_intent)
             for evt, score in expanded_results:
@@ -274,7 +289,7 @@ class RetrievalManager:
                     date_max=nearby_date_max,
                     category=intent.category,
                     is_free=None if relaxation.is_free_relaxed else intent.is_free,
-                    audience=intent.audience
+                    audience=intent.audience,
                 )
                 nearby_results = self._search_nearby_locations(refined_query, relaxed_intent, needed)
 
@@ -284,7 +299,7 @@ class RetrievalManager:
                     if evt.event_id in seen_ids:
                         continue
 
-                    dist = float('inf')
+                    dist = float("inf")
                     lat, lon = None, None
                     if evt.location and evt.location.coordinates:
                         lat = evt.location.coordinates.get("lat")
@@ -327,13 +342,9 @@ class RetrievalManager:
         docs = []
         transparency_msg = relaxation.get_transparency_message(language)
 
-        for evt, score, m_type, dist in final_events[:self.k]:
+        for evt, score, m_type, dist in final_events[: self.k]:
             meta = evt.get_metadata()
-            meta.update({
-                "score": score,
-                "match_type": m_type,
-                "distance_km": dist
-            })
+            meta.update({"score": score, "match_type": m_type, "distance_km": dist})
             if alt_date_note:
                 meta["nearby_date_note"] = alt_date_note
                 alt_date_note = ""
@@ -356,14 +367,14 @@ class RetrievalManager:
                 "city": intent.city,
                 "month": intent.month,
                 "category": intent.category,
-                "has_date": intent.has_date_filter
+                "has_date": intent.has_date_filter,
             },
             "relaxation": {
                 "is_free_relaxed": relaxation.is_free_relaxed,
                 "date_relaxed": relaxation.date_relaxed,
                 "city_relaxed": relaxation.city_relaxed,
-                "transparency_message": transparency_msg
-            }
+                "transparency_message": transparency_msg,
+            },
         }
 
     def _format_date_desc(self, intent: SearchIntent) -> Optional[str]:
@@ -372,8 +383,21 @@ class RetrievalManager:
             return intent.target_date.strftime("%B %d, %Y")
         elif intent.month:
             months = intent.month if isinstance(intent.month, list) else [intent.month]
-            month_names = ["", "January", "February", "March", "April", "May", "June",
-                          "July", "August", "September", "October", "November", "December"]
+            month_names = [
+                "",
+                "January",
+                "February",
+                "March",
+                "April",
+                "May",
+                "June",
+                "July",
+                "August",
+                "September",
+                "October",
+                "November",
+                "December",
+            ]
             return ", ".join(month_names[m] for m in months if 1 <= m <= 12)
         return None
 
@@ -412,7 +436,7 @@ class RetrievalManager:
             "date_max": intent.date_max,
             "category": intent.category,
             "is_free": intent.is_free,
-            "audience": intent.audience
+            "audience": intent.audience,
         }
         clean = {k: v for k, v in filters.items() if v is not None}
         return self.vector_store.search(query, k=self.k * 3, metadata_filter=clean, candidate_pool=1000)
@@ -427,7 +451,7 @@ class RetrievalManager:
             "date_max": intent.date_max,
             "category": intent.category,
             "is_free": intent.is_free,
-            "audience": intent.audience
+            "audience": intent.audience,
         }
         clean = {k: v for k, v in filters.items() if v is not None}
         return self.vector_store.search(query, k=k, metadata_filter=clean, candidate_pool=1500)
@@ -443,7 +467,7 @@ class RetrievalManager:
             "date_max": intent.date_max,
             "category": intent.category,
             "is_free": intent.is_free,
-            "audience": intent.audience
+            "audience": intent.audience,
         }
         clean = {k: v for k, v in filters.items() if v is not None}
 
@@ -457,7 +481,7 @@ class RetrievalManager:
             "city": intent.city,
             "category": intent.category,
             "is_free": intent.is_free,
-            "audience": intent.audience
+            "audience": intent.audience,
         }
         if intent.target_date:
             # Use future-only date range (no past events)

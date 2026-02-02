@@ -1,8 +1,18 @@
 """
 FILE: test_llm_live.py
 STATUS: Active
-RESPONSIBILITY: Tests live Google Gemini LLM API integration, including response validation and error handling
-LAST MAJOR UPDATE: 2026-01-31
+RESPONSIBILITY: Tests live Google Gemini LLM API integration, including response validation and error handling.
+
+DEPENDENCIES (Who uses this file):
+- CI/CD: Runs optionally with RUN_LIVE_API_TESTS=1
+
+IMPORTS (What this file needs):
+- pytest: Test framework
+- os: Environment variable access
+- unittest.mock: For mocking
+- typing: For type annotations
+
+LAST MAJOR UPDATE: 2026-02-02
 MAINTAINER: QA Team
 
 IMPORTANT: These tests make REAL API calls and incur costs.
@@ -21,8 +31,7 @@ from unittest.mock import patch
 
 # Skip all tests in this file unless RUN_LIVE_API_TESTS=1 is set
 pytestmark = pytest.mark.skipif(
-    not os.environ.get("RUN_LIVE_API_TESTS"),
-    reason="Live API tests disabled. Set RUN_LIVE_API_TESTS=1 to enable."
+    not os.environ.get("RUN_LIVE_API_TESTS"), reason="Live API tests disabled. Set RUN_LIVE_API_TESTS=1 to enable."
 )
 
 
@@ -42,7 +51,7 @@ class TestGeminiLLMLive:
         response = llm.invoke("Say 'Hello World' in exactly two words.")
 
         assert response is not None
-        assert hasattr(response, 'content')
+        assert hasattr(response, "content")
         assert len(response.content) > 0
 
     def test_gemini_french_response(self):
@@ -111,7 +120,7 @@ Only output the JSON, nothing else."""
 
         assert response is not None
         # Response could be AIMessage or string depending on backend
-        content = response.content if hasattr(response, 'content') else str(response)
+        content = response.content if hasattr(response, "content") else str(response)
         assert len(content) > 0
 
 
@@ -145,11 +154,7 @@ class TestMistralEmbeddingsLive:
             pytest.skip("MISTRAL_API_KEY not configured")
 
         embedder = EventEmbedder()
-        texts = [
-            "Concert de jazz à Paris",
-            "Exposition d'art moderne",
-            "Festival de musique électronique"
-        ]
+        texts = ["Concert de jazz à Paris", "Exposition d'art moderne", "Festival de musique électronique"]
 
         # Use internal embeddings object for batch processing
         embeddings = embedder.embeddings.embed_documents(texts)
@@ -240,9 +245,7 @@ class TestUnifiedAnalyzerLive:
             pytest.skip("GOOGLE_API_KEY not configured")
 
         result = unified_analyze(
-            query="Concerts de jazz à Paris ce weekend",
-            chat_history=[],
-            known_cities=["paris", "lyon", "versailles"]
+            query="Concerts de jazz à Paris ce weekend", chat_history=[], known_cities=["paris", "lyon", "versailles"]
         )
 
         assert result is not None
@@ -257,11 +260,7 @@ class TestUnifiedAnalyzerLive:
         if not settings.google_api_key:
             pytest.skip("GOOGLE_API_KEY not configured")
 
-        result = unified_analyze(
-            query="Bonjour!",
-            chat_history=[],
-            known_cities=["paris"]
-        )
+        result = unified_analyze(query="Bonjour!", chat_history=[], known_cities=["paris"])
 
         assert result is not None
         assert result.intent == QueryIntent.GREETING
@@ -275,9 +274,7 @@ class TestUnifiedAnalyzerLive:
             pytest.skip("GOOGLE_API_KEY not configured")
 
         result = unified_analyze(
-            query="Quelle est la capitale de l'Australie?",
-            chat_history=[],
-            known_cities=["paris"]
+            query="Quelle est la capitale de l'Australie?", chat_history=[], known_cities=["paris"]
         )
 
         assert result is not None
@@ -294,7 +291,7 @@ class TestUnifiedAnalyzerLive:
         result = unified_analyze(
             query="Concerts à Pari",  # Typo: Pari instead of Paris
             chat_history=[],
-            known_cities=["paris", "lyon", "versailles"]
+            known_cities=["paris", "lyon", "versailles"],
         )
 
         assert result is not None
@@ -319,10 +316,7 @@ class TestRAGChainLive:
             pytest.skip("API keys not configured")
 
         chain = RAGChain()
-        result = chain.query_with_metadata(
-            question="Quels concerts y a-t-il à Paris?",
-            session_id="test_live_session"
-        )
+        result = chain.query_with_metadata(question="Quels concerts y a-t-il à Paris?", session_id="test_live_session")
 
         assert result is not None
         assert "answer" in result
@@ -337,10 +331,7 @@ class TestRAGChainLive:
             pytest.skip("GOOGLE_API_KEY not configured")
 
         chain = RAGChain()
-        result = chain.query_with_metadata(
-            question="Bonjour!",
-            session_id="test_greeting_session"
-        )
+        result = chain.query_with_metadata(question="Bonjour!", session_id="test_greeting_session")
 
         assert result is not None
         assert "answer" in result
@@ -359,11 +350,11 @@ class TestErrorHandling:
         # Temporarily set invalid key
         original_key = os.environ.get("GOOGLE_API_KEY")
         try:
-            os.environ["GOOGLE_API_KEY"] = "invalid_key_12345"
+            os.environ["GOOGLE_API_KEY"] = "invalid_key_12345"  # pragma: allowlist secret
 
             # Should handle gracefully (either raise or return error message)
             try:
-                with patch('src.config.settings.google_api_key', 'invalid_key_12345'):
+                with patch("src.config.settings.google_api_key", "invalid_key_12345"):
                     llm = MistralLLM()
                     response = llm.invoke("test")
                 # If it reaches here, should have error in response
@@ -375,5 +366,3 @@ class TestErrorHandling:
             # Restore original key
             if original_key:
                 os.environ["GOOGLE_API_KEY"] = original_key
-
-

@@ -121,3 +121,4 @@ scripts/_working/
 *_enrichment.yaml
 *_review.yaml
 review_batch*.yaml
+docs/api_log.txt

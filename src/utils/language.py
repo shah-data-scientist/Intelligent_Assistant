@@ -1,11 +1,23 @@
-"""Language detection and normalization utilities for bilingual support.
+"""
+FILE: language.py
+STATUS: Active
+RESPONSIBILITY: Language detection and normalization for bilingual (FR/EN) support.
+
+DEPENDENCIES (Who uses this file):
+- src/retrieval/unified_analyzer.py: Uses for query language detection
+- src/retrieval/chain.py: Uses for response language selection
+
+IMPORTS (What this file needs):
+- logging: For debug output
+- re: For pattern matching
+- typing: For type annotations
+- langdetect: For language detection (optional)
+
+LAST MAJOR UPDATE: 2026-02-02
+MAINTAINER: Core Backend Team
 
 This module provides language detection and text normalization for
 French and English queries, enabling bilingual consistency in the RAG system.
-
-Dependencies:
-    - langdetect: For language detection (pip install langdetect)
-    - nltk: For stopwords and stemming (pip install nltk)
 """
 
 import logging
@@ -19,34 +31,223 @@ LanguageCode = Literal["fr", "en"]
 
 # French stopwords (common words to remove)
 FRENCH_STOPWORDS = {
-    'le', 'la', 'les', 'un', 'une', 'des', 'de', 'du', 'à', 'au', 'aux',
-    'et', 'ou', 'mais', 'donc', 'or', 'ni', 'car', 'dans', 'sur', 'sous',
-    'avec', 'sans', 'pour', 'par', 'en', 'vers', 'chez', 'entre', 'parmi',
-    'ce', 'cet', 'cette', 'ces', 'mon', 'ton', 'son', 'ma', 'ta', 'sa',
-    'mes', 'tes', 'ses', 'notre', 'votre', 'leur', 'nos', 'vos', 'leurs',
-    'je', 'tu', 'il', 'elle', 'on', 'nous', 'vous', 'ils', 'elles',
-    'me', 'te', 'se', 'lui', 'leur', 'y', 'en',
-    'que', 'qui', 'quoi', 'dont', 'où', 'quand', 'comment', 'pourquoi',
-    'est', 'ai', 'as', 'a', 'avons', 'avez', 'ont', 'être', 'avoir',
-    'suis', 'es', 'sommes', 'êtes', 'sont', 'été', 'étant', 'ayant', 'eu',
-    'très', 'plus', 'moins', 'assez', 'trop', 'bien', 'mal', 'peu', 'beaucoup',
-    'tout', 'tous', 'toute', 'toutes', 'même', 'autre', 'autres', 'certain', 'certains',
-    'ne', 'pas', 'point', 'jamais', 'rien', 'personne', 'aucun', 'nul',
+    "le",
+    "la",
+    "les",
+    "un",
+    "une",
+    "des",
+    "de",
+    "du",
+    "à",
+    "au",
+    "aux",
+    "et",
+    "ou",
+    "mais",
+    "donc",
+    "or",
+    "ni",
+    "car",
+    "dans",
+    "sur",
+    "sous",
+    "avec",
+    "sans",
+    "pour",
+    "par",
+    "en",
+    "vers",
+    "chez",
+    "entre",
+    "parmi",
+    "ce",
+    "cet",
+    "cette",
+    "ces",
+    "mon",
+    "ton",
+    "son",
+    "ma",
+    "ta",
+    "sa",
+    "mes",
+    "tes",
+    "ses",
+    "notre",
+    "votre",
+    "leur",
+    "nos",
+    "vos",
+    "leurs",
+    "je",
+    "tu",
+    "il",
+    "elle",
+    "on",
+    "nous",
+    "vous",
+    "ils",
+    "elles",
+    "me",
+    "te",
+    "se",
+    "lui",
+    "leur",
+    "y",
+    "en",
+    "que",
+    "qui",
+    "quoi",
+    "dont",
+    "où",
+    "quand",
+    "comment",
+    "pourquoi",
+    "est",
+    "ai",
+    "as",
+    "a",
+    "avons",
+    "avez",
+    "ont",
+    "être",
+    "avoir",
+    "suis",
+    "es",
+    "sommes",
+    "êtes",
+    "sont",
+    "été",
+    "étant",
+    "ayant",
+    "eu",
+    "très",
+    "plus",
+    "moins",
+    "assez",
+    "trop",
+    "bien",
+    "mal",
+    "peu",
+    "beaucoup",
+    "tout",
+    "tous",
+    "toute",
+    "toutes",
+    "même",
+    "autre",
+    "autres",
+    "certain",
+    "certains",
+    "ne",
+    "pas",
+    "point",
+    "jamais",
+    "rien",
+    "personne",
+    "aucun",
+    "nul",
 }
 
 # English stopwords (common words to remove)
 ENGLISH_STOPWORDS = {
-    'the', 'a', 'an', 'and', 'or', 'but', 'if', 'then', 'else', 'when',
-    'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through',
-    'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down',
-    'in', 'out', 'on', 'off', 'over', 'under', 'again', 'further', 'once',
-    'here', 'there', 'all', 'both', 'each', 'few', 'more', 'most', 'other',
-    'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than',
-    'too', 'very', 'can', 'will', 'just', 'should', 'now',
-    'i', 'you', 'he', 'she', 'it', 'we', 'they', 'them', 'their', 'what',
-    'which', 'who', 'whom', 'this', 'that', 'these', 'those', 'am', 'is', 'are',
-    'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having',
-    'do', 'does', 'did', 'doing',
+    "the",
+    "a",
+    "an",
+    "and",
+    "or",
+    "but",
+    "if",
+    "then",
+    "else",
+    "when",
+    "at",
+    "by",
+    "for",
+    "with",
+    "about",
+    "against",
+    "between",
+    "into",
+    "through",
+    "during",
+    "before",
+    "after",
+    "above",
+    "below",
+    "to",
+    "from",
+    "up",
+    "down",
+    "in",
+    "out",
+    "on",
+    "off",
+    "over",
+    "under",
+    "again",
+    "further",
+    "once",
+    "here",
+    "there",
+    "all",
+    "both",
+    "each",
+    "few",
+    "more",
+    "most",
+    "other",
+    "some",
+    "such",
+    "no",
+    "nor",
+    "not",
+    "only",
+    "own",
+    "same",
+    "so",
+    "than",
+    "too",
+    "very",
+    "can",
+    "will",
+    "just",
+    "should",
+    "now",
+    "i",
+    "you",
+    "he",
+    "she",
+    "it",
+    "we",
+    "they",
+    "them",
+    "their",
+    "what",
+    "which",
+    "who",
+    "whom",
+    "this",
+    "that",
+    "these",
+    "those",
+    "am",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "have",
+    "has",
+    "had",
+    "having",
+    "do",
+    "does",
+    "did",
+    "doing",
 }
 
 
@@ -74,10 +275,10 @@ def detect_language(text: str, default: LanguageCode = "fr") -> LanguageCode:
 
     try:
         # Try langdetect if available
-        from langdetect import detect, LangDetectException
+        from langdetect import detect
 
         detected = detect(text)
-        if detected in ['fr', 'en']:
+        if detected in ["fr", "en"]:
             logger.debug(f"Detected language: {detected} for text: {text[:50]}...")
             return detected
         else:
@@ -103,19 +304,17 @@ def _heuristic_language_detection(text: str, default: LanguageCode = "fr") -> La
     text_lower = text.lower()
 
     # French indicators (accented characters, common words)
-    french_indicators = {
-        'à', 'â', 'ç', 'é', 'è', 'ê', 'ë', 'î', 'ï', 'ô', 'ù', 'û', 'ü', 'ÿ'
-    }
-    french_words = {'le', 'la', 'les', 'de', 'du', 'des', 'à', 'et', 'pour', 'dans', 'avec'}
+    french_indicators = {"à", "â", "ç", "é", "è", "ê", "ë", "î", "ï", "ô", "ù", "û", "ü", "ÿ"}
+    french_words = {"le", "la", "les", "de", "du", "des", "à", "et", "pour", "dans", "avec"}
 
     # English indicators (common words unique to English)
-    english_words = {'the', 'is', 'are', 'this', 'that', 'with', 'from'}
+    english_words = {"the", "is", "are", "this", "that", "with", "from"}
 
     # Count indicators
     french_score = sum(1 for char in text_lower if char in french_indicators)
-    french_score += sum(3 for word in french_words if f' {word} ' in f' {text_lower} ')
+    french_score += sum(3 for word in french_words if f" {word} " in f" {text_lower} ")
 
-    english_score = sum(3 for word in english_words if f' {word} ' in f' {text_lower} ')
+    english_score = sum(3 for word in english_words if f" {word} " in f" {text_lower} ")
 
     # Decide based on scores
     if french_score > english_score:
@@ -148,13 +347,10 @@ def normalize_for_search(text: str, language: LanguageCode) -> str:
         'jazz concert in paris'
     """
     # NFD normalization (decompose accented characters)
-    normalized = unicodedata.normalize('NFD', text)
+    normalized = unicodedata.normalize("NFD", text)
 
     # Remove combining diacritics (accents)
-    normalized = ''.join(
-        char for char in normalized
-        if not unicodedata.combining(char)
-    )
+    normalized = "".join(char for char in normalized if not unicodedata.combining(char))
 
     # Lowercase
     normalized = normalized.lower()
@@ -206,7 +402,7 @@ def stem_tokens(tokens: list[str], language: LanguageCode) -> list[str]:
     try:
         from nltk.stem import SnowballStemmer
 
-        stemmer_lang = 'french' if language == 'fr' else 'english'
+        stemmer_lang = "french" if language == "fr" else "english"
         stemmer = SnowballStemmer(stemmer_lang)
 
         stemmed = [stemmer.stem(token) for token in tokens]

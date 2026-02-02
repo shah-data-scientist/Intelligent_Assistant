@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Documentation Headers**: Added proper documentation headers to src/ and test files
+  - [src/frontend/app.py](src/frontend/app.py) - Added FILE/STATUS/RESPONSIBILITY/DEPENDENCIES/IMPORTS headers
+  - [src/security/sanitization.py](src/security/sanitization.py) - Added documentation headers
+  - [src/utils/language.py](src/utils/language.py) - Added documentation headers
+  - [src/retrieval/manager.py](src/retrieval/manager.py) - Completed DEPENDENCIES/IMPORTS headers
+  - [tests/unit/test_endpoints.py](tests/unit/test_endpoints.py) - Added documentation headers
+  - [tests/integration/test_api_endpoints.py](tests/integration/test_api_endpoints.py) - Added documentation headers
+  - [tests/integration/test_llm_live.py](tests/integration/test_llm_live.py) - Added documentation headers
+
+### Fixed
+- **Pre-commit Compliance**: Fixed issues for all pre-commit hooks to pass
+  - [src/retrieval/chain.py](src/retrieval/chain.py) - Added missing `Set` import, `STATISTICAL_TEMPLATES`, `build_filter_description` import
+  - [src/retrieval/chain.py](src/retrieval/chain.py) - Fixed bare `except` to `except Exception`
+  - [src/retrieval/manager.py](src/retrieval/manager.py) - Fixed bare `except` to specific exceptions
+  - [src/frontend/app.py](src/frontend/app.py) - Fixed bare `except` to `except (ValueError, KeyError)`
+  - [src/utils/language.py](src/utils/language.py) - Removed unused `LangDetectException` import
+  - [pyproject.toml](pyproject.toml) - Added ruff configuration with sensible ignores
+  - [.pre-commit-config.yaml](.pre-commit-config.yaml) - Fixed bandit config (pass_filenames: false)
+
 - **Full i18n Migration**: Completed migration of all remaining files to use JSON-based i18n framework
   - [src/retrieval/response_builder.py](src/retrieval/response_builder.py) - Migrated filters, responses, errors to i18n (200 lines → 150 lines)
   - [src/retrieval/clarifications.py](src/retrieval/clarifications.py) - Migrated clarification questions to i18n (316 lines → 33 lines)

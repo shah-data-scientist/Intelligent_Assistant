@@ -1,3 +1,22 @@
+"""
+FILE: app.py
+STATUS: Active
+RESPONSIBILITY: Streamlit frontend for the Intelligent Cultural Assistant chatbot.
+
+DEPENDENCIES (Who uses this file):
+- Users: Direct interaction via web browser
+
+IMPORTS (What this file needs):
+- streamlit: UI framework
+- requests: HTTP calls to API
+- folium: Map rendering
+- streamlit_folium: Streamlit map integration
+- uuid: Session ID generation
+
+LAST MAJOR UPDATE: 2026-02-02
+MAINTAINER: Frontend Team
+"""
+
 import streamlit as st
 import requests
 import folium
@@ -287,7 +306,7 @@ if prompt := st.chat_input(f"Ask {CHATBOT_NAME} anything... (e.g., 'jazz concert
                     try:
                         error_data = response.json()
                         refusal_msg = error_data.get("detail", response.text)
-                    except:
+                    except (ValueError, KeyError):
                         refusal_msg = response.text
 
                     st.session_state.messages.append({"role": "assistant", "content": refusal_msg})
