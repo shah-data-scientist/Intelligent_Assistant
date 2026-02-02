@@ -1,4 +1,10 @@
-"""Response composition utilities for clean, maintainable response building."""
+"""
+FILE: response_builder.py
+STATUS: Active
+RESPONSIBILITY: Builds and formats response strings for event data based on filters and statistics
+LAST MAJOR UPDATE: 2026-01-31
+MAINTAINER: Team
+"""
 
 import logging
 from typing import Dict, List, Any, Optional
@@ -16,7 +22,13 @@ logger = logging.getLogger(__name__)
 # Default timeframe configuration
 DEFAULT_TIMEFRAME_DAYS = 30  # Default to next 30 days when no timeframe specified
 
-# Markers used to detect and strip existing suffixes (avoid duplication)
+# Broadening suggestion for when no results found
+BROADENING_SUGGESTION = {
+    "fr": "💡 Vous pouvez essayer d'élargir votre recherche en modifiant la date ou la ville.",
+    "en": "💡 You can try broadening your search by changing the date or city."
+}
+
+# Markers for detecting and stripping existing suffixes (avoid duplication)
 SUFFIX_MARKERS = [
     "📅 *Results filtered",
     "💡 *Specify",
@@ -204,6 +216,7 @@ class ResponseComponents:
     """Components of a composed response."""
 
     prefix: str = ""
+    transparency_note: str = ""  # Note about filter relaxation (e.g., "no free events, showing paid")
     main_content: str = ""
     refinement_suffix: str = ""
     broadening_suggestion: str = ""
@@ -211,7 +224,15 @@ class ResponseComponents:
 
     def compose(self) -> str:
         """Compose all components into final response."""
-        parts = [self.prefix, self.main_content, self.refinement_suffix, self.broadening_suggestion, self.filter_echo]
+        # Transparency note comes after prefix but before main content
+        parts = [
+            self.prefix,
+            self.transparency_note,
+            self.main_content,
+            self.refinement_suffix,
+            self.broadening_suggestion,
+            self.filter_echo
+        ]
         return "".join(p for p in parts if p)
 
 
@@ -251,6 +272,25 @@ class ResponseBuilder:
             Self for method chaining
         """
         self.components.prefix = prefix
+        return self
+
+    def add_transparency_note(self, relaxation_info: Dict[str, Any]) -> "ResponseBuilder":
+        """Add transparency note about filter relaxation.
+
+        This informs the user when filters were relaxed to find results
+        (e.g., "no free events found, showing paid alternatives").
+
+        Args:
+            relaxation_info: Dict with relaxation flags and transparency message
+
+        Returns:
+            Self for method chaining
+        """
+        message = relaxation_info.get("transparency_message", "")
+        if message:
+            # Add a newline before main content for visual separation
+            self.components.transparency_note = message + "\n\n"
+            logger.info(f"[TRANSPARENCY] Added filter relaxation note")
         return self
 
     def add_refinement_suffix(self, suffix: str) -> "ResponseBuilder":
@@ -357,3 +397,115 @@ def build_error_response(error_type: str, language: str = "fr", **context) -> st
     """
     t = get_translator(language)
     return t.get(f"errors.{error_type}")
+
+
+# ========================================
+# EVENT FORMATTING FOR EMPTY RESPONSES
+# ========================================
+# These functions handle the case where LLM returns only a summary
+# (e.g., "Here are 8 events") without listing actual event details.
+
+
+def format_events_as_text(sources: List[Dict[str, Any]], language: str = "fr", max_events: int = 8) -> str:
+    """Format retrieved events as readable text when LLM returns only a summary.
+
+    This is a fallback to ensure users see actual event details when the LLM
+    only returns a brief summary like "Here are 8 events" without listing them.
+
+    Args:
+        sources: List of source documents with event metadata
+        language: Target language (fr/en)
+        max_events: Maximum number of events to format
+
+    Returns:
+        Formatted event text
+    """
+    if not sources:
+        return ""
+
+    lines = []
+    count = min(len(sources), max_events)
+
+    # Header based on language
+    if language == "fr":
+        lines.append(f"Voici {count} événements correspondant à votre recherche :\n")
+    else:
+        lines.append(f"Here are {count} events matching your search:\n")
+
+    for i, source in enumerate(sources[:max_events]):
+        title = source.get("title", "Unknown Event")
+        city = source.get("city", "Unknown City")
+        date_str = source.get("date", source.get("start_date", ""))
+        url = source.get("url", "")
+        category = source.get("category", "")
+        match_type = source.get("match_type", "")
+
+        # Format date nicely if it exists
+        date_display = ""
+        if date_str:
+            try:
+                from datetime import datetime
+                if "T" in str(date_str):
+                    dt = datetime.fromisoformat(str(date_str).replace("Z", "+00:00"))
+                    date_display = dt.strftime("%d/%m/%Y à %H:%M") if language == "fr" else dt.strftime("%b %d, %Y at %H:%M")
+                else:
+                    date_display = str(date_str)
+            except Exception:
+                date_display = str(date_str)
+
+        # Build event entry
+        event_text = f"**{i+1}. {title}**"
+        if city:
+            event_text += f" - {city}"
+        if date_display:
+            event_text += f"\n   📅 {date_display}"
+        if category:
+            event_text += f" | 🎭 {category}"
+        if match_type and match_type != "Exact Match":
+            event_text += f" ({match_type})"
+        if url:
+            link_text = "Plus d'infos" if language == "fr" else "More info"
+            event_text += f"\n   🔗 [{link_text}]({url})"
+
+        lines.append(event_text)
+
+    return "\n\n".join(lines)
+
+
+def is_summary_only_response(answer_text: str, event_count: int) -> bool:
+    """Check if the LLM response is just a summary without event details.
+
+    This detects responses like "Here are 8 events" that don't actually list the events.
+
+    Args:
+        answer_text: The LLM-generated answer text
+        event_count: Number of events that should be in the response
+
+    Returns:
+        True if the response appears to be summary-only (needs event formatting)
+    """
+    if not answer_text or event_count == 0:
+        return False
+
+    # If answer is very short relative to event count, it's likely summary-only
+    # A proper response with 8 events should be at least 500+ chars
+    min_expected_chars = event_count * 60  # ~60 chars per event minimum
+
+    # Check for common summary patterns without actual content
+    summary_patterns = [
+        "here are",
+        "voici",
+        "i found",
+        "j'ai trouvé",
+    ]
+
+    text_lower = answer_text.lower()
+
+    # If text is short and starts with summary pattern, likely needs formatting
+    if len(answer_text) < min_expected_chars:
+        for pattern in summary_patterns:
+            if pattern in text_lower:
+                logger.info(f"[SUMMARY-DETECT] Response appears summary-only ({len(answer_text)} chars < {min_expected_chars} expected)")
+                return True
+
+    return False

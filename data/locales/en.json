@@ -63,6 +63,18 @@
     "broadening_suggestion": "\n\n💡 *Few results? Try broadening your search: change the date, city, or simplify your criteria.*"
   },
 
+  "transparency": {
+    "prefix": "📢 **Note:**",
+    "no_free_events": "No free events found matching your criteria. Here are paid alternatives that might interest you.",
+    "date_expanded": "No events found on the exact date. Showing events in the next 7 days.",
+    "nearby_cities": "No events in {city}. Showing events from nearby cities.",
+    "combined_relaxation": "Results include alternatives: {details}",
+    "is_free_relaxed": "paid events (no free options available)",
+    "date_relaxed": "upcoming dates (next 7 days)",
+    "city_relaxed": "nearby cities",
+    "refinement_hint": "Not what you're looking for? Try refining your search with more specific criteria."
+  },
+
   "errors": {
     "model_loading": "**Model Loading**\n\nThe AI model is starting up (this may take 20-30 seconds). Please try again in a moment.",
     "rate_limit": "**Rate Limit Reached**\n\nToo many requests at once. Please try again in a few seconds.",

@@ -63,6 +63,18 @@
     "broadening_suggestion": "\n\n💡 *Peu de résultats ? Essayez d'élargir votre recherche : changez la date, la ville, ou simplifiez vos critères.*"
   },
 
+  "transparency": {
+    "prefix": "📢 **Note :**",
+    "no_free_events": "Aucun événement gratuit trouvé correspondant à vos critères. Voici des alternatives payantes qui pourraient vous intéresser.",
+    "date_expanded": "Aucun événement trouvé à la date exacte. Voici des événements dans les 7 prochains jours.",
+    "nearby_cities": "Aucun événement à {city}. Voici des événements dans les villes voisines.",
+    "combined_relaxation": "Les résultats incluent des alternatives : {details}",
+    "is_free_relaxed": "événements payants (aucune option gratuite disponible)",
+    "date_relaxed": "dates à venir (7 prochains jours)",
+    "city_relaxed": "villes voisines",
+    "refinement_hint": "Ce n'est pas ce que vous cherchez ? Essayez d'affiner votre recherche avec des critères plus précis."
+  },
+
   "errors": {
     "model_loading": "**Modele en cours de chargement**\n\nLe modele IA demarre (cela peut prendre 20-30 secondes). Veuillez reessayer dans un moment.",
     "rate_limit": "**Limite de requetes atteinte**\n\nTrop de requetes en meme temps. Veuillez reessayer dans quelques secondes.",

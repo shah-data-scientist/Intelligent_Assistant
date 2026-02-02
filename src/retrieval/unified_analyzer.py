@@ -130,10 +130,10 @@ CATEGORY_MAPPING = {
     "galerie": "Art / Exposition",
     "museum": "Art / Exposition",
     "musée": "Art / Exposition",
-    # Danse
-    "dance": "Danse",
-    "danse": "Danse",
-    "ballet": "Danse",
+    # Danse (maps to Théâtre / Spectacle since no separate Danse category in DB)
+    "dance": "Théâtre / Spectacle",
+    "danse": "Théâtre / Spectacle",
+    "ballet": "Théâtre / Spectacle",
     # Conférence / Débat
     "conference": "Conférence / Débat",
     "conférence": "Conférence / Débat",
@@ -392,6 +392,20 @@ Statistical queries always complete.
 - Free: Detect "gratuit/free"
 
 **CONTEXT:** Carry forward filters from previous conversation unless explicitly changed.
+
+**COREFERENCE RESOLUTION (ORDINAL REFERENCES):**
+When the user refers to events from previous results using ordinals or pronouns:
+- "first one", "le premier", "1st" → event at index 0
+- "second one", "le deuxième", "2nd" → event at index 1
+- "third one", "le troisième", "3rd" → event at index 2
+- "last one", "le dernier" → last event in list
+- "that one", "celui-là", "the concert" → match by name/type
+
+Set coreference.references_previous=true and coreference.event_name to the EXACT title of the referenced event.
+Set coreference.reference_type to "event" for ordinal/name references.
+
+If user asks about price, location, or details of a referenced event, intent should be EVENT_SEARCH with coreference info filled.
+If user asks how to GET THERE, intent should be DIRECTIONS.
 
 Return structured output with all dimensions."""
 
@@ -692,17 +706,54 @@ class UnifiedAnalyzer:
             "scope": QueryDimension("scope", False),
         }
 
-        # Validate city against known cities
+        # Validate and normalize city against known cities
+        # Priority: city_normalized > filters.city > city_raw
         city_normalized = entities.get("city_normalized") or filters.get("city")
-        if city_normalized and known_cities:
-            known_cities_lower = [c.lower() for c in known_cities]
-            if city_normalized.lower() not in known_cities_lower:
-                logger.warning(f"[FALLBACK] City '{city_normalized}' not in known cities, clearing")
-                city_normalized = None
-                filters.pop("city", None)
+        city_raw = entities.get("city_raw")
+
+        if known_cities:
+            known_cities_lower = {c.lower(): c for c in known_cities}  # Map lowercase to original
+
+            # If city_normalized is set, validate it
+            if city_normalized:
+                if city_normalized.lower() in known_cities_lower:
+                    # Valid - use the canonical form from database
+                    city_normalized = known_cities_lower[city_normalized.lower()]
+                    logger.info(f"[CITY-NORMALIZE] '{city_normalized}' validated against known cities")
+                else:
+                    logger.warning(f"[FALLBACK] City '{city_normalized}' not in known cities, clearing")
+                    city_normalized = None
+                    filters.pop("city", None)
+
+            # If no city_normalized but we have city_raw, try to normalize it
+            if not city_normalized and city_raw:
+                if city_raw.lower() in known_cities_lower:
+                    city_normalized = known_cities_lower[city_raw.lower()]
+                    filters["city"] = city_normalized
+                    logger.info(f"[CITY-NORMALIZE] Raw '{city_raw}' normalized to '{city_normalized}'")
+                else:
+                    logger.warning(f"[CITY-NORMALIZE] Raw city '{city_raw}' not in known cities")
 
         detected_language = result.get("detected_language", "fr")
         if detected_language not in ["fr", "en"]:
+            detected_language = "fr"
+
+        # POST-LLM HEURISTIC: Override language if query is clearly English but detected as French
+        # This catches cases where the LLM defaults to French incorrectly
+        query_lower = query.lower()
+        english_indicators = [" the ", " in ", " at ", " on ", " this ", " what ", " how ", " are ", " is ",
+                              " for ", " with ", " about ", " looking ", " find ", " show ", " want "]
+        french_indicators = [" le ", " la ", " les ", " de ", " du ", " des ", " à ", " au ", " aux ",
+                             " en ", " pour ", " avec ", " qui ", " que ", " est ", " sont "]
+
+        english_count = sum(1 for w in english_indicators if w in f" {query_lower} ")
+        french_count = sum(1 for w in french_indicators if w in f" {query_lower} ")
+
+        if detected_language == "fr" and english_count >= 2 and english_count > french_count:
+            logger.info(f"[LANGUAGE-HEURISTIC] Overriding fr→en (EN:{english_count} vs FR:{french_count})")
+            detected_language = "en"
+        elif detected_language == "en" and french_count >= 2 and french_count > english_count:
+            logger.info(f"[LANGUAGE-HEURISTIC] Overriding en→fr (FR:{french_count} vs EN:{english_count})")
             detected_language = "fr"
 
         is_complete = result.get("is_complete", False)
@@ -763,7 +814,7 @@ class UnifiedAnalyzer:
                         history_context += f"{role}: {msg.content[:100]}...\n"
                 messages.append(SystemMessage(content=history_context))
 
-            # Add previous events context for coreference resolution
+            # Add prior events context for coreference resolution
             if previous_events:
                 events_context = "\n**PREVIOUS RESULTS (for coreference resolution):**\n"
                 events_context += "The assistant just returned these events:\n"
@@ -898,6 +949,20 @@ class UnifiedAnalyzer:
                 # LLM put city in filters but not entities - sync back
                 entities["city_normalized"] = filters["city"]
                 logger.info(f"[FILTER-SYNC] Synced city to entities: '{filters['city']}'")
+
+            # 1b. FALLBACK: If city_raw exists but city_normalized is still None,
+            # try to match city_raw against known_cities (case-insensitive)
+            city_raw = entities.get("city_raw")
+            city_normalized = entities.get("city_normalized")  # Refresh after sync
+            if city_raw and not city_normalized and known_cities:
+                city_raw_lower = city_raw.lower().strip()
+                known_cities_lower = {c.lower(): c for c in known_cities}
+                if city_raw_lower in known_cities_lower:
+                    canonical_city = known_cities_lower[city_raw_lower]
+                    city_normalized = canonical_city  # Update local variable too!
+                    entities["city_normalized"] = canonical_city
+                    filters["city"] = canonical_city
+                    logger.info(f"[FILTER-FALLBACK] Normalized city_raw '{city_raw}' to '{canonical_city}'")
 
             # 2. DERIVE CATEGORY from event_type
             # TERMINOLOGY CLARIFICATION:
@@ -1094,6 +1159,24 @@ class UnifiedAnalyzer:
             if detected_language not in ["fr", "en"]:
                 detected_language = "fr"  # Normalize to valid values
 
+            # POST-LLM HEURISTIC: Override language if query is clearly English but detected as French
+            # This catches cases where the LLM defaults to French incorrectly
+            query_lower = query.lower()
+            english_indicators = [" the ", " in ", " at ", " on ", " this ", " what ", " how ", " are ", " is ",
+                                  " for ", " with ", " about ", " looking ", " find ", " show ", " want "]
+            french_indicators = [" le ", " la ", " les ", " de ", " du ", " des ", " à ", " au ", " aux ",
+                                 " en ", " pour ", " avec ", " qui ", " que ", " est ", " sont "]
+
+            english_count = sum(1 for w in english_indicators if w in f" {query_lower} ")
+            french_count = sum(1 for w in french_indicators if w in f" {query_lower} ")
+
+            if detected_language == "fr" and english_count >= 2 and english_count > french_count:
+                logger.info(f"[LANGUAGE-HEURISTIC] Overriding fr→en (EN:{english_count} vs FR:{french_count})")
+                detected_language = "en"
+            elif detected_language == "en" and french_count >= 2 and french_count > english_count:
+                logger.info(f"[LANGUAGE-HEURISTIC] Overriding en→fr (FR:{french_count} vs EN:{english_count})")
+                detected_language = "fr"
+
             analysis = UnifiedAnalysisResult(
                 intent=intent_map.get(intent_str, QueryIntent.EVENT_SEARCH),
                 intent_confidence=float(result.get("intent_confidence", 0.8)),
@@ -1212,7 +1295,7 @@ def unified_analyze(
     # Create cache key from query (normalized)
     cache_key = query.lower().strip()
 
-    # Check cache (only for queries without context or previous events)
+    # Check cache (only for queries without context or prior events)
     if (chat_history is None or len(chat_history) == 0) and previous_events is None:
         if cache_key in _ANALYSIS_CACHE:
             cached_result, cached_time = _ANALYSIS_CACHE[cache_key]

@@ -61,7 +61,9 @@ from src.retrieval.response_builder import (
     build_refinement_suffix,
     apply_default_timeframe,
     should_apply_default_timeframe,
-    BROADENING_SUGGESTION
+    BROADENING_SUGGESTION,
+    format_events_as_text,
+    is_summary_only_response
 )
 from src.config import settings
 
@@ -149,6 +151,63 @@ def get_city_locator() -> CityLocator:
     return _city_locator
 
 logger = logging.getLogger(__name__)
+
+
+# ========================================
+# STRUCTURED EVENT SANITIZATION
+# ========================================
+# Ensures LLM-generated events have all required fields to prevent validation errors
+
+def sanitize_structured_events(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Sanitize structured events to ensure all required fields are present.
+
+    This prevents Pydantic validation errors when the LLM returns incomplete events.
+
+    Args:
+        events: List of event dictionaries from LLM
+
+    Returns:
+        List of sanitized event dictionaries with all required fields
+    """
+    if not events or not isinstance(events, list):
+        return []
+
+    sanitized = []
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+
+        # Skip events without required fields that can't be defaulted
+        title = event.get("title")
+        if not title:
+            logger.warning("[SANITIZE] Skipping event without title")
+            continue
+
+        sanitized_event = {
+            "title": str(title),
+            "date": str(event.get("date", event.get("start_date", "Unknown"))),
+            "city": str(event.get("city", "Unknown")),
+            "location": str(event.get("location", event.get("venue", "Unknown"))),
+            "url": event.get("url"),  # Optional, can be None
+            "price_label": str(event.get("price_label", event.get("price", "Unknown"))),
+            "age_label": str(event.get("age_label", event.get("age", "Unknown"))),
+            "times": event.get("times", []) if isinstance(event.get("times"), list) else [],
+            "times_display": str(event.get("times_display", event.get("time", "Unknown"))),
+        }
+
+        # Ensure date is not empty
+        if sanitized_event["date"] in ("", "None", "null"):
+            sanitized_event["date"] = "Unknown"
+
+        # Ensure city is not empty
+        if sanitized_event["city"] in ("", "None", "null"):
+            sanitized_event["city"] = "Unknown"
+
+        sanitized.append(sanitized_event)
+
+    logger.info(f"[SANITIZE] Processed {len(events)} events, {len(sanitized)} valid")
+    return sanitized
+
 
 # ========================================
 # ASYNC DATABASE WRITE HELPER
@@ -712,7 +771,8 @@ class RAGChain:
                 "raw_q": q,
                 "history": history,
                 "pre_filters": inputs.get("pre_filters"),
-                "pre_refined_query": inputs.get("pre_refined_query")
+                "pre_refined_query": inputs.get("pre_refined_query"),
+                "language": inputs.get("language", "fr")
             }
 
         # 2. Hybrid Retrieval with pre-computed filters from UnifiedAnalyzer
@@ -721,6 +781,7 @@ class RAGChain:
             input_query = inputs["q"]
             raw_query = inputs["raw_q"]
             history = inputs["history"]
+            language = inputs.get("language", "fr")
 
             # Get pre-computed filters from UnifiedAnalyzer (always provided in normal flow)
             pre_filters = inputs.get("pre_filters")
@@ -737,8 +798,8 @@ class RAGChain:
                 # Parse intent from filters
                 intent = self.retrieval_manager.parse_intent(raw_filters)
 
-                # Execute Multi-Stage Search
-                result = self.retrieval_manager.execute_search(refined_query, intent)
+                # Execute Multi-Stage Search (pass language for i18n messages)
+                result = self.retrieval_manager.execute_search(refined_query, intent, language=language)
 
                 return {
                     "docs": result["docs"],
@@ -746,11 +807,12 @@ class RAGChain:
                     "actual_k": result["total_count"],
                     "total_in_database": result.get("total_in_database", result["total_count"]),
                     "filters_applied": result.get("filters_applied", {}),
-                    "exact_count": result.get("exact_count", 0)
+                    "exact_count": result.get("exact_count", 0),
+                    "relaxation": result.get("relaxation", {})
                 }
             except Exception as e:
                 logger.error(f"Unified retrieval failed: {e}", exc_info=True)
-                return {"docs": [], "filters": {}, "actual_k": 0, "exact_count": 0}
+                return {"docs": [], "filters": {}, "actual_k": 0, "exact_count": 0, "relaxation": {}}
 
         def format_docs(docs, filters):
             if not docs:
@@ -834,6 +896,108 @@ class RAGChain:
             logger.warning(f"Failed to extract previous events: {e}")
             return None
 
+    def _build_event_detail_response(
+        self,
+        event: Dict[str, Any],
+        detail_type: str,
+        language: str
+    ) -> str:
+        """Build a response with details about a specific event.
+
+        Args:
+            event: The event dict from previous_events (includes title, city, address,
+                   category, price_label, date, url, times_display)
+            detail_type: Type of detail requested (price, location, time, general)
+            language: Response language (fr/en)
+
+        Returns:
+            Formatted response string about the event
+        """
+        title = event.get("title", "Unknown event")
+        city = event.get("city", "Unknown")
+        address = event.get("address", "")
+        category = event.get("category", "")
+        price_label = event.get("price_label", "Non spécifié")
+        event_date = event.get("date", "")
+        url = event.get("url", "")
+        times_display = event.get("times_display", "Non spécifié")
+
+        if language == "fr":
+            if detail_type == "price":
+                response = f"**{title}**\n\n"
+                response += f"**Prix :** {price_label}\n"
+                if url:
+                    response += f"\n[Plus d'informations sur les tarifs]({url})"
+
+            elif detail_type == "location":
+                response = f"**{title}**\n\n"
+                response += f"**Lieu :** {address or city}\n"
+                response += f"**Ville :** {city}\n"
+                if address:
+                    # Add Google Maps link
+                    maps_query = address.replace(" ", "+")
+                    response += f"\n[Voir sur Google Maps](https://www.google.com/maps/search/{maps_query})"
+
+            elif detail_type == "time":
+                response = f"**{title}**\n\n"
+                if event_date:
+                    response += f"**Date :** {event_date}\n"
+                response += f"**Horaires :** {times_display}\n"
+                if url:
+                    response += f"\n[Voir les horaires complets]({url})"
+
+            else:  # general
+                response = f"**{title}**\n\n"
+                if category:
+                    response += f"**Catégorie :** {category}\n"
+                response += f"**Lieu :** {address or city}\n"
+                if event_date:
+                    response += f"**Date :** {event_date}\n"
+                if price_label and price_label != "Non spécifié":
+                    response += f"**Prix :** {price_label}\n"
+                if url:
+                    response += f"\n[Plus d'informations]({url})"
+
+        else:  # English
+            if detail_type == "price":
+                response = f"**{title}**\n\n"
+                price_en = price_label if price_label != "Non spécifié" else "Not specified"
+                response += f"**Price:** {price_en}\n"
+                if url:
+                    response += f"\n[More pricing information]({url})"
+
+            elif detail_type == "location":
+                response = f"**{title}**\n\n"
+                response += f"**Location:** {address or city}\n"
+                response += f"**City:** {city}\n"
+                if address:
+                    maps_query = address.replace(" ", "+")
+                    response += f"\n[View on Google Maps](https://www.google.com/maps/search/{maps_query})"
+
+            elif detail_type == "time":
+                response = f"**{title}**\n\n"
+                if event_date:
+                    response += f"**Date:** {event_date}\n"
+                times_en = times_display if times_display != "Non spécifié" else "Not specified"
+                response += f"**Times:** {times_en}\n"
+                if url:
+                    response += f"\n[View full schedule]({url})"
+
+            else:  # general
+                response = f"**{title}**\n\n"
+                if category:
+                    response += f"**Category:** {category}\n"
+                response += f"**Location:** {address or city}\n"
+                if event_date:
+                    response += f"**Date:** {event_date}\n"
+                if price_label and price_label != "Non spécifié":
+                    price_en = price_label
+                    response += f"**Price:** {price_en}\n"
+                if url:
+                    response += f"\n[More information]({url})"
+
+        return response
+
     def _store_session_filters(self, session_id: str, filters: Dict[str, Any], refined_query: str = None) -> None:
         """Store filters and refined_query from this turn for follow-up query merging.
 
@@ -916,7 +1080,7 @@ class RAGChain:
             cleared.append(f"day (month changed from {previous.get('month')} to {merged.get('month')})")
             logger.info(f"[FILTER-CLEAR] Month changed - NOT carrying over day")
 
-        # Only carry over if current value is None, previous has a value,
+        # Only carry over if current value is None, prior turn has a value,
         # AND smart clearing rules allow it
         for key in ["city", "month", "day", "year", "category", "audience"]:
             # Skip keys that should be cleared
@@ -991,7 +1155,7 @@ class RAGChain:
             city_locator = get_city_locator()
             known_cities = list(city_locator.city_cache.keys())
 
-            # Extract previous events from chat history for coreference resolution
+            # Extract prior events from chat history for coreference resolution
             previous_events = None
             if session_id:
                 previous_events = self._get_previous_events(session_id)
@@ -1018,6 +1182,74 @@ class RAGChain:
                 f"complete={analysis.is_complete}, "
                 f"dims=[{dims_str}]"
             )
+
+            # ========================================
+            # COREFERENCE RESOLUTION (ordinal references)
+            # ========================================
+            # Handle queries like "first one", "second one", "le premier", "le deuxième"
+            # These reference events from the previous response
+            coreference = analysis.raw_response.get("coreference", {})
+            if coreference.get("references_previous") and previous_events:
+                event_name = coreference.get("event_name")
+                reference_type = coreference.get("reference_type", "none")
+
+                logger.info(f"[COREFERENCE] Detected reference to previous event: '{event_name}', type={reference_type}")
+
+                # Try to find the referenced event
+                referenced_event = None
+
+                if event_name:
+                    # Try exact or partial title match
+                    event_name_lower = event_name.lower()
+                    for event in previous_events:
+                        title = event.get("title", "").lower()
+                        if event_name_lower in title or title in event_name_lower:
+                            referenced_event = event
+                            break
+
+                # If found a referenced event, return its details
+                if referenced_event:
+                    logger.info(f"[COREFERENCE] Resolved to event: {referenced_event.get('title')}")
+
+                    # Build a detailed response about this specific event
+                    event_title = referenced_event.get("title", "Unknown")
+                    event_city = referenced_event.get("city", "Unknown")
+                    event_address = referenced_event.get("address", "")
+                    event_category = referenced_event.get("category", "")
+
+                    # Build response based on what user asked
+                    query_lower = question.lower()
+
+                    # Detect if asking about price
+                    if any(w in query_lower for w in ["price", "prix", "cost", "coût", "cher", "expensive"]):
+                        # Need to fetch full event details from database for price
+                        response = self._build_event_detail_response(
+                            referenced_event, "price", language
+                        )
+                    # Detect if asking about location/directions
+                    elif any(w in query_lower for w in ["where", "où", "location", "address", "adresse", "how to get"]):
+                        response = self._build_event_detail_response(
+                            referenced_event, "location", language
+                        )
+                    # Detect if asking about date/time
+                    elif any(w in query_lower for w in ["when", "quand", "time", "date", "heure", "horaire"]):
+                        response = self._build_event_detail_response(
+                            referenced_event, "time", language
+                        )
+                    else:
+                        # General details about the event
+                        response = self._build_event_detail_response(
+                            referenced_event, "general", language
+                        )
+
+                    return {
+                        "early_response": response,
+                        "query_type": "coreference_resolution",
+                        "referenced_event": referenced_event,
+                        "analysis": analysis
+                    }
+                else:
+                    logger.warning(f"[COREFERENCE] Could not resolve event reference: '{event_name}'")
 
             # ========================================
             # PURE NON-EVENT INTENTS (no event search component)
@@ -1166,7 +1398,7 @@ class RAGChain:
 
         except Exception as e:
             logger.error(f"[MULTI-DIM] Analysis failed: {e}. Falling back to keyword-based flow.")
-            return None  # Fallback to old keyword-based flow
+            return None  # Fallback to basic keyword-based flow
 
     def query(self, question: str, session_id: str = "default_session") -> str:
         """Simple wrapper for backward compatibility."""
@@ -1255,10 +1487,10 @@ class RAGChain:
             analysis = unified_result.get("analysis")  # For smart clearing rules
 
             # ========================================
-            # FILTER MERGING: Preserve context from previous turn
+            # FILTER MERGING: Preserve context from prior turn
             # ========================================
-            # For follow-up queries, merge current filters with previous session filters.
-            # Only values that are None in current but exist in previous are carried over.
+            # For follow-up queries, merge current filters with prior session filters.
+            # Only values that are None in current but exist in prior turn are carried over.
             # Also accumulates search terms across turns.
             # SMART CLEARING: Pass analysis for scope=all and month change detection
             if pre_filters:
@@ -1309,6 +1541,10 @@ class RAGChain:
                     logger.warning(f"structured_events is not a list: {type(structured_events)}")
                     structured_events = []
 
+                # Sanitize structured events to ensure all required fields are present
+                # This prevents Pydantic validation errors in the API response
+                structured_events = sanitize_structured_events(structured_events)
+
                 needs_clarification = False
                 clarifying_questions = []
             else:
@@ -1316,6 +1552,30 @@ class RAGChain:
                 structured_events = []
                 needs_clarification = False
                 clarifying_questions = []
+
+            # ========================================
+            # FIX: FORMAT EVENTS WHEN LLM RETURNS SUMMARY-ONLY
+            # ========================================
+            # If LLM returned "Here are 8 events" without listing them,
+            # format the events from sources to ensure user sees actual details
+            sources_for_formatting = result.get("context", [])
+            source_count = len(sources_for_formatting)
+            if source_count > 0 and is_summary_only_response(answer_text, source_count):
+                logger.info(f"[SUMMARY-FIX] LLM returned summary-only, formatting {source_count} events")
+                # Extract source metadata for formatting
+                sources_data = []
+                for doc in sources_for_formatting:
+                    meta = doc.metadata
+                    sources_data.append({
+                        "title": meta.get("title"),
+                        "city": meta.get("city"),
+                        "date": meta.get("start_date"),
+                        "url": meta.get("url"),
+                        "category": meta.get("category"),
+                        "match_type": meta.get("match_type", "Exact Match"),
+                    })
+                # Replace summary with formatted events
+                answer_text = format_events_as_text(sources_data, language=language, max_events=8)
 
             # ========================================
             # MULTI-DIMENSIONAL RESPONSE COMPOSITION
@@ -1357,6 +1617,12 @@ class RAGChain:
             # Add prefix for greetings, typo acknowledgments
             if response_prefix:
                 builder.add_prefix(response_prefix)
+
+            # Add transparency note if filters were relaxed (e.g., "no free events, showing paid")
+            retrieval_data = result.get("retrieved_data", {})
+            relaxation_info = retrieval_data.get("relaxation", {})
+            if relaxation_info.get("transparency_message"):
+                builder.add_transparency_note(relaxation_info)
 
             # Add filter-related suffixes if filters were applied
             if pre_filters:
@@ -1502,7 +1768,7 @@ class RAGChain:
                 "postal_code": meta.get("postal_code"),
             })
 
-        # Prepare retrieved_events for coreference resolution (lightweight version)
+        # Prepare retrieved_events for coreference resolution (includes details for follow-up queries)
         retrieved_events = [
             {
                 "event_id": s["event_id"],
@@ -1510,6 +1776,14 @@ class RAGChain:
                 "city": s["city"],
                 "address": s.get("address"),
                 "category": s["category"],
+                # Additional fields for coreference resolution (price, time, url)
+                "price_label": s.get("price_label", "Non spécifié"),
+                "date": s.get("date"),
+                "url": s.get("url"),
+                "times_display": next(
+                    (t.get("display", "") for t in s.get("timings", []) if isinstance(t, dict) and t.get("display")),
+                    "Non spécifié"
+                ) if s.get("timings") else "Non spécifié",
             }
             for s in sources[:10]  # Limit to top 10 events to avoid bloating context
         ] if sources else None
