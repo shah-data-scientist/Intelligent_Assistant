@@ -81,7 +81,8 @@ nul
 temp_*.txt
 check_*.py
 
-# SQLite temporary files
+# SQLite databases (runtime artifacts - don't track)
+data/chat_history.db
 *.db-shm
 *.db-wal
 *.db-journal
