@@ -63,6 +63,78 @@ logger = logging.getLogger(__name__)
 
 
 # ========================================
+# LANGUAGE HEURISTIC HELPER (Issue #3 fix - extracted from duplicates)
+# ========================================
+# Language indicator lists for post-LLM heuristic correction
+ENGLISH_INDICATORS = [
+    " the ",
+    " in ",
+    " at ",
+    " on ",
+    " this ",
+    " what ",
+    " how ",
+    " are ",
+    " is ",
+    " for ",
+    " with ",
+    " about ",
+    " looking ",
+    " find ",
+    " show ",
+    " want ",
+]
+FRENCH_INDICATORS = [
+    " le ",
+    " la ",
+    " les ",
+    " de ",
+    " du ",
+    " des ",
+    " à ",
+    " au ",
+    " aux ",
+    " en ",
+    " pour ",
+    " avec ",
+    " qui ",
+    " que ",
+    " est ",
+    " sont ",
+]
+
+
+def apply_language_heuristic(detected_language: str, query: str) -> str:
+    """Apply heuristic to correct language detection based on query indicators.
+
+    This catches cases where the LLM defaults to French incorrectly or vice versa.
+
+    Args:
+        detected_language: Language detected by LLM ("fr" or "en")
+        query: Original query text
+
+    Returns:
+        Corrected language code ("fr" or "en")
+    """
+    # Normalize to valid values
+    if detected_language not in ["fr", "en"]:
+        detected_language = "fr"
+
+    query_lower = query.lower()
+    english_count = sum(1 for w in ENGLISH_INDICATORS if w in f" {query_lower} ")
+    french_count = sum(1 for w in FRENCH_INDICATORS if w in f" {query_lower} ")
+
+    if detected_language == "fr" and english_count >= 2 and english_count > french_count:
+        logger.info(f"[LANGUAGE-HEURISTIC] Overriding fr→en (EN:{english_count} vs FR:{french_count})")
+        return "en"
+    elif detected_language == "en" and french_count >= 2 and french_count > english_count:
+        logger.info(f"[LANGUAGE-HEURISTIC] Overriding en→fr (FR:{french_count} vs EN:{english_count})")
+        return "fr"
+
+    return detected_language
+
+
+# ========================================
 # RETRY LOGIC FOR 429 RATE LIMIT ERRORS
 # ========================================
 # The Google Gemini API has strict rate limits that can cause 429 errors.
@@ -757,59 +829,8 @@ class UnifiedAnalyzer:
                 else:
                     logger.warning(f"[CITY-NORMALIZE] Raw city '{city_raw}' not in known cities")
 
-        detected_language = result.get("detected_language", "fr")
-        if detected_language not in ["fr", "en"]:
-            detected_language = "fr"
-
-        # POST-LLM HEURISTIC: Override language if query is clearly English but detected as French
-        # This catches cases where the LLM defaults to French incorrectly
-        query_lower = query.lower()
-        english_indicators = [
-            " the ",
-            " in ",
-            " at ",
-            " on ",
-            " this ",
-            " what ",
-            " how ",
-            " are ",
-            " is ",
-            " for ",
-            " with ",
-            " about ",
-            " looking ",
-            " find ",
-            " show ",
-            " want ",
-        ]
-        french_indicators = [
-            " le ",
-            " la ",
-            " les ",
-            " de ",
-            " du ",
-            " des ",
-            " à ",
-            " au ",
-            " aux ",
-            " en ",
-            " pour ",
-            " avec ",
-            " qui ",
-            " que ",
-            " est ",
-            " sont ",
-        ]
-
-        english_count = sum(1 for w in english_indicators if w in f" {query_lower} ")
-        french_count = sum(1 for w in french_indicators if w in f" {query_lower} ")
-
-        if detected_language == "fr" and english_count >= 2 and english_count > french_count:
-            logger.info(f"[LANGUAGE-HEURISTIC] Overriding fr→en (EN:{english_count} vs FR:{french_count})")
-            detected_language = "en"
-        elif detected_language == "en" and french_count >= 2 and french_count > english_count:
-            logger.info(f"[LANGUAGE-HEURISTIC] Overriding en→fr (FR:{french_count} vs EN:{english_count})")
-            detected_language = "fr"
+        # Apply language heuristic (extracted helper function - Issue #3 fix)
+        detected_language = apply_language_heuristic(result.get("detected_language", "fr"), query)
 
         is_complete = result.get("is_complete", False)
         missing_criteria = result.get("missing", [])
@@ -1003,6 +1024,9 @@ class UnifiedAnalyzer:
             elif filters.get("city") and not city_normalized:
                 # LLM put city in filters but not entities - sync back
                 entities["city_normalized"] = filters["city"]
+                # Also set city_raw so fuzzy matching can correct typos
+                if not entities.get("city_raw"):
+                    entities["city_raw"] = filters["city"]
                 logger.info(f"[FILTER-SYNC] Synced city to entities: '{filters['city']}'")
 
             # 1b. FALLBACK: If city_raw exists but city_normalized is still None OR invalid,
@@ -1139,9 +1163,11 @@ class UnifiedAnalyzer:
                 action="prefix_response" if greeting_data.get("detected") else None,
             )
 
-            # Typo dimension
+            # Typo dimension (Issue #8 fix - explicit logging when LLM typo overridden)
             typo_data = raw_dimensions.get("typo", {})
-            # If fuzzy matching corrected a city typo, override the LLM's typo detection
+            llm_detected_typo = typo_data.get("detected", False)
+
+            # If fuzzy matching corrected a city typo, use that (more reliable)
             if fuzzy_match_applied and city_raw:
                 dimensions["typo"] = QueryDimension(
                     name="typo",
@@ -1150,14 +1176,33 @@ class UnifiedAnalyzer:
                     value=entities.get("city_normalized"),
                     action="acknowledge_correction",
                 )
-                logger.info(f"[TYPO-DIM] Set from fuzzy match: '{city_raw}' → '{entities.get('city_normalized')}'")
-            else:
+                # Log if we're overriding LLM's typo detection
+                if llm_detected_typo:
+                    logger.info(
+                        f"[TYPO-DIM] Fuzzy match overrides LLM typo: "
+                        f"LLM='{typo_data.get('original')}→{typo_data.get('corrected')}', "
+                        f"Fuzzy='{city_raw}→{entities.get('city_normalized')}'"
+                    )
+                else:
+                    logger.info(f"[TYPO-DIM] Set from fuzzy match: '{city_raw}' → '{entities.get('city_normalized')}'")
+            elif llm_detected_typo:
+                # Use LLM's typo detection
                 dimensions["typo"] = QueryDimension(
                     name="typo",
-                    detected=typo_data.get("detected", False),
+                    detected=True,
                     original=typo_data.get("original"),
                     value=typo_data.get("corrected"),
-                    action="acknowledge_correction" if typo_data.get("detected") else None,
+                    action="acknowledge_correction",
+                )
+                logger.info(f"[TYPO-DIM] Set from LLM: '{typo_data.get('original')}' → '{typo_data.get('corrected')}'")
+            else:
+                # No typo detected
+                dimensions["typo"] = QueryDimension(
+                    name="typo",
+                    detected=False,
+                    original=None,
+                    value=None,
+                    action=None,
                 )
 
             # Statistical dimension
@@ -1194,21 +1239,20 @@ class UnifiedAnalyzer:
                     )
                     city_normalized = None
                     entities["city_normalized"] = None
+                    # CRITICAL: Also clear filters["city"] to maintain sync (Issue #1 fix)
+                    filters.pop("city", None)
 
             # ========================================
-            # COMPLETENESS: 2 OUT OF 3 RULE
+            # COMPLETENESS DETERMINATION (Issue #6 fix - explicit elif chain)
             # ========================================
-            # A query is complete if it has at least 2 of these 3 criteria:
-            # 1. city (location)
-            # 2. timeframe (user-specified date/month/period)
-            # 3. event_type (what kind of event)
+            # Check special cases FIRST (more specific), then fall back to 2-out-of-3 rule.
+            # Using elif prevents later conditions from overriding earlier ones.
 
             has_city = city_normalized is not None
             has_timeframe = (
                 filters.get("month") is not None or filters.get("day") is not None or filters.get("year") is not None
             )
             has_event_type = entities.get("event_type") is not None
-
             criteria_count = sum([has_city, has_timeframe, has_event_type])
 
             # Log criteria status
@@ -1217,14 +1261,33 @@ class UnifiedAnalyzer:
                 f"event_type={has_event_type} → {criteria_count}/3"
             )
 
-            # 2 out of 3 criteria = COMPLETE
-            if criteria_count >= 2:
+            # SPECIAL CASE 1: Non-event intents are always COMPLETE (no clarification needed)
+            if intent_str in ["greeting", "chitchat", "capability", "directions", "off_topic", "abuse"]:
+                is_complete = True
+                missing_criteria = []
+                logger.info(f"[COMPLETENESS] Non-event intent '{intent_str}' is COMPLETE (special case)")
+
+            # SPECIAL CASE 2: Statistical queries are COMPLETE if city is present
+            elif dimensions["statistical"].detected and has_city:
+                is_complete = True
+                missing_criteria = []
+                logger.info("[COMPLETENESS] Statistical query with city is COMPLETE (special case)")
+
+            # SPECIAL CASE 3: "All events" scope with city is COMPLETE
+            elif dimensions["scope"].value == "all" and has_city:
+                is_complete = True
+                missing_criteria = []
+                logger.info("[COMPLETENESS] 'All events' scope with city is COMPLETE (special case)")
+
+            # DEFAULT: 2 out of 3 criteria rule
+            elif criteria_count >= 2:
                 is_complete = True
                 missing_criteria = []
                 logger.info(f"[COMPLETENESS] Query is COMPLETE ({criteria_count}/3 criteria met)")
+
+            # INCOMPLETE: Less than 2 criteria
             else:
                 is_complete = False
-                # Determine what's missing
                 missing_criteria = []
                 if not has_city:
                     missing_criteria.append("city")
@@ -1234,79 +1297,8 @@ class UnifiedAnalyzer:
                     missing_criteria.append("event_type")
                 logger.info(f"[COMPLETENESS] Query INCOMPLETE, missing: {missing_criteria}")
 
-            # SPECIAL CASE: Statistical queries are always COMPLETE if city is present
-            if dimensions["statistical"].detected and has_city:
-                is_complete = True
-                missing_criteria = []
-                logger.info("[MULTI-DIM] Statistical query with city is COMPLETE (special case)")
-
-            # SPECIAL CASE: "All events" scope with city is COMPLETE
-            if dimensions["scope"].value == "all" and has_city:
-                is_complete = True
-                missing_criteria = []
-                logger.info("[MULTI-DIM] 'All events' scope with city is COMPLETE (special case)")
-
-            # SPECIAL CASE: Non-event intents are COMPLETE (no clarification needed)
-            # Greetings, capability questions, directions, off-topic, etc. should NOT trigger clarification
-            if intent_str in ["greeting", "chitchat", "capability", "directions", "off_topic", "abuse"]:
-                is_complete = True
-                missing_criteria = []
-                logger.info(f"[MULTI-DIM] Non-event intent '{intent_str}' is COMPLETE (no clarification needed)")
-
-            # Extract detected language (default to "fr" if not present)
-            detected_language = result.get("detected_language", "fr")
-            if detected_language not in ["fr", "en"]:
-                detected_language = "fr"  # Normalize to valid values
-
-            # POST-LLM HEURISTIC: Override language if query is clearly English but detected as French
-            # This catches cases where the LLM defaults to French incorrectly
-            query_lower = query.lower()
-            english_indicators = [
-                " the ",
-                " in ",
-                " at ",
-                " on ",
-                " this ",
-                " what ",
-                " how ",
-                " are ",
-                " is ",
-                " for ",
-                " with ",
-                " about ",
-                " looking ",
-                " find ",
-                " show ",
-                " want ",
-            ]
-            french_indicators = [
-                " le ",
-                " la ",
-                " les ",
-                " de ",
-                " du ",
-                " des ",
-                " à ",
-                " au ",
-                " aux ",
-                " en ",
-                " pour ",
-                " avec ",
-                " qui ",
-                " que ",
-                " est ",
-                " sont ",
-            ]
-
-            english_count = sum(1 for w in english_indicators if w in f" {query_lower} ")
-            french_count = sum(1 for w in french_indicators if w in f" {query_lower} ")
-
-            if detected_language == "fr" and english_count >= 2 and english_count > french_count:
-                logger.info(f"[LANGUAGE-HEURISTIC] Overriding fr→en (EN:{english_count} vs FR:{french_count})")
-                detected_language = "en"
-            elif detected_language == "en" and french_count >= 2 and french_count > english_count:
-                logger.info(f"[LANGUAGE-HEURISTIC] Overriding en→fr (FR:{french_count} vs EN:{english_count})")
-                detected_language = "fr"
+            # Apply language heuristic (extracted helper function - Issue #3 fix)
+            detected_language = apply_language_heuristic(result.get("detected_language", "fr"), query)
 
             analysis = UnifiedAnalysisResult(
                 intent=intent_map.get(intent_str, QueryIntent.EVENT_SEARCH),
