@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Audit Fixes in unified_analyzer.py**: Addressed logic issues found during deep audit
+  - [src/retrieval/unified_analyzer.py](src/retrieval/unified_analyzer.py) - Issue #1: Sync city filter when validation fails (`filters.pop("city", None)`)
+  - [src/retrieval/unified_analyzer.py](src/retrieval/unified_analyzer.py) - Issue #3: Extract language heuristic to `apply_language_heuristic()` helper
+  - [src/retrieval/unified_analyzer.py](src/retrieval/unified_analyzer.py) - Issue #6: Refactor completeness logic to `elif` chain (prevent override)
+  - [src/retrieval/unified_analyzer.py](src/retrieval/unified_analyzer.py) - Issue #8: Add explicit logging for typo dimension source
+
+### Added
+- **GLOBAL_POLICY Compliance Checklist**: Added mandatory checklist to CLAUDE.md
+  - [docs/CLAUDE.md](docs/CLAUDE.md) - Comprehensive checklist for commits, file modifications, test failures
+
+### Changed
+- **Repository Cleanup**: Archived working scripts and updated gitignore
+  - Moved `scripts/_working/*` to `scripts/_archived/`
+  - [.gitignore](.gitignore) - Added `start_*.bat` (local convenience scripts with hardcoded paths)
+
 ### Changed
 - **UI Redesign**: Removed sidebar, added inline language selection and Start Fresh button
   - [src/frontend/app.py](src/frontend/app.py) - Cleaner interface without collapsible sidebar
