@@ -57,30 +57,30 @@ class TestPIIDetector:
         assert len(pii) == 1
         assert pii[0]["type"] == "CREDIT_CARD"
 
-    def test_detect_french_address(self):
-        """Test French address detection."""
+    def test_address_pattern_disabled(self):
+        """Test that ADDRESS pattern is disabled (venue addresses are public info, not PII)."""
         detector = PIIDetector()
         text = "J'habite au 15 rue de la Paix à Paris"
         pii = detector.detect(text)
 
-        assert len(pii) == 1
-        assert pii[0]["type"] == "ADDRESS"
+        # ADDRESS pattern disabled - venue addresses are needed for events
+        assert len(pii) == 0
+        assert "ADDRESS" not in detector.patterns
 
-    def test_detect_dob(self):
-        """Test date of birth detection."""
+    def test_dob_pattern_disabled(self):
+        """Test that DOB pattern is disabled (would cause false positives with event dates)."""
         detector = PIIDetector()
 
-        # DD/MM/YYYY format
+        # DD/MM/YYYY format - this could match event dates, so DOB pattern is disabled
         text = "Né le 15/03/1990"
         pii = detector.detect(text)
-        assert len(pii) == 1
-        assert pii[0]["type"] == "DOB"
+        assert len(pii) == 0
+        assert "DOB" not in detector.patterns
 
-        # YYYY-MM-DD format
+        # YYYY-MM-DD format - same reasoning
         text2 = "Date: 1990-03-15"
         pii2 = detector.detect(text2)
-        assert len(pii2) == 1
-        assert pii2[0]["type"] == "DOB"
+        assert len(pii2) == 0
 
     def test_detect_ip_address(self):
         """Test IP address detection."""

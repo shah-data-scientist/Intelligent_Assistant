@@ -55,6 +55,7 @@ from langchain_core.messages import HumanMessage, SystemMessage, BaseMessage
 
 from src.config import settings
 from src.retrieval.schemas import UnifiedAnalysisSchema
+from src.utils.geo import CityLocator
 import calendar
 import re
 
@@ -1004,19 +1005,52 @@ class UnifiedAnalyzer:
                 entities["city_normalized"] = filters["city"]
                 logger.info(f"[FILTER-SYNC] Synced city to entities: '{filters['city']}'")
 
-            # 1b. FALLBACK: If city_raw exists but city_normalized is still None,
-            # try to match city_raw against known_cities (case-insensitive)
+            # 1b. FALLBACK: If city_raw exists but city_normalized is still None OR invalid,
+            # try to match city_raw against known_cities (case-insensitive + fuzzy matching)
             city_raw = entities.get("city_raw")
             city_normalized = entities.get("city_normalized")  # Refresh after sync
-            if city_raw and not city_normalized and known_cities:
+            fuzzy_match_applied = False  # Track if we used fuzzy matching
+
+            # Build known cities lookup
+            known_cities_lower = {c.lower(): c for c in known_cities} if known_cities else {}
+
+            # Check if city_normalized needs correction (None or not in known cities)
+            city_needs_correction = False
+            if city_raw and known_cities:
+                if not city_normalized:
+                    city_needs_correction = True
+                elif city_normalized.lower() not in known_cities_lower:
+                    # LLM set city_normalized but it's not a valid city (e.g., "Possy")
+                    city_needs_correction = True
+                    logger.info(f"[CITY-CHECK] '{city_normalized}' not in known cities, will try fuzzy match")
+
+            if city_needs_correction:
                 city_raw_lower = city_raw.lower().strip()
-                known_cities_lower = {c.lower(): c for c in known_cities}
                 if city_raw_lower in known_cities_lower:
                     canonical_city = known_cities_lower[city_raw_lower]
                     city_normalized = canonical_city  # Update local variable too!
                     entities["city_normalized"] = canonical_city
                     filters["city"] = canonical_city
                     logger.info(f"[FILTER-FALLBACK] Normalized city_raw '{city_raw}' to '{canonical_city}'")
+                else:
+                    # 1c. FUZZY MATCH FALLBACK: Use Levenshtein distance for typos
+                    # This handles cases like "Possy" → "Poissy", "Pari" → "Paris"
+                    try:
+                        city_locator = CityLocator()
+                        closest_match = city_locator.find_closest_city(city_raw, threshold=0.75)
+                        if closest_match:
+                            # Convert to canonical form from known_cities
+                            if closest_match.lower() in known_cities_lower:
+                                canonical_city = known_cities_lower[closest_match.lower()]
+                            else:
+                                canonical_city = closest_match.title()
+                            city_normalized = canonical_city
+                            entities["city_normalized"] = canonical_city
+                            filters["city"] = canonical_city
+                            fuzzy_match_applied = True
+                            logger.info(f"[FUZZY-MATCH] Corrected typo '{city_raw}' → '{canonical_city}'")
+                    except Exception as e:
+                        logger.warning(f"[FUZZY-MATCH] Failed to apply fuzzy matching: {e}")
 
             # 2. DERIVE CATEGORY from event_type
             # TERMINOLOGY CLARIFICATION:
@@ -1107,13 +1141,24 @@ class UnifiedAnalyzer:
 
             # Typo dimension
             typo_data = raw_dimensions.get("typo", {})
-            dimensions["typo"] = QueryDimension(
-                name="typo",
-                detected=typo_data.get("detected", False),
-                original=typo_data.get("original"),
-                value=typo_data.get("corrected"),
-                action="acknowledge_correction" if typo_data.get("detected") else None,
-            )
+            # If fuzzy matching corrected a city typo, override the LLM's typo detection
+            if fuzzy_match_applied and city_raw:
+                dimensions["typo"] = QueryDimension(
+                    name="typo",
+                    detected=True,
+                    original=city_raw,
+                    value=entities.get("city_normalized"),
+                    action="acknowledge_correction",
+                )
+                logger.info(f"[TYPO-DIM] Set from fuzzy match: '{city_raw}' → '{entities.get('city_normalized')}'")
+            else:
+                dimensions["typo"] = QueryDimension(
+                    name="typo",
+                    detected=typo_data.get("detected", False),
+                    original=typo_data.get("original"),
+                    value=typo_data.get("corrected"),
+                    action="acknowledge_correction" if typo_data.get("detected") else None,
+                )
 
             # Statistical dimension
             stat_data = raw_dimensions.get("statistical", {})

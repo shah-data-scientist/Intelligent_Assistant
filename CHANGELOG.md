@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Session info displayed inline with version
 
 ### Fixed
+- **City Typo Correction**: Added fuzzy matching fallback for misspelled city names
+  - [src/retrieval/unified_analyzer.py](src/retrieval/unified_analyzer.py) - Uses Levenshtein distance (threshold 0.75) for typos
+  - Examples: "Possy" → "Poissy", "Versailes" → "Versailles", "Pari" → "Paris"
+  - Triggers typo acknowledgment in response when correction applied
 - **Venue Address Display**: Disabled ADDRESS pattern in PII detection - venue addresses are public info
   - [src/security/sanitization.py](src/security/sanitization.py) - Removed ADDRESS from PII patterns
   - Users need venue addresses to attend events (was showing `[ADDRESS_REDACTED]`)

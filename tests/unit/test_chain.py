@@ -144,11 +144,10 @@ class TestBackgroundDbWrite:
 class TestRAGChainInitialization:
     """Test RAGChain initialization with mocked dependencies."""
 
-    @patch("src.retrieval.chain.EventVectorStore")
-    @patch("src.retrieval.chain.MistralLLM")
-    @patch("src.retrieval.chain.EventStorage")
-    @patch("src.retrieval.chain.ChatStorage")
-    def test_rag_chain_can_be_imported(self, mock_chat, mock_event, mock_llm, mock_vs):
+    @patch("src.models.vector_store.EventVectorStore")
+    @patch("src.generation.llm.MistralLLM")
+    @patch("src.data.chat_storage.ChatStorage")
+    def test_rag_chain_can_be_imported(self, mock_chat, mock_llm, mock_vs):
         """Test that RAGChain can be imported and dependencies are injectable."""
         # This tests that the module structure is correct
         from src.retrieval.chain import RAGChain
