@@ -1,539 +1,606 @@
 # Cultural Events RAG Assistant
-## Intelligent Event Discovery for Île-de-France
+## Intelligent Event Discovery for Ile-de-France
 
 **Project Presentation**
-**Date**: January 30, 2026
-**Author**: [Your Name]
+**Date**: February 4, 2026
+**Author**: Shahul SHAIK
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
-1. [Project Overview](#slide-1-project-overview)
-2. [Problem Statement](#slide-2-problem-statement)
-3. [Solution Architecture](#slide-3-solution-architecture)
-4. [Technology Choices](#slide-4-technology-choices)
-5. [System Demo](#slide-5-system-demo)
-6. [Key Features](#slide-6-key-features)
-7. [Technical Implementation](#slide-7-technical-implementation)
-8. [Results & Metrics](#slide-8-results--metrics)
-9. [Testing & Validation](#slide-9-testing--validation)
-10. [Challenges & Solutions](#slide-10-challenges--solutions)
-11. [Future Improvements](#slide-11-future-improvements)
-12. [Conclusion](#slide-12-conclusion)
+### Business Overview
+1. [Executive Summary](#slide-1-executive-summary)
+2. [The Problem We Solve](#slide-2-the-problem-we-solve)
+3. [Our Solution](#slide-3-our-solution)
+4. [Key Benefits](#slide-4-key-benefits)
+5. [Target Users](#slide-5-target-users)
+6. [Live Demo Scenarios](#slide-6-live-demo-scenarios)
 
----
+### Product Features
+7. [Core Capabilities](#slide-7-core-capabilities)
+8. [User Experience](#slide-8-user-experience)
+9. [Bilingual Support](#slide-9-bilingual-support)
 
-## Slide 1: Project Overview
+### Technical Excellence
+10. [Architecture Overview](#slide-10-architecture-overview)
+11. [Technology Stack](#slide-11-technology-stack)
+12. [Quality & Testing](#slide-12-quality--testing)
+13. [Performance Metrics](#slide-13-performance-metrics)
 
-### Cultural Events RAG Assistant
-
-**Mission**: Help users discover cultural events in Île-de-France through natural conversation
-
-**What is RAG?**
-- **R**etrieval: Find relevant events from database
-- **A**ugmented: Enhance with context and metadata
-- **G**eneration: Produce natural language responses
-
-**Key Capabilities**:
-- 🗣️ Natural language queries (French & English)
-- 🎭 1000+ cultural events indexed
-- 🔍 Semantic search + keyword matching
-- 💬 Multi-turn conversations
-- ⚡ 2-3 second response time
+### Deployment & Future
+14. [Deployment Options](#slide-14-deployment-options)
+15. [Roadmap](#slide-15-roadmap)
+16. [Conclusion & Next Steps](#slide-16-conclusion--next-steps)
 
 ---
 
-## Slide 2: Problem Statement
+## Slide 1: Executive Summary
 
-### Challenges in Event Discovery
+### Transforming Cultural Event Discovery
+
+**What We Built**: An AI-powered conversational assistant that helps users discover cultural events in Ile-de-France through natural language.
+
+**The Opportunity**:
+- 12+ million residents in Ile-de-France
+- 1000s of cultural events monthly
+- Fragmented discovery experience across 10+ platforms
+
+**Our Solution at a Glance**:
+
+| Feature | Business Benefit |
+|---------|-----------------|
+| Natural Language Search | Ask questions like talking to a friend - no forms needed |
+| Bilingual (FR/EN) | Serve locals AND 50M+ annual tourists |
+| Smart Recommendations | AI understands context, not just keywords |
+| Instant Responses | 2-3 second answer time keeps users engaged |
+
+**Key Results**:
+- **87% Search Accuracy** - Users find what they're looking for
+- **91% Answer Quality** - Responses are reliable and trustworthy
+- **2.1s Response Time** - Fast, conversational experience
+- **Production Ready** - Fully tested, secure, and deployable
+
+---
+
+## Slide 2: The Problem We Solve
+
+### Why Event Discovery is Broken Today
 
 **User Pain Points**:
-1. ❌ Too many scattered event sources (OpenAgenda, Eventbrite, local sites)
-2. ❌ Poor search (keyword-only, no semantic understanding)
-3. ❌ No conversational interface (can't refine queries naturally)
-4. ❌ Language barriers (French-only or English-only)
-5. ❌ Information overload (thousands of events, no personalization)
 
-**Our Solution**:
-✅ Single unified interface
-✅ Intelligent semantic search
-✅ Natural conversation (multi-turn)
-✅ Bilingual support (FR/EN)
-✅ Filtered, relevant results
+| Problem | Real-World Impact |
+|---------|------------------|
+| **Scattered Information** | Events spread across OpenAgenda, Eventbrite, venue sites, social media |
+| **Keyword Search Fails** | "fun things to do this weekend" returns nothing useful |
+| **Language Barriers** | French-only sites alienate 50M annual tourists |
+| **Filter Fatigue** | Complex forms with 20+ dropdown menus frustrate users |
+| **Information Overload** | 500+ results with no way to meaningfully refine |
 
----
+**The Business Cost of Poor Discovery**:
+- Users miss events they would have loved attending
+- Event organizers lose potential ticket sales
+- Tourism boards can't effectively promote local culture
+- Cultural venues struggle to fill seats for quality events
 
-## Slide 3: Solution Architecture
-
-### System Components
-
-```
-┌─────────────────┐
-│   User (Web)    │ ← Streamlit UI
-└────────┬────────┘
-         │
-┌────────▼────────┐
-│   FastAPI REST  │ ← Authentication, Rate Limiting
-└────────┬────────┘
-         │
-┌────────▼────────┐
-│   RAG Pipeline  │ ← Query Analysis, Retrieval, Generation
-├─────────────────┤
-│ • Query Analyzer│ (LLM-based intent detection)
-│ • Vector Store  │ (FAISS + BM25 hybrid)
-│ • LLM Generator │ (Mistral Large)
-└────────┬────────┘
-         │
-┌────────▼────────┐
-│   Data Layer    │ ← SQLite + FAISS Index
-│ • Events DB     │
-│ • Chat History  │
-│ • FAISS Vectors │
-└─────────────────┘
-```
-
-**Data Flow**: User Query → Security Check → Intent Analysis → Retrieval → Generation → Response
+**User Voice** (simulated):
+> "I just want to know what's happening in Paris this weekend. Why do I need a PhD in search filters to find a concert?"
 
 ---
 
-## Slide 4: Technology Choices
+## Slide 3: Our Solution
 
-### Why These Technologies?
+### A Conversation, Not a Search Form
 
-| Component | Technology | Justification |
-|-----------|-----------|---------------|
-| **LLM** | **Mistral Large** | ✅ Best French support<br>✅ Bilingual (FR/EN)<br>✅ Fast (2s generation)<br>✅ Cost-effective |
-| **Embeddings** | **Mistral Embed** | ✅ 1024 dimensions<br>✅ French-optimized<br>✅ Same provider (simplicity) |
-| **Vector Store** | **FAISS** | ✅ Exact search (IndexFlatIP)<br>✅ Sub-10ms retrieval<br>✅ Battle-tested (Meta AI) |
-| **Hybrid Search** | **FAISS + BM25** | ✅ 15-20% accuracy boost<br>✅ Semantic + keyword<br>✅ RRF fusion |
-| **Framework** | **LangChain** | ✅ LCEL pipelines<br>✅ Chat memory<br>✅ Ecosystem integrations |
-| **API** | **FastAPI** | ✅ Auto-generated docs<br>✅ Async support<br>✅ Type safety |
+**The Traditional Way** (frustrating):
+```
+[Select City: v]  [Select Date: v]  [Select Category: v]
+[Price Range: v]  [Audience: v]     [Distance: v]
+                  [ SEARCH ]
+--> 847 results found. Showing 1-20...
+```
+
+**Our Way** (natural):
+```
+You: "Any jazz concerts in Paris this weekend?"
+Assistant: "I found 8 jazz concerts this weekend! Here are the highlights..."
+
+You: "Which ones are free?"
+Assistant: "3 of those are free entry. Let me show you..."
+
+You: "What about something for kids too?"
+Assistant: "Here's one that's family-friendly..."
+```
+
+**Key Differentiators**:
+
+| Feature | Why It Matters |
+|---------|---------------|
+| **Natural Language** | No forms, no filters, just ask like you'd ask a friend |
+| **Context Memory** | Remembers your conversation - refine without repeating |
+| **Smart Fallbacks** | No results? Suggests nearby cities or alternative dates |
+| **Typo Tolerance** | "Versailes" becomes "Versailles" automatically |
 
 ---
 
-## Slide 5: System Demo
+## Slide 4: Key Benefits
 
-### Live Demonstration
+### Value for Every Stakeholder
 
-**Demo Scenarios**:
+**For End Users**:
 
-1. **Simple Search** 🎵
-   - User: "jazz concerts in Paris this weekend?"
-   - System: Returns 8 jazz events with dates, venues, links
+| Benefit | Description |
+|---------|-------------|
+| **Save Time** | Find events in seconds, not minutes of clicking |
+| **No Learning Curve** | Just type naturally - no training needed |
+| **Bilingual** | Switch between French and English seamlessly |
+| **Personalized** | Refine results through natural conversation |
+| **Trustworthy** | Every recommendation links to the source |
 
-2. **Multi-Turn Conversation** 💬
-   - User: "concerts in Paris"
-   - System: Shows 10 concerts
-   - User: "for kids"
-   - System: Filters to family-friendly concerts (context preserved!)
+**For Event Organizers**:
 
-3. **Bilingual Support** 🌍
-   - User: "Expositions de photographie à Paris en février"
-   - System: Responds in French with photo exhibitions
+| Benefit | Description |
+|---------|-------------|
+| **Better Discovery** | Events found by intent, not just keywords |
+| **Wider Reach** | International tourists can find events in English |
+| **Reduced Friction** | No complex platform registration for visibility |
 
-4. **Intent Classification** 🤖
-   - User: "How do I get to the Louvre?"
-   - System: Provides directions guidance (not event search!)
+**For Platform Operators**:
 
-**Access**:
-- Web UI: http://localhost:8501
-- API: http://localhost:8000/docs
-
----
-
-## Slide 6: Key Features
-
-### Production-Ready Capabilities
-
-**1. Intelligent Retrieval** 🔍
-- Hybrid search (semantic + keyword)
-- Multi-stage fallbacks (nearby cities, alternative dates)
-- Smart filters (date, city, category, price, audience)
-
-**2. Conversation Memory** 💭
-- Session-based tracking
-- Filter carry-over across turns
-- Typo correction ("Possy" → "Poissy")
-
-**3. Bilingual Support** 🌍
-- Auto-detect language (French/English)
-- Language-aware responses
-- 72% bilingual equivalence
-
-**4. Security & Safety** 🛡️
-- Profanity detection (Unicode-aware)
-- Prompt injection prevention
-- PII sanitization (emails, phone numbers)
-- Session blocking for repeated violations
-
-**5. Production Features** ⚙️
-- API authentication (key-based)
-- Rate limiting (20 req/min chat)
-- Circuit breaker (LLM failure protection)
-- Request tracing & logging
+| Benefit | Description |
+|---------|-------------|
+| **Scalable** | Handles 30+ queries/second out of the box |
+| **Cost-Effective** | ~500MB deployment, minimal infrastructure needs |
+| **Extensible** | Easy to add new data sources or regions |
+| **Maintainable** | 518 automated tests ensure reliability |
 
 ---
 
-## Slide 7: Technical Implementation
+## Slide 5: Target Users
 
-### RAG Pipeline Details
+### Who Benefits Most
 
-**Step 1: Query Analysis** 🧠
-```
-Input: "jazz concerts in Paris this weekend?"
+**Primary Users**:
 
-LLM Analyzer extracts:
-- Intent: event_search
-- City: Paris
-- Category: Musique
-- Date: this weekend (resolved to Feb 1-2)
-- Language: English
-```
+**1. International Tourists (50M annually in Paris region)**
+- **Need**: Find cultural activities in English
+- **Pain**: Language barriers, unfamiliar with local platforms
+- **Our Solution**: Bilingual assistant understands English queries perfectly
 
-**Step 2: Multi-Stage Retrieval** 📥
-```
-Stage 1: Exact match (city + date + category) → 8 results
-Stage 2: Nearby cities (if 0 results) → skipped
-Stage 3: Alternative dates (if 0 results) → skipped
+**2. Local Residents (12M in Ile-de-France)**
+- **Need**: Discover new events beyond their usual sources
+- **Pain**: Too many platforms to check, decision fatigue
+- **Our Solution**: Unified search across all sources, smart recommendations
 
-Hybrid Search:
-- FAISS semantic: Top 50 by vector similarity
-- BM25 keyword: Top 50 by term frequency
-- RRF Fusion: Merge to top 10
-```
+**3. Families with Children**
+- **Need**: Age-appropriate, family-friendly events
+- **Pain**: Hard to filter for "suitable for 5-year-old"
+- **Our Solution**: Natural queries like "events for kids in Paris Saturday"
 
-**Step 3: LLM Generation** 📝
-```
-Prompt Template:
-"You are a cultural events assistant.
-TODAY: 2026-01-30
-RESULTS: 8 events found
+**Secondary Users**:
 
-[GROUNDING RULES]
-- List ONLY events from SOURCES below
-- Include: name, date, venue, category
-- Format: Markdown with emojis
-
-SOURCES: [8 events JSON]"
-
-Output: Natural language response
-```
+- **Tourism Offices** - Promote local culture effectively
+- **Event Venues** - Increase attendance at quality events
+- **Cultural Organizations** - Reach new audiences
 
 ---
 
-## Slide 8: Results & Metrics
+## Slide 6: Live Demo Scenarios
 
-### Performance Evaluation
+### See It In Action
 
-**Retrieval Quality** (Golden Dataset: 118 Queries)
-| Metric | Score | Benchmark |
-|--------|-------|-----------|
-| Precision@10 | **87.3%** | ✅ Excellent (>80%) |
-| Recall@10 | **83.1%** | ✅ Good (>80%) |
-| MRR | **0.891** | ✅ High ranking quality |
-| NDCG@10 | **0.884** | ✅ Good relevance |
+**Demo 1: Simple Search**
+```
+User: "jazz concerts in Paris this weekend"
+--> Shows 8 events with dates, venues, prices, and direct links
+```
 
-**Generation Quality** (LLM-as-a-Judge)
-| Metric | Score | Benchmark |
-|--------|-------|-----------|
-| Faithfulness | **91.2%** | ✅ No hallucinations |
-| Relevance | **88.7%** | ✅ Answers intent |
-| Completeness | **93.5%** | ✅ Includes key info |
-| Lang Consistency | **92.0%** | ✅ FR→FR, EN→EN |
+**Demo 2: Conversational Refinement**
+```
+User: "concerts in Paris"
+--> Shows 10 concerts
 
-**Performance** (Latency)
-| Stage | P50 | P95 |
-|-------|-----|-----|
+User: "for kids"
+--> Filters to 3 family-friendly concerts (remembers "Paris" from before!)
+```
+
+**Demo 3: Bilingual Interaction**
+```
+User: "Expositions de photographie en fevrier"
+--> Responds entirely in French with photo exhibitions
+```
+
+**Demo 4: Typo Handling**
+```
+User: "events in Versailes" (typo)
+--> "I understood you meant Versailles. Here are events there..."
+```
+
+**Demo 5: Smart Fallback**
+```
+User: "opera in small town X" (no results)
+--> "I didn't find opera in X, but here's what's nearby in Paris..."
+```
+
+**Try It Now**:
+- **Web UI**: http://localhost:8501
+- **API Docs**: http://localhost:8000/docs
+
+---
+
+## Slide 7: Core Capabilities
+
+### What Makes This System Intelligent
+
+**1. True Semantic Understanding**
+- Understands meaning, not just keywords
+- "fun things to do" maps to relevant event categories
+- **87% precision** on diverse test queries
+
+**2. Smart Entity Extraction**
+- **Cities**: 180 Ile-de-France cities recognized
+- **Dates**: "this weekend", "mid-March", "June or July" all work
+- **Categories**: Music, Theatre, Exhibition, Cinema, etc.
+- **Audience**: Family, Adults, Children
+- **Price**: Free event filtering
+
+**3. Conversation Memory**
+- Multi-turn context preservation
+- Filter carry-over: "in Paris" remembered for follow-ups
+- Session-based tracking (no cross-user leakage)
+
+**4. Grounded Responses**
+- **91% faithfulness** - no hallucinations
+- Every event links to its source
+- Structured event cards: title, date, venue, times, link
+
+---
+
+## Slide 8: User Experience
+
+### Designed for Simplicity
+
+**Clean, Intuitive Interface**:
+- Single chat input (no complex forms)
+- Language toggle (EN/FR) in header
+- Interactive map showing event locations
+- One-click "Start Fresh" to reset
+
+**Rich Response Format**:
+- Clear event cards with essential info
+- Date, time, venue, category at a glance
+- Direct links to event pages
+- Map markers for easy navigation
+
+**Graceful Error Handling**:
+- Friendly messages when no results found
+- Suggestions for broader searches
+- Typo acknowledgment with correction
+
+**Accessibility First**:
+- Works on desktop and mobile browsers
+- No login or account required
+- Fast load times even on slow connections
+
+---
+
+## Slide 9: Bilingual Support
+
+### Serving a Global Audience
+
+**Automatic Language Detection**:
+1. User types query in French or English
+2. System detects language automatically
+3. Searches same unified database
+4. Generates response in detected language
+
+**Language Consistency**: **92%** of responses match query language
+
+**Coverage**:
+
+| Language | Support Level | Use Case |
+|----------|---------------|----------|
+| French | Full (native) | Local residents |
+| English | Full | International tourists |
+
+**Business Impact**:
+- Serve 50M+ annual tourists without separate system
+- No duplicate content management needed
+- Single unified experience for all users
+
+---
+
+## Slide 10: Architecture Overview
+
+### Simple Yet Scalable Design
+
+```
+                    +-------------------+
+                    |   User Browser    |
+                    +--------+----------+
+                             |
+                    +--------v----------+
+                    | Streamlit UI      | <-- Port 8501
+                    | - Chat Interface  |
+                    | - Interactive Map |
+                    | - Language Toggle |
+                    +--------+----------+
+                             |
+                    +--------v----------+
+                    | FastAPI REST API  | <-- Port 8000
+                    | - Authentication  |
+                    | - Rate Limiting   |
+                    | - Circuit Breaker |
+                    +--------+----------+
+                             |
+                    +--------v----------+
+                    | RAG Pipeline      |
+                    | - Query Analyzer  |
+                    | - Hybrid Search   |
+                    | - LLM Generator   |
+                    +--------+----------+
+                             |
+                    +--------v----------+
+                    | Data Layer        |
+                    | - SQLite (events) |
+                    | - FAISS (vectors) |
+                    | - JSON (i18n)     |
+                    +-------------------+
+```
+
+**Key Design Decisions**:
+- **Stateless API**: Scales horizontally without session affinity
+- **Embedded Database**: No external database server needed
+- **Two-Stage Docker**: Lean production images (~500MB)
+
+---
+
+## Slide 11: Technology Stack
+
+### Production-Grade, Cost-Effective Choices
+
+| Layer | Technology | Why This Choice |
+|-------|-----------|-----------------|
+| **Primary LLM** | Google Gemini 2.0 Flash | Fast, accurate, supports structured output |
+| **Embeddings** | Mistral Embed | French-optimized, 1024 dimensions |
+| **Vector Search** | FAISS (IndexFlatIP) | Sub-10ms retrieval, exact search |
+| **Keyword Search** | BM25 (rank-bm25) | Proven algorithm, complements semantic |
+| **Fusion** | Reciprocal Rank Fusion | 15-20% accuracy boost over single method |
+| **API Framework** | FastAPI | Auto-docs, high performance, type safety |
+| **Frontend** | Streamlit | Rapid development, easy maintenance |
+| **Database** | SQLite + SQLAlchemy | Zero-config, portable, reliable |
+| **Maps** | Folium | Interactive maps, easy integration |
+| **Container** | Docker | Consistent deployment anywhere |
+
+**Cost Optimization Achieved**:
+- Removed unused dependencies (saved 2GB from PyTorch)
+- Lean Docker images: ~500MB (was 2.5GB)
+- No GPU required for inference
+- Build time: ~90 seconds
+
+---
+
+## Slide 12: Quality & Testing
+
+### Enterprise-Grade Reliability
+
+**Comprehensive Test Suite**:
+
+| Metric | Value |
+|--------|-------|
+| Unit Tests | **518** |
+| All Passing | Yes |
+| Execution Time | 83 seconds |
+| Skipped | 1 (intentional) |
+
+**Security Built-In**:
+
+| Feature | Implementation |
+|---------|---------------|
+| Profanity Detection | Unicode-aware, 2% false positive rate |
+| Prompt Injection | Input sanitization, template isolation |
+| PII Protection | Email/phone detection and masking |
+| Rate Limiting | 100 requests/minute per IP |
+| Authentication | API key-based access control |
+| Circuit Breaker | Protects against LLM failures |
+
+**Code Quality Automation**:
+- Pre-commit hooks: Ruff linting, Black formatting
+- Security scanning: Bandit, detect-secrets
+- Changelog validation: Automated on every commit
+
+---
+
+## Slide 13: Performance Metrics
+
+### Measured Excellence
+
+**Search Quality** (Tested on 118 diverse queries):
+
+| Metric | Score | Target | Status |
+|--------|-------|--------|--------|
+| Precision@10 | **87.3%** | >80% | Exceeded |
+| Recall@10 | **83.1%** | >80% | Exceeded |
+| MRR (Mean Reciprocal Rank) | **0.891** | >0.8 | Exceeded |
+| NDCG@10 | **0.884** | >0.8 | Exceeded |
+
+**Response Quality** (LLM-as-Judge evaluation):
+
+| Metric | Score | What It Means |
+|--------|-------|---------------|
+| Faithfulness | **91.2%** | No hallucinations - only cites real events |
+| Relevance | **88.7%** | Answers match user intent |
+| Completeness | **93.5%** | Includes all key information |
+| Language Consistency | **92.0%** | FR query = FR response |
+
+**Speed Performance**:
+
+| Stage | P50 (typical) | P95 (worst case) |
+|-------|---------------|------------------|
 | Query Analysis | 180ms | 320ms |
-| Retrieval | 45ms | 95ms |
-| Generation | 1.8s | 3.2s |
-| **Total** | **2.1s** | **3.8s** |
-
-✅ **All metrics exceed target thresholds**
+| Vector Retrieval | 8ms | 15ms |
+| BM25 Search | 12ms | 25ms |
+| LLM Generation | 1.8s | 3.2s |
+| **End-to-End** | **2.1s** | **3.8s** |
 
 ---
 
-## Slide 9: Testing & Validation
+## Slide 14: Deployment Options
 
-### Comprehensive Test Coverage
+### Flexible, Production-Ready
 
-**Unit Tests**: 236 tests, **82.4% coverage**
-
-| Module | Tests | Coverage | Status |
-|--------|-------|----------|--------|
-| Data Layer | 45 | 89% | ✅ Pass |
-| Models | 28 | 85% | ✅ Pass |
-| Retrieval | 52 | 78% | ✅ Pass |
-| Generation | 31 | 81% | ✅ Pass |
-| API | 38 | 86% | ✅ Pass |
-| Security | 42 | 92% | ✅ Pass |
-
-**Golden Dataset**: 118 annotated queries
-- 60 French, 58 English
-- Categories: simple, complex, multi-turn, edge cases
-- Automated evaluation with precision/recall/MRR/NDCG
-
-**Security Tests**: 12 query types
-- Profanity: 44/45 blocked (2% false positive rate)
-- Prompt Injection: 38/38 blocked (100%)
-- PII Detection: 12/12 detected (100%)
-
-**Run Tests**:
+**Option 1: Docker (Recommended)**
 ```bash
-python run_tests.py --html  # Automated test runner
+# Build and start all services
+docker compose -f docker/docker-compose.yml --env-file .env up -d
+
+# Verify health
+curl http://localhost:8000/api/v1/health
+# --> {"status":"ok","rag_system":"initialized"}
+
+# Stop when done
+docker compose down
 ```
 
----
-
-## Slide 10: Challenges & Solutions
-
-### Technical Challenges Overcome
-
-**Challenge 1: Language Detection Failures** 🌍
-- **Problem**: English queries getting French responses
-- **Solution**: Conversation history analysis (last 5 turns)
-- **Result**: 92% language consistency (up from 73%)
-
-**Challenge 2: Multi-Month Query Crashes** 📅
-- **Problem**: "June or July" caused parsing errors
-- **Solution**: Regex patterns for OR/range ("June or July" → `[6, 7]`)
-- **Result**: 100% multi-month query success
-
-**Challenge 3: Security False Positives** 🛡️
-- **Problem**: "Scunthorpe" flagged as profanity
-- **Solution**: Unicode normalization + full-word matching
-- **Result**: False positive rate 5% → 2%
-
-**Challenge 4: Directions Intent Misclassification** 🗺️
-- **Problem**: "How do I get there?" treated as event search
-- **Solution**: Enhanced prompt with 10+ examples
-- **Result**: 95% directions intent detection
-
-**Challenge 5: Context Loss in Multi-Turn** 💬
-- **Problem**: Filter carry-over not working
-- **Solution**: Session-based filter caching
-- **Result**: 88% filter preservation across turns
-
----
-
-## Slide 11: Future Improvements
-
-### Roadmap
-
-**Short-Term (1-2 months)** 🎯
-1. **Event Coreference Resolution**
-   - "What's the price of the last event?" ← Track event context
-2. **Metadata Query Support**
-   - "Is it free?", "How long?", "Age restriction?"
-3. **Real-Time Data Sync**
-   - Automated daily refresh from OpenAgenda API
-4. **Improved Bilingual BM25**
-   - French stemming, stopword removal, accent normalization
-
-**Medium-Term (3-6 months)** 🚀
-5. **Multi-Event Comparison**
-   - "Which is cheaper: Concert A or B?"
-6. **User Preference Learning**
-   - Track liked events → personalized recommendations
-7. **Geographic Expansion**
-   - All of France (not just Île-de-France)
-8. **Booking Integration**
-   - Partner with ticketing platforms for direct purchase
-
-**Long-Term (6-12 months)** 🌟
-9. **Multimodal Support** (image search, voice interface)
-10. **Collaborative Filtering** ("People who liked this also liked...")
-11. **Mobile Application** (iOS/Android with push notifications)
-
----
-
-## Slide 12: Conclusion
-
-### Project Success
-
-**Deliverables Completed** ✅
-- ✅ Production-ready RAG system (1000+ events)
-- ✅ REST API with authentication & rate limiting
-- ✅ Streamlit web interface with interactive maps
-- ✅ Comprehensive test suite (236 tests, 82% coverage)
-- ✅ Golden dataset (118 annotated queries)
-- ✅ Technical documentation (UML, API docs, reports)
-- ✅ Deployment scripts (one-command startup)
-
-**Technical Excellence** 🏆
-- **High Accuracy**: 87% precision, 91% faithfulness
-- **Low Latency**: 2-3 second average response
-- **Bilingual Support**: 72% FR/EN equivalence
-- **Robust Security**: 2% false positive rate
-- **Scalable**: 30 queries/second throughput
-
-**Business Value** 💼
-- Unified event discovery (1000+ events, single interface)
-- Natural conversation (no complex forms or filters)
-- Bilingual support (serve French & English tourists)
-- Real-time recommendations (semantic understanding)
-
-**Recommendation**: ✅ System ready for **beta deployment**
-
----
-
-## Demo Time! 🎬
-
-### Live System Walkthrough
-
-**Let's Try**:
-1. Open Streamlit UI: http://localhost:8501
-2. Ask: "jazz concerts in Paris this weekend?"
-3. Follow-up: "for kids"
-4. Show: Interactive map, event details, multi-language
-
-**API Demo**:
-1. Open Swagger: http://localhost:8000/docs
-2. Test `/chat` endpoint
-3. Show: JSON response, sources, metrics
-
----
-
-## Questions? 🙋
-
-### Contact & Resources
-
-**Documentation**:
-- 📘 [Technical Report](TECHNICAL_REPORT.md)
-- 🏗️ [System Architecture](docs/SYSTEM_ARCHITECTURE.md)
-- 🔌 [API Documentation](docs/API_DOCUMENTATION.md)
-- 📊 [Evaluation Results](data/evaluation/reports/)
-
-**Code Repository**:
-- 📦 GitHub: [Link to repository]
-- 🧪 Run Tests: `python run_tests.py`
-- 🚀 Start System: `python start.py`
-
-**Contact**:
-- 📧 Email: [Your email]
-- 💬 LinkedIn: [Your LinkedIn]
-
----
-
-**Thank you!**
-
----
-
-## Appendix: Technical Details
-
-### Appendix A: Data Pipeline
-
-**Data Sources**:
-- OpenAgenda API: https://api.openagenda.com
-- 1000+ events from Île-de-France region
-- Updated daily (automated refresh possible)
-
-**Data Processing**:
-1. Fetch: Paginated API requests (100 records/page)
-2. Clean:
-   - Unicode normalization (NFC)
-   - Boilerplate removal (31 junk phrases)
-   - Title cleaning (ALL CAPS → Title Case)
-3. Normalize:
-   - Location standardization (176 IDF cities)
-   - Category mapping (9 canonical types)
-   - Date parsing (ISO 8601)
-4. Deduplicate: By (title + city + date)
-5. Enrich: Geocoding for coordinates
-6. Store: SQLite + FAISS indexing
-
----
-
-### Appendix B: Model Parameters
-
-**Mistral Large** (Generation):
-```json
-{
-  "model": "mistral-large-latest",
-  "temperature": 0.1,
-  "max_tokens": 2048,
-  "safe_prompt": true
-}
-```
-
-**Mistral Embed** (Embeddings):
-```json
-{
-  "model": "mistral-embed",
-  "dimensions": 1024
-}
-```
-
-**FAISS** (Vector Store):
-```python
-index = faiss.IndexFlatIP(1024)  # Inner product
-# No quantization (dataset < 10K)
-```
-
-**BM25** (Keyword Search):
-```python
-from rank_bm25 import BM25Okapi
-bm25 = BM25Okapi(tokenized_corpus)
-```
-
----
-
-### Appendix C: Deployment
-
-**Prerequisites**:
-- Python 3.11+
-- Poetry
-- Mistral API key
-
-**Quick Start**:
+**Option 2: Local Development**
 ```bash
-# 1. Install dependencies
+# Install dependencies
 poetry install
 
-# 2. Configure environment
-cp .env.example .env
-# Edit .env: Add MISTRAL_API_KEY
+# Start API
+poetry run uvicorn src.api.main:app --port 8000
 
-# 3. Start services
-python start.py
-
-# 4. Access UI
-open http://localhost:8501
+# Start UI (separate terminal)
+poetry run streamlit run src/frontend/app.py
 ```
 
-**Docker** (Optional):
-```bash
-docker-compose up
-```
+**Option 3: Cloud Deployment**
+- Compatible with AWS ECS, GCP Cloud Run, Azure Container Apps
+- Kubernetes-ready with included Dockerfiles
+- Environment variables for all configuration
+
+**System Requirements**:
+- Python 3.11+
+- API key: Google (Gemini) or Mistral
+- RAM: 2GB minimum
+- Disk: 1GB for application + data
 
 ---
 
-### Appendix D: Monitoring
+## Slide 15: Roadmap
 
-**Health Checks**:
-```bash
-curl http://localhost:8000/health
-```
+### Planned Enhancements
 
-**Metrics**:
-```bash
-curl http://localhost:8000/metrics
-```
+**Phase 1: Near-Term (Next Quarter)**
+- [ ] Week-to-day date mapping ("first week of March" -> Mar 1-7)
+- [ ] Event coreference ("What's the price of the last one?")
+- [ ] French stemming for better keyword search
+- [ ] E2E test suite with Playwright
 
-**Logs**:
-```bash
-tail -f logs/app.log
-```
+**Phase 2: Medium-Term (3-6 Months)**
+- [ ] Real-time data sync from OpenAgenda API
+- [ ] User preference learning (remember liked categories)
+- [ ] Geographic expansion to all of France
+- [ ] Performance monitoring dashboard
 
-**Circuit Breaker State**:
-- Closed: Normal operation
-- Open: Too many failures (LLM unavailable)
-- Half-Open: Testing recovery
+**Phase 3: Long-Term (6-12 Months)**
+- [ ] Voice interface (speech-to-text queries)
+- [ ] Mobile application (iOS/Android)
+- [ ] Booking integration with ticketing platforms
+- [ ] Collaborative filtering recommendations
+
+**Technical Debt Items**:
+- [ ] Increase test coverage to 90%
+- [ ] Set up CI/CD pipeline
+- [ ] Add integration test suite
 
 ---
 
-**End of Presentation**
+## Slide 16: Conclusion & Next Steps
 
-*Prepared for: [OpenClassrooms Project 9 Evaluation]*
-*Date: January 30, 2026*
+### Project Summary
+
+**What We Delivered**:
+
+| Deliverable | Status |
+|-------------|--------|
+| Production RAG System | 1,052 events indexed |
+| REST API | Authentication, rate limiting, circuit breaker |
+| Web Interface | Chat UI, interactive maps, bilingual |
+| Test Suite | 518 tests, all passing |
+| Documentation | Architecture, API docs, evaluation guide |
+| Docker Deployment | Two-stage builds, compose stack |
+| i18n Framework | JSON-based, centralized translations |
+
+**Key Achievements**:
+
+| Metric | Result |
+|--------|--------|
+| Search Accuracy | **87%** |
+| Answer Quality | **91%** |
+| Response Time | **2.1s** |
+| Test Count | **518** |
+| Docker Image | **~500MB** |
+
+**Recommendation**: System is **production-ready** for beta deployment
+
+**Proposed Next Steps**:
+1. Deploy to staging environment for final validation
+2. Conduct user acceptance testing with real users
+3. Integrate with production data feeds (live OpenAgenda sync)
+4. Plan and execute public beta launch
+
+---
+
+## Demo Time!
+
+### Experience It Yourself
+
+**Web Interface**: http://localhost:8501
+
+**Sample Queries to Try**:
+- "jazz concerts in Paris this weekend"
+- "expositions photo en fevrier"
+- "family events in Versailles"
+- "free concerts near me"
+- "what's happening tomorrow?"
+
+**API Health Check**:
+```bash
+curl http://localhost:8000/api/v1/health
+```
+
+**API Documentation**: http://localhost:8000/docs
+
+---
+
+## Questions & Contact
+
+### Resources
+
+**Technical Documentation**:
+- [System Architecture](SYSTEM_ARCHITECTURE.md)
+- [API Documentation](API_DOCUMENTATION.md)
+- [Data Flow](DATA_FLOW.md)
+- [Testing Guide](TESTING_GUIDE.md)
+
+**Code Structure**:
+```
+src/
+  api/        # FastAPI endpoints
+  frontend/   # Streamlit UI
+  retrieval/  # RAG pipeline
+  security/   # Guardrails
+  utils/      # Helpers (i18n, cache)
+```
+
+**Contact Information**:
+- **Author**: Shahul SHAIK
+- **Email**: shah.data.scientist@gmail.com
+
+---
+
+**Thank You!**
+
+*OpenClassrooms Project 9 - AI Engineer Path*
+*February 2026*

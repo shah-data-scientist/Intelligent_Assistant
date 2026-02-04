@@ -1,15 +1,40 @@
 services:
+  # Database initialization service - prepares SQLite DB and FAISS index
+  db-init:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    container_name: cultural-assistant-db-init
+    command: >
+      sh -c "
+        echo 'Checking database files...' &&
+        if [ ! -f /app/data/events.db ]; then
+          echo 'Database not found. Please copy data/events.db to the volume.';
+          exit 1;
+        fi &&
+        if [ ! -f /app/data/faiss_index/index.faiss ]; then
+          echo 'FAISS index not found. Please copy data/faiss_index/ to the volume.';
+          exit 1;
+        fi &&
+        echo 'Database check passed!'
+      "
+    volumes:
+      - ../data:/app/data:ro
+    networks:
+      - cultural-assistant
+
   # FastAPI Backend
   api:
     build:
-      context: .
-      dockerfile: Dockerfile.api
+      context: ..
+      dockerfile: docker/Dockerfile.api
     container_name: cultural-assistant-api
     ports:
       - "8000:8000"
     environment:
-      # Mistral API Key (required)
-      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+      # LLM API Keys (at least one required)
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
 
       # Database paths (container paths)
       - DB_PATH=/app/data/events.db
@@ -23,18 +48,19 @@ services:
 
       # Application Settings
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - MAX_EVENTS_TO_FETCH=${MAX_EVENTS_TO_FETCH:-20000}
       - RETRIEVAL_TOP_K=${RETRIEVAL_TOP_K:-10}
 
-      # Evaluation Settings (optional)
-      - EVALUATION_LLM_BACKEND=${EVALUATION_LLM_BACKEND:-mistral}
-      - EVALUATION_HF_TOKEN=${EVALUATION_HF_TOKEN:-}
+      # LLM Settings
+      - LLM_PROVIDER=${LLM_PROVIDER:-google}
+      - LLM_MODEL=${LLM_MODEL:-gemini-2.0-flash}
     volumes:
-      # Mount data directory for persistence
-      - ./data:/app/data
+      - ../data:/app/data
     restart: unless-stopped
     networks:
       - cultural-assistant
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/api/v1/health', timeout=5)"]
       interval: 30s
@@ -45,8 +71,8 @@ services:
   # Streamlit Frontend
   frontend:
     build:
-      context: .
-      dockerfile: Dockerfile.frontend
+      context: ..
+      dockerfile: docker/Dockerfile.frontend
     container_name: cultural-assistant-frontend
     ports:
       - "8501:8501"
@@ -67,11 +93,31 @@ services:
       retries: 3
       start_period: 30s
 
+  # Test runner service
+  tests:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    container_name: cultural-assistant-tests
+    command: python -m pytest tests/unit -v --tb=short
+    environment:
+      - PYTHONPATH=/app
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
+      - DB_PATH=/app/data/events.db
+      - FAISS_INDEX_PATH=/app/data/faiss_index
+    volumes:
+      - ../data:/app/data:ro
+      - ../tests:/app/tests:ro
+    networks:
+      - cultural-assistant
+    profiles:
+      - test
+
 networks:
   cultural-assistant:
     driver: bridge
 
 volumes:
-  # Named volumes for explicit data management (optional alternative to bind mounts)
   data:
     driver: local

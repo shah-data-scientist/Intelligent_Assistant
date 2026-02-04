@@ -27,8 +27,7 @@ wheels/
 .installed.cfg
 *.egg
 
-# Poetry
-poetry.lock
+# Poetry (keep poetry.lock for reproducible builds)
 
 # Testing
 .pytest_cache/

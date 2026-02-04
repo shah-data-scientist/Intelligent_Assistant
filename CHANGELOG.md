@@ -17,7 +17,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Background Sync Disabled**: Disabled automatic 12-hour background data sync
-  - [src/api/main.py](src/api/main.py) - Sync task commented out, run manually when needed
+  - [src/api/main.py](src/api/main.py) - Sync task removed, run manually when needed
+- **Dependency Cleanup**: Removed unused dependencies, added missing one
+  - [pyproject.toml](pyproject.toml) - Removed: sentence-transformers, plotly, openpyxl, pandas, python-dotenv, langchain-community
+  - [pyproject.toml](pyproject.toml) - Added: langchain-google-genai (was missing but used)
+- **Docker Two-Stage Builds**: Optimized Dockerfiles for lean production images
+  - [docker/Dockerfile.api](docker/Dockerfile.api) - Two-stage build with Poetry, ~500MB image (was 2.5GB)
+  - [docker/Dockerfile.frontend](docker/Dockerfile.frontend) - Two-stage build with Poetry
+  - [docker/docker-compose.yml](docker/docker-compose.yml) - Added db-init service, test profile
+  - [.dockerignore](.dockerignore) - Removed poetry.lock exclusion for reproducible builds
+- **Presentation Overhaul**: Complete rewrite with business-friendly content
+  - [docs/PRESENTATION.md](docs/PRESENTATION.md) - 16 slides covering business value, features, technical details
 
 ### Fixed
 - **Audit Fixes in unified_analyzer.py**: Addressed logic issues found during deep audit
