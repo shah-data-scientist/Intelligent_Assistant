@@ -1,0 +1,472 @@
+{
+  "timestamp": "2026-02-04T21:24:35.816232",
+  "dataset_version": "3.3",
+  "total_queries": 5,
+  "summary": {
+    "successful_queries": 5,
+    "failed_queries": 0,
+    "success_rate": 1.0,
+    "event_queries_evaluated": 5,
+    "excluded_from_quality": 0,
+    "avg_quality_score": 0.66875,
+    "avg_faithfulness": 0.675,
+    "avg_relevancy": 0.6625000000000001,
+    "avg_latency_ms": 58201.211166381836,
+    "p95_latency_ms": 81378.66473197937,
+    "quality_pass_rate": 0.75
+  },
+  "by_query_type": {
+    "initial": {
+      "count": 2,
+      "quality_sum": 1.0999999999999999,
+      "success": 2,
+      "fail": 0,
+      "avg_quality": 0.5499999999999999
+    },
+    "refinement": {
+      "count": 1,
+      "quality_sum": 0.7,
+      "success": 1,
+      "fail": 0,
+      "avg_quality": 0.7
+    },
+    "follow_up": {
+      "count": 1,
+      "quality_sum": 0.0,
+      "success": 1,
+      "fail": 0,
+      "avg_quality": 0.0
+    },
+    "topic_shift": {
+      "count": 1,
+      "quality_sum": 0.875,
+      "success": 1,
+      "fail": 0,
+      "avg_quality": 0.875
+    }
+  },
+  "issues": {
+    "low_quality_queries": [
+      {
+        "id": "conv_001_t3",
+        "query": "Parle-moi du premier",
+        "score": 0.0
+      },
+      {
+        "id": "conv_002_t1",
+        "query": "Jazz concerts in Paris this weekend",
+        "score": 0.39999999999999997
+      }
+    ],
+    "no_events_queries": [
+      {
+        "id": "conv_001_t3",
+        "query": "Parle-moi du premier"
+      }
+    ],
+    "high_latency_queries": [
+      {
+        "id": "conv_001_t1",
+        "latency_ms": 77624.26495552063
+      },
+      {
+        "id": "conv_001_t2",
+        "latency_ms": 62086.47608757019
+      },
+      {
+        "id": "conv_002_t1",
+        "latency_ms": 66001.01947784424
+      },
+      {
+        "id": "conv_002_t2",
+        "latency_ms": 81378.66473197937
+      }
+    ],
+    "failed_queries": []
+  },
+  "detailed_results": [
+    {
+      "query_id": "conv_001_t1",
+      "query": "Concerts de jazz à Paris",
+      "query_type": "initial",
+      "language": "fr",
+      "http_status": 200,
+      "latency_ms": 77624.26495552063,
+      "events_retrieved": 8,
+      "answer": "Voici 8 concerts de jazz que j'ai trouvés à Paris. Malheureusement, ils ne sont pas tous en février, mais j'ai inclus ceux de mars car ils pourraient vous intéresser.\n\n1.  **Zoot Sundays! Sessions Jazz du dimanche**\n\n    *   **Date:** 2026-02-01\n    *   **Lieu:** JASS CLUB PARIS, 141 Rue de Tolbiac, Paris\n    *   **Horaires:** 19:30, 21:30\n    *   **Description:** Tous les dimanches, le club vibre aux couleurs du **Zoot Collectif** ! Des formations qui changent, des idées neuves, pour vous proposer un rendez-vous jazz vivant et spontané. Les artistes du collectif présentent leurs projets du moment, leurs nouvelles compositions, mais aussi des hommages aux grands noms du jazz. Ce dimanche : Noé Codjia Quartet\n    *   **Prix:** Tarif Réduit : 15€ | Tarif Plein : 19€\n    *   **URL:** [https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-14832](https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-14832)\n    *   **Type:** Exact Match\n2.  **Zoot Sundays! Sessions Jazz du dimanche**\n\n    *   **Date:** 2026-02-08\n    *   **Lieu:** JASS CLUB PARIS, 141 Rue de Tolbiac, Paris\n    *   **Horaires:** 19:30, 21:30\n    *   **Description:** Tous les dimanches, le club vibre aux couleurs du **Zoot Collectif** ! Des formations qui changent, des idées neuves, pour vous proposer un rendez-vous jazz vivant et spontané. Les artistes du collectif présentent leurs projets du moment, leurs nouvelles compositions, mais aussi des hommages aux grands noms du jazz. Ce dimanche : Neil Saidi & Clément Trimouille Quartet\n    *   **Prix:** Tarif Réduit : 15€ | Tarif Plein : 19€\n    *   **URL:** [https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-5604458](https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-5604458)\n    *   **Type:** Exact Match\n3.  **Jorge Vistel Quartet**\n\n    *   **Date:** 2026-02-19\n    *   **Lieu:** JASS CLUB PARIS, 141 Rue de Tolbiac, Paris\n    *   **Horaires:** 19:30, 21:30\n    *   **Description:** Une plongée à la croisée de la musique cubaine et du jazz afro-cubain, c’est la proposition du trompettiste Jorge Vistel. En compagnie de son quartet, il présente un univers inspiré par le saxophoniste new-yorkais Greg Osby et son album Cimarron.\n    *   **Prix:** Tarif Réduit : 15€ | Tarif Plein : 19€\n    *   **URL:** [https://openagenda.com/jassclub-paris/events/jorge-vistel-quartet](https://openagenda.com/jassclub-paris/events/jorge-vistel-quartet)\n    *   **Type:** Exact Match\n4.  **Zoot Sundays! Sessions Jazz du dimanche**\n\n    *   **Date:** 2026-02-22\n    *   **Lieu:** JASS CLUB PARIS, 141 Rue de Tolbiac, Paris\n    *   **Horaires:** 19:30, 21:30\n    *   **Description:** Tous les dimanches, le club vibre aux couleurs du **Zoot Collectif** ! Des formations qui changent, des idées neuves, pour vous proposer un rendez-vous jazz vivant et spontané. Les artistes du collectif présentent leurs projets du moment, leurs nouvelles compositions, mais aussi des hommages aux grands noms du jazz. Ce dimanche : Mathieu Najean & Maxime Prebet Quintet\n    *   **Prix:** Tarif Réduit : 15€ | Tarif Plein : 19€\n    *   **URL:** [https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-4446006](https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-4446006)\n    *   **Type:** Exact Match\n5.  **Zoot Sundays! Sessions Jazz du dimanche**\n\n    *   **Date:** 2026-03-01\n    *   **Lieu:** JASS CLUB PARIS, 141 Rue de Tolbiac, Paris\n    *   **Horaires:** 19:30, 21:30\n    *   **Description:** Tous les dimanches, le club vibre aux couleurs du **Zoot Collectif** !\n    *   **Prix:** Tarif Réduit : 15€ | Tarif Plein : 19€\n    *   **URL:** [https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-8772023](https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-8772023)\n    *   **Type:** Exact Match\n6.  **Fred Nardin Trio**\n\n    *   **Date:** 2026-03-05\n    *   **Lieu:** JASS CLUB PARIS, 141 Rue de Tolbiac, Paris\n    *   **Horaires:** 19:30, 21:30\n    *   **Description:** Pianiste incontournable de la scène jazz parisienne, Fred Nardin est l’équilibre parfait entre élégance et puissance de jeu.\n    *   **Prix:** Tarif Réduit : 19€ | Tarif Plein : 22€\n    *   **URL:** [https://openagenda.com/jassclub-paris/events/fred-nardin-trio-4102699](https://openagenda.com/jassclub-paris/events/fred-nardin-trio-4102699)\n    *   **Type:** Exact Match\n7.  **Fred Nardin Quintet**\n\n    *   **Date:** 2026-03-06\n    *   **Lieu:** JASS CLUB PARIS, 141 Rue de Tolbiac, Paris\n    *   **Horaires:** 19:30, 21:30, 22:30\n    *   **Description:** Pianiste incontournable de la scène jazz parisienne, Fred Nardin est l’équilibre parfait entre élégance et puissance de jeu. Pour cette deuxième soirée, Fred Nardin s’entoure d’un quintet d’exception.\n    *   **Prix:** Tarif Réduit : 19€ | Tarif Plein : 22€ | Tarif unique : 5€\n    *   **URL:** [https://openagenda.com/jassclub-paris/events/fred-nardin-quintet](https://openagenda.com/jassclub-paris/events/fred-nardin-quintet)\n    *   **Type:** Exact Match\n8.  **Zoot Sundays! Sessions Jazz du dimanche**\n\n    *   **Date:** 2026-03-22\n    *   **Lieu:** JASS CLUB PARIS, 141 Rue de Tolbiac, Paris\n    *   **Horaires:** 19:30\n    *   **Description:** Tous les dimanches, le club vibre aux couleurs du **Zoot Collectif** !\n    *   **Prix:** Tarif Réduit : 15€ | Tarif Plein : 19€\n    *   **URL:** [https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-2127010](https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-2127010)\n    *   **Type:** Exact Match\n\nJ'espère que cette liste vous plaira !\n\n📅 *Résultats filtrés sur les **30 prochains jours**.*\n\n💡 *Précisez une date, un type d'événement, ou \"gratuit\" pour affiner.*\n\n---\n**Filtres appliqués:** 📍 Paris | 🎭 Musique",
+      "sources": [
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-02-22T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-4446006",
+          "score": 0.028693528693528692,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "17928543_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-02-01T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-14832",
+          "score": 0.027912386121341344,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "25919196_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-02-08T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-5604458",
+          "score": 0.027809742999616416,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "17915072_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Jorge Vistel Quartet",
+          "city": "Paris",
+          "date": "2026-02-19T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/jorge-vistel-quartet",
+          "score": 0.02758751902587519,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "88608974_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Fred Nardin Trio",
+          "city": "Paris",
+          "date": "2026-03-05T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/fred-nardin-trio-4102699",
+          "score": 0.027149321266968326,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "49647096_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-03-01T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-8772023",
+          "score": 0.027046783625730993,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "99836885_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-03-22T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-2127010",
+          "score": 0.027031740495291244,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "87806229_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Fred Nardin Quintet",
+          "city": "Paris",
+          "date": "2026-03-06T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/fred-nardin-quintet",
+          "score": 0.026655348047538198,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "45083377_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        }
+      ],
+      "error": null,
+      "faithfulness_score": 0.5,
+      "relevancy_score": 0.9,
+      "quality_score": 0.7,
+      "judge_reasoning": "The answer provides a list of jazz concerts in Paris, but it includes a lot of information that is not present in the provided sources. The sources only provide the title, city, date, and category of ",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Musique"
+      },
+      "actual_filters_in_response": "**Filtres appliqués:** 📍 Paris | 🎭 Musique"
+    },
+    {
+      "query_id": "conv_001_t2",
+      "query": "En février plutôt",
+      "query_type": "refinement",
+      "language": "fr",
+      "http_status": 200,
+      "latency_ms": 62086.47608757019,
+      "events_retrieved": 8,
+      "answer": "Voici 8 événements correspondant à votre recherche :\n\n\n**1. FUR  Album BOND** - Paris\n   📅 18/02/2026 à 19:30 | 🎭 Musique\n   🔗 [Plus d'infos](https://openagenda.com/jassclub-paris/events/fur-album-bond)\n\n**2. Zoot Sundays! Sessions Jazz du dimanche** - Paris\n   📅 01/02/2026 à 19:30 | 🎭 Musique\n   🔗 [Plus d'infos](https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-14832)\n\n**3. Zoot Sundays! Sessions Jazz du dimanche** - Paris\n   📅 22/02/2026 à 19:30 | 🎭 Musique\n   🔗 [Plus d'infos](https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-4446006)\n\n**4. Zoot Sundays! Sessions Jazz du dimanche** - Paris\n   📅 08/02/2026 à 19:30 | 🎭 Musique\n   🔗 [Plus d'infos](https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-5604458)\n\n**5. Zoot Sundays! Sessions Jazz du dimanche** - Paris\n   📅 15/02/2026 à 19:30 | 🎭 Musique\n   🔗 [Plus d'infos](https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-6273056)\n\n**6. Ava Alami Quartet feat Hermon Mehari** - Paris\n   📅 06/02/2026 à 19:30 | 🎭 Musique\n   🔗 [Plus d'infos](https://openagenda.com/jassclub-paris/events/ava-alami-quartet-feat-hermon-mehari)\n\n**7. Jorge Vistel Quartet** - Paris\n   📅 19/02/2026 à 19:30 | 🎭 Musique\n   🔗 [Plus d'infos](https://openagenda.com/jassclub-paris/events/jorge-vistel-quartet)\n\n**8. Lown** - Paris\n   📅 12/02/2026 à 19:30 | 🎭 Musique\n   🔗 [Plus d'infos](https://openagenda.com/jassclub-paris/events/lown)\n\n💡 *Précisez une date, un type d'événement, ou \"gratuit\" pour affiner.*\n\n---\n**Filtres appliqués:** 📍 Paris | 📅 février | 🎭 Musique | 🔍 \"Concerts de jazz à Paris\" + \"En février plutôt\"",
+      "sources": [
+        {
+          "title": "FUR  Album BOND",
+          "city": "Paris",
+          "date": "2026-02-18T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/fur-album-bond",
+          "score": 0.0315136476426799,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "40987313_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-02-01T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-14832",
+          "score": 0.029418126757516764,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "25919196_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-02-22T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-4446006",
+          "score": 0.029411764705882353,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "17928543_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-02-08T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-5604458",
+          "score": 0.028577260665441927,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "17915072_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Zoot Sundays! Sessions Jazz du dimanche",
+          "city": "Paris",
+          "date": "2026-02-15T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/zoot-sundays-sessions-jazz-du-dimanche-6273056",
+          "score": 0.02813852813852814,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "5186457_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Ava Alami Quartet feat Hermon Mehari",
+          "city": "Paris",
+          "date": "2026-02-06T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/ava-alami-quartet-feat-hermon-mehari",
+          "score": 0.027972027972027972,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "44104225_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Jorge Vistel Quartet",
+          "city": "Paris",
+          "date": "2026-02-19T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/jorge-vistel-quartet",
+          "score": 0.027820121951219513,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "88608974_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Lown",
+          "city": "Paris",
+          "date": "2026-02-12T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/lown",
+          "score": 0.0273972602739726,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "53092101_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        }
+      ],
+      "error": null,
+      "faithfulness_score": 0.5,
+      "relevancy_score": 0.9,
+      "quality_score": 0.7,
+      "judge_reasoning": "The answer includes events that are not present in the provided sources. Events 6, 7, and 8 (Ava Alami Quartet feat Hermon Mehari, Jorge Vistel Quartet, and Lown) are not mentioned in the source docum",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Musique",
+        "month": 2
+      },
+      "actual_filters_in_response": "**Filtres appliqués:** 📍 Paris | 📅 février | 🎭 Musique | 🔍 \"Concerts de jazz à Paris\" + \"En février plutôt\""
+    },
+    {
+      "query_id": "conv_001_t3",
+      "query": "Parle-moi du premier",
+      "query_type": "follow_up",
+      "language": "fr",
+      "http_status": 200,
+      "latency_ms": 3915.630578994751,
+      "events_retrieved": 0,
+      "answer": "**FUR  Album BOND**\n\n**Catégorie :** Musique\n**Lieu :** 141 Rue de Tolbiac\n**Date :** 2026-02-18T19:30:00\n**Prix :** Tarif Réduit : 15€ | Tarif Plein : 19€ | Payant (à\n\n[Plus d'informations](https://openagenda.com/jassclub-paris/events/fur-album-bond)",
+      "sources": [],
+      "error": null,
+      "faithfulness_score": 0.0,
+      "relevancy_score": 0.0,
+      "quality_score": 0.0,
+      "judge_reasoning": "",
+      "expected_filters": {},
+      "actual_filters_in_response": ""
+    },
+    {
+      "query_id": "conv_002_t1",
+      "query": "Jazz concerts in Paris this weekend",
+      "query_type": "initial",
+      "language": "en",
+      "http_status": 200,
+      "latency_ms": 66001.01947784424,
+      "events_retrieved": 2,
+      "answer": "📢 **Note:** Results include alternatives: nearby cities\n\n💡 *Not what you're looking for? Try refining your search with more specific criteria.*\n\nHere are 2 events matching your request for jazz concerts in Paris this weekend!\n\nJust a heads-up, I also found 6 events in Paris on alternative dates (within +/- 7 days).\n\n1 in Paris:\n\n*   **Sya Sanon Les Planètes Salignent Sirène Édition**\n    *   Date: February 7, 2026\n    *   Times: 19:30, 21:30, 22:30\n    *   City: Paris\n    *   URL: [https://openagenda.com/jassclub-paris/events/sya-sanon-les-planetes-salignent](https://openagenda.com/jassclub-paris/events/sya-sanon-les-planetes-salignent)\n    *   Match type: Exact Match\n\nAnd 1 in nearby Versailles:\n\n*   **Alex Vizorek**\n    *   Date: February 7, 2026\n    *   Time: 20:30\n    *   City: Versailles\n    *   URL: [https://openagenda.com/versailles-palais-des-congres/events/alex-vizorek-753318](https://openagenda.com/versailles-palais-des-congres/events/alex-vizorek-753318)\n    *   Match type: Nearby Location\n\n💡 *Specify a date, event type, or \"free\" to refine your search.*\n\n---\n**Applied filters:** 📍 paris | 📅 7 February | 🎭 Musique",
+      "sources": [
+        {
+          "title": "Sya Sanon  Les Planètes Salignent  Sirène Édition",
+          "city": "Paris",
+          "date": "2026-02-07T19:30:00",
+          "url": "https://openagenda.com/jassclub-paris/events/sya-sanon-les-planetes-salignent",
+          "score": 0.019253473798928347,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "37622343_0",
+          "category": "Musique",
+          "match_type": "Exact Match"
+        },
+        {
+          "title": "Alex Vizorek",
+          "city": "Versailles",
+          "date": "2026-02-07T20:30:00",
+          "url": "https://openagenda.com/versailles-palais-des-congres/events/alex-vizorek-753318",
+          "score": 0.0032258064516129032,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "19296386_0",
+          "category": "Musique",
+          "match_type": "Nearby Location"
+        }
+      ],
+      "error": null,
+      "faithfulness_score": 0.7,
+      "relevancy_score": 0.1,
+      "quality_score": 0.39999999999999997,
+      "judge_reasoning": "The answer correctly identifies the events in Paris and Versailles on February 7, 2026, as listed in the sources. However, it incorrectly claims these are \"jazz concerts.\" The source only lists the ca",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Musique"
+      },
+      "actual_filters_in_response": ""
+    },
+    {
+      "query_id": "conv_002_t2",
+      "query": "Actually, what about theater shows in Versailles?",
+      "query_type": "topic_shift",
+      "language": "en",
+      "http_status": 200,
+      "latency_ms": 81378.66473197937,
+      "events_retrieved": 5,
+      "answer": "📢 **Note:** Results include alternatives: nearby cities\n\n💡 *Not what you're looking for? Try refining your search with more specific criteria.*\n\nOkay! I looked for theater shows in Versailles for February 7, 2026. I didn't find any events in Versailles itself, but I did find 5 shows in nearby Paris:\n\n💡 *Specify a date, event type, or \"free\" to refine your search.*\n\n💡 *Few results? Try broadening your search: change the date, city, or simplify your criteria.*\n\n---\n**Applied filters:** 📍 beynes | 📅 7 February | 🎭 Théâtre / Spectacle | 🔍 \"Jazz concerts in Paris this weekend\" + \"theater shows in Versailles\"",
+      "sources": [
+        {
+          "title": "HAMLET  Shakespeare Mise en scène : Ivo Van Hove",
+          "city": "Paris",
+          "date": "2026-02-07T20:00:00",
+          "url": "https://openagenda.com/panthea/events/hamlet-or-shakespeare-directed-by-christiane-jatahy",
+          "score": 0.01088345714513939,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "85976355_13",
+          "category": "Théâtre / Spectacle",
+          "match_type": "Nearby Location"
+        },
+        {
+          "title": "Petite Balade aux Enfers",
+          "city": "Paris",
+          "date": "2026-02-07T15:00:00",
+          "url": "https://openagenda.com/culture/events/petite-balade-aux-enfers-5231022",
+          "score": 0.005013995234680423,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "7294199_3",
+          "category": "Théâtre / Spectacle",
+          "match_type": "Nearby Location"
+        },
+        {
+          "title": "Le Roi, la Reine et le Bouffon",
+          "city": "Paris",
+          "date": "2026-02-07T20:30:00",
+          "url": "https://openagenda.com/culture/events/le-roi-la-reine-et-le-bouffon-representations-5027251",
+          "score": 0.004188523008368274,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "90738052_2",
+          "category": "Théâtre / Spectacle",
+          "match_type": "Nearby Location"
+        },
+        {
+          "title": "LE CERCLE DE CRAIE CAUCASIEN  Bertolt Brecht",
+          "city": "Paris",
+          "date": "2026-02-07T20:00:00",
+          "url": "https://openagenda.com/panthea/events/le-cercle-de-craie-caucasien-or-bertolt-brecht",
+          "score": 0.004005100127503188,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "48168738_8",
+          "category": "Théâtre / Spectacle",
+          "match_type": "Nearby Location"
+        },
+        {
+          "title": "LES FEMMES SAVANTES  Molière Mise en scène : Emma Dante",
+          "city": "Paris",
+          "date": "2026-02-07T20:30:00",
+          "url": "https://openagenda.com/panthea/events/the-learned-ladies-or-moliere-directed-and-edited-by-emma-dante",
+          "score": 0.0036877044969038154,
+          "latitude": null,
+          "longitude": null,
+          "event_id": "97454717_21",
+          "category": "Théâtre / Spectacle",
+          "match_type": "Nearby Location"
+        }
+      ],
+      "error": null,
+      "faithfulness_score": 1.0,
+      "relevancy_score": 0.75,
+      "quality_score": 0.875,
+      "judge_reasoning": "The answer accurately states that no theater shows were found in Versailles based on the provided sources, and it correctly lists the 5 theater shows found in Paris with their respective titles and da",
+      "expected_filters": {
+        "city": "Versailles",
+        "category": "Théâtre / Spectacle"
+      },
+      "actual_filters_in_response": ""
+    }
+  ]
+}

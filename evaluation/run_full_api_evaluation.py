@@ -425,9 +425,9 @@ def main():
     else:
         print(f"✅ Loaded {dataset.total_queries} queries")
 
-    # Initialize LLM judge (using Gemini - same API as main RAG system)
-    print("\nInitializing Gemini LLM judge (uses existing GOOGLE_API_KEY)...")
-    judge = LLMAsJudge(backend_type="gemini")
+    # Initialize LLM judge (using Mistral for evaluation)
+    print("\nInitializing Mistral LLM judge (uses existing MISTRAL_API_KEY)...")
+    judge = LLMAsJudge(backend_type="mistral")
     print("✅ Judge ready")
 
     # Run evaluation
