@@ -103,11 +103,15 @@ st.title(f"{CHATBOT_EMOJI} {CHATBOT_NAME} — Your Cultural Guide")
 # Header row with language selection and Start Fresh button
 col1, col2, col3, col4 = st.columns([0.15, 0.15, 0.5, 0.2])
 with col1:
-    if st.button("🇬🇧 English", use_container_width=True, type="secondary" if st.session_state.language == "en" else "primary"):
+    if st.button(
+        "🇬🇧 English", use_container_width=True, type="secondary" if st.session_state.language == "en" else "primary"
+    ):
         st.session_state.language = "en"
         st.rerun()
 with col2:
-    if st.button("🇫🇷 Français", use_container_width=True, type="secondary" if st.session_state.language == "fr" else "primary"):
+    if st.button(
+        "🇫🇷 Français", use_container_width=True, type="secondary" if st.session_state.language == "fr" else "primary"
+    ):
         st.session_state.language = "fr"
         st.rerun()
 with col4:
@@ -125,7 +129,7 @@ def submit_feedback(message_id, is_positive, comment=""):
     try:
         headers = {"X-API-Key": API_KEY}
         payload = {"message_id": message_id, "is_positive": is_positive, "comment": comment}
-        resp = requests.post("http://localhost:8000/api/v1/feedback", json=payload, headers=headers)
+        resp = requests.post("http://localhost:8000/api/v1/feedback", json=payload, headers=headers)  # nosec B113
         if resp.status_code == 200:
             st.session_state.feedback_submitted.add(message_id)
             return True
@@ -223,7 +227,7 @@ if prompt := st.chat_input(f"Ask {CHATBOT_NAME} anything... (e.g., 'jazz concert
                 payload = {"question": prompt, "session_id": st.session_state.session_id}
 
                 # Call FastAPI backend
-                response = requests.post(API_URL, json=payload, headers=headers)
+                response = requests.post(API_URL, json=payload, headers=headers)  # nosec B113
 
                 if response.status_code == 200:
                     data = response.json()

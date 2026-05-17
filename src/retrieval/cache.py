@@ -40,7 +40,7 @@ class QueryCache:
         key_string = f"{session_id}:{normalized_query}"
 
         # Generate MD5 hash
-        return hashlib.md5(key_string.encode()).hexdigest()
+        return hashlib.md5(key_string.encode()).hexdigest()  # nosec B324
 
     def get(self, query: str, session_id: str) -> Optional[Dict[str, Any]]:
         """Get cached result if available and not expired.

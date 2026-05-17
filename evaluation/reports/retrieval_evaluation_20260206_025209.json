@@ -1,0 +1,1492 @@
+{
+  "timestamp": "2026-02-06T02:52:09.414576",
+  "k": 10,
+  "total_queries": 93,
+  "queries_with_filters": 58,
+  "queries_evaluated": 44,
+  "average_metrics": {
+    "hit_rate": 0.5,
+    "mrr": 0.2903409090909091,
+    "precision@10": 0.18181818181818182,
+    "recall@10": 0.15166006932135964,
+    "f1@10": 0.12765278313405534
+  },
+  "detailed_results": [
+    {
+      "query_id": "conv_001_t1",
+      "query": "Concerts de jazz à Paris",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Musique"
+      },
+      "ground_truth_count": 50,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "65189825_0",
+        "99263760_0",
+        "5791113_0",
+        "5791113_1",
+        "9541644_0"
+      ],
+      "retrieved_sample": [
+        "17928543_0",
+        "25919196_0",
+        "17915072_0",
+        "88608974_0",
+        "49647096_0"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 1.0,
+        "precision@10": 0.7,
+        "recall@10": 0.14,
+        "f1@10": 0.23333333333333336
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_001_t2",
+      "query": "En février plutôt",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Musique",
+        "month": 2
+      },
+      "ground_truth_count": 28,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "30745065_0",
+        "48478814_0",
+        "16661902_0",
+        "49561051_0",
+        "23586252_0"
+      ],
+      "retrieved_sample": [
+        "75832083_0",
+        "78434636_0",
+        "46945909_0",
+        "81363431_0",
+        "52998670_0"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_002_t1",
+      "query": "Jazz concerts in Paris this weekend",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Musique"
+      },
+      "ground_truth_count": 50,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "65189825_0",
+        "99263760_0",
+        "5791113_0",
+        "5791113_1",
+        "9541644_0"
+      ],
+      "retrieved_sample": [
+        "86336894_0",
+        "21301376_0",
+        "17915072_0",
+        "17928543_0",
+        "25919196_0"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 0.3333333333333333,
+        "precision@10": 0.5,
+        "recall@10": 0.1,
+        "f1@10": 0.16666666666666669
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_002_t2",
+      "query": "Actually, what about theater shows in Versailles?",
+      "expected_filters": {
+        "city": "Versailles",
+        "category": "Théâtre / Spectacle"
+      },
+      "ground_truth_count": 7,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "19760238_0",
+        "24047696_0",
+        "28000498_0",
+        "22187002_0",
+        "12921511_0"
+      ],
+      "retrieved_sample": [
+        "85976355_2",
+        "85976355_1",
+        "85976355_11",
+        "85976355_12",
+        "85976355_13"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_003_t2",
+      "query": "Art exhibitions in Paris",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Art / Exposition"
+      },
+      "ground_truth_count": 31,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "22683319_0",
+        "41799197_0",
+        "41799197_1",
+        "41799197_2",
+        "41799197_3"
+      ],
+      "retrieved_sample": [
+        "28377334_0",
+        "22683319_0",
+        "63166587_16",
+        "63166587_15",
+        "63166587_13"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 0.5,
+        "precision@10": 0.1,
+        "recall@10": 0.03225806451612903,
+        "f1@10": 0.04878048780487805
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_003_t3",
+      "query": "In March",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Art / Exposition",
+        "month": 3
+      },
+      "ground_truth_count": 6,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "62485539_0",
+        "62485539_1",
+        "62485539_2",
+        "62485539_3",
+        "62485539_4"
+      ],
+      "retrieved_sample": [
+        "63232931_0",
+        "92050769_0",
+        "73038729_1",
+        "93809157_0",
+        "73038729_0"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_004_t1",
+      "query": "Expositions à Paris",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Art / Exposition"
+      },
+      "ground_truth_count": 31,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "22683319_0",
+        "41799197_0",
+        "41799197_1",
+        "41799197_2",
+        "41799197_3"
+      ],
+      "retrieved_sample": [
+        "25319120_0",
+        "23225387_0",
+        "92172000_0",
+        "19583203_1",
+        "27027474_0"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 1.0,
+        "precision@10": 0.5,
+        "recall@10": 0.16129032258064516,
+        "f1@10": 0.24390243902439024
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_004_t2",
+      "query": "Gratuites seulement",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Art / Exposition",
+        "is_free": true
+      },
+      "ground_truth_count": 1,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "89396438_0"
+      ],
+      "retrieved_sample": [
+        "32416950_0",
+        "33807147_0",
+        "41589408_0",
+        "33807147_2",
+        "40242845_0"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_004_t3",
+      "query": "Ce week-end",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Art / Exposition",
+        "is_free": true
+      },
+      "ground_truth_count": 1,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "89396438_0"
+      ],
+      "retrieved_sample": [
+        "12517125_0",
+        "4520431_0",
+        "83824474_0",
+        "89761296_0",
+        "74324388_0"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_004_t4",
+      "query": "Non, plutôt à Versailles finalement",
+      "skipped": true,
+      "reason": "No events found matching filters: {'city': 'Versailles', 'category': 'Art / Exposition', 'is_free': True}"
+    },
+    {
+      "query_id": "conv_005_t1",
+      "query": "Classical music concerts in February in Paris",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Musique",
+        "month": 2
+      },
+      "ground_truth_count": 28,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "30745065_0",
+        "48478814_0",
+        "16661902_0",
+        "49561051_0",
+        "23586252_0"
+      ],
+      "retrieved_sample": [
+        "28377334_0",
+        "63232931_0",
+        "22954851_0",
+        "3843433_0",
+        "34511602_0"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 0.25,
+        "precision@10": 0.3,
+        "recall@10": 0.10714285714285714,
+        "f1@10": 0.15789473684210525
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_006_t1",
+      "query": "Concerts à Paris en mars",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Musique",
+        "month": 3
+      },
+      "ground_truth_count": 25,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "63232931_0",
+        "66000118_0",
+        "66000118_1",
+        "66000118_2",
+        "5148482_0"
+      ],
+      "retrieved_sample": [
+        "49647096_0",
+        "61473832_0",
+        "45083377_0",
+        "97775632_0",
+        "38495749_0"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 1.0,
+        "precision@10": 0.6,
+        "recall@10": 0.24,
+        "f1@10": 0.34285714285714286
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_007_t1",
+      "query": "Spectacles de danse à Paris",
+      "skipped": true,
+      "reason": "No events found matching filters: {'city': 'Paris', 'category': 'Danse'}"
+    },
+    {
+      "query_id": "conv_007_t2",
+      "query": "In February please",
+      "skipped": true,
+      "reason": "No events found matching filters: {'city': 'Paris', 'category': 'Danse', 'month': 2}"
+    },
+    {
+      "query_id": "conv_008_t1",
+      "query": "Art events in Paris in February",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Art / Exposition",
+        "month": 2
+      },
+      "ground_truth_count": 9,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "81725912_0",
+        "11754934_0",
+        "23225387_0",
+        "25319120_0",
+        "81839888_0"
+      ],
+      "retrieved_sample": [
+        "28377334_0",
+        "44104225_0",
+        "90011068_0",
+        "14551589_0",
+        "45083377_0"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 0.125,
+        "precision@10": 0.1,
+        "recall@10": 0.1111111111111111,
+        "f1@10": 0.10526315789473685
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_008_t2",
+      "query": "Not the paid ones though",
+      "skipped": true,
+      "reason": "No events found matching filters: {'city': 'Paris', 'category': 'Art / Exposition', 'month': 2, 'is_free': True}"
+    },
+    {
+      "query_id": "conv_008_t3",
+      "query": "And nothing in Montmartre",
+      "skipped": true,
+      "reason": "No events found matching filters: {'city': 'Paris', 'category': 'Art / Exposition', 'month': 2, 'is_free': True}"
+    },
+    {
+      "query_id": "conv_009_t1",
+      "query": "Événements culturels à Nanterre ce mois-ci",
+      "skipped": true,
+      "reason": "No events found matching filters: {'city': 'Nanterre', 'month': 1}"
+    },
+    {
+      "query_id": "conv_009_t2",
+      "query": "Il n'y en a pas beaucoup... et aux alentours?",
+      "expected_filters": {
+        "month": 1
+      },
+      "ground_truth_count": 50,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "22683319_0",
+        "64588773_0",
+        "71360262_0",
+        "32151815_0",
+        "72338086_0"
+      ],
+      "retrieved_sample": [
+        "32596616_0",
+        "17779727_0",
+        "32596616_1",
+        "85724004_3",
+        "85724004_1"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 0.5,
+        "precision@10": 0.1,
+        "recall@10": 0.02,
+        "f1@10": 0.03333333333333333
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_010_t1",
+      "query": "Family events this weekend",
+      "expected_filters": {
+        "audience": "family"
+      },
+      "ground_truth_count": 50,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "10122892_0",
+        "1031257_0",
+        "10434058_0",
+        "10434058_1",
+        "10650220_0"
+      ],
+      "retrieved_sample": [
+        "44536555_0",
+        "27644772_0",
+        "38495749_0",
+        "16860004_0",
+        "85976355_6"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_010_t2",
+      "query": "In Paris, with kids aged 5 and 8",
+      "expected_filters": {
+        "city": "Paris",
+        "audience": "family"
+      },
+      "ground_truth_count": 50,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "22683319_0",
+        "66491477_0",
+        "63166587_0",
+        "63166587_1",
+        "63166587_2"
+      ],
+      "retrieved_sample": [
+        "44945697_0",
+        "17647904_0",
+        "16860004_0",
+        "28377334_0",
+        "39166294_0"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_010_t3",
+      "query": "Something free if possible",
+      "expected_filters": {
+        "city": "Paris",
+        "audience": "family",
+        "is_free": true
+      },
+      "ground_truth_count": 50,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "66491477_0",
+        "63166587_0",
+        "63166587_1",
+        "63166587_2",
+        "63166587_3"
+      ],
+      "retrieved_sample": [
+        "11013830_0",
+        "41799197_6",
+        "41799197_2",
+        "41799197_7",
+        "41799197_5"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_011_t1",
+      "query": "Concerts rock à Lyon",
+      "skipped": true,
+      "reason": "No events found matching filters: {'city': 'Lyon', 'category': 'Musique'}"
+    },
+    {
+      "query_id": "conv_011_t2",
+      "query": "Pardon, je voulais dire Paris",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Musique"
+      },
+      "ground_truth_count": 50,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "65189825_0",
+        "99263760_0",
+        "5791113_0",
+        "5791113_1",
+        "9541644_0"
+      ],
+      "retrieved_sample": [
+        "15602675_1",
+        "15602675_0",
+        "60556432_0",
+        "60556432_1",
+        "41799197_4"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_012_t2",
+      "query": "Maybe something with music? I'm near Montmartre",
+      "expected_filters": {
+        "category": "Musique"
+      },
+      "ground_truth_count": 50,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "64588773_0",
+        "72683435_0",
+        "38258900_0",
+        "77343074_0",
+        "44536555_0"
+      ],
+      "retrieved_sample": [
+        "34781672_0",
+        "16860004_0",
+        "27644772_0",
+        "9541644_0",
+        "75832083_0"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 0.25,
+        "precision@10": 0.2,
+        "recall@10": 0.04,
+        "f1@10": 0.06666666666666667
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_012_t3",
+      "query": "These look nice! Any jazz specifically?",
+      "expected_filters": {
+        "category": "Musique"
+      },
+      "ground_truth_count": 50,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "64588773_0",
+        "72683435_0",
+        "38258900_0",
+        "77343074_0",
+        "44536555_0"
+      ],
+      "retrieved_sample": [
+        "44104225_0",
+        "45083377_0",
+        "17915072_0",
+        "17928543_0",
+        "25919196_0"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_013_t1",
+      "query": "Expositions à Paris",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Art / Exposition"
+      },
+      "ground_truth_count": 31,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "22683319_0",
+        "41799197_0",
+        "41799197_1",
+        "41799197_2",
+        "41799197_3"
+      ],
+      "retrieved_sample": [
+        "25319120_0",
+        "23225387_0",
+        "92172000_0",
+        "19583203_1",
+        "27027474_0"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 1.0,
+        "precision@10": 0.5,
+        "recall@10": 0.16129032258064516,
+        "f1@10": 0.24390243902439024
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_013_t2",
+      "query": "La semaine prochaine",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Art / Exposition"
+      },
+      "ground_truth_count": 31,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "22683319_0",
+        "41799197_0",
+        "41799197_1",
+        "41799197_2",
+        "41799197_3"
+      ],
+      "retrieved_sample": [
+        "28117395_0",
+        "77829313_0",
+        "43915521_0",
+        "79626168_0",
+        "81725912_0"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 0.2,
+        "precision@10": 0.1,
+        "recall@10": 0.03225806451612903,
+        "f1@10": 0.04878048780487805
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_014_t1",
+      "query": "Opera performances in Paris in March",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Musique",
+        "month": 3
+      },
+      "ground_truth_count": 25,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "63232931_0",
+        "66000118_0",
+        "66000118_1",
+        "66000118_2",
+        "5148482_0"
+      ],
+      "retrieved_sample": [
+        "63166587_2",
+        "63166587_16",
+        "63166587_15",
+        "63166587_17",
+        "63166587_14"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 0.16666666666666666,
+        "precision@10": 0.1,
+        "recall@10": 0.04,
+        "f1@10": 0.05714285714285714
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_014_t2",
+      "query": "What about ballet instead?",
+      "skipped": true,
+      "reason": "No events found matching filters: {'city': 'Paris', 'category': 'Danse', 'month': 3}"
+    },
+    {
+      "query_id": "conv_015_t1",
+      "query": "Théâtre accessible en fauteuil roulant à Paris",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Théâtre / Spectacle"
+      },
+      "ground_truth_count": 50,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "63166587_0",
+        "63166587_1",
+        "63166587_2",
+        "63166587_3",
+        "63166587_4"
+      ],
+      "retrieved_sample": [
+        "48168738_14",
+        "48168738_11",
+        "48168738_12",
+        "48168738_13",
+        "48168738_10"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": "conv_015_t2",
+      "query": "En février, et si possible avec audio-description",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Théâtre / Spectacle",
+        "month": 2
+      },
+      "ground_truth_count": 50,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "10752121_0",
+        "11089511_0",
+        "36311655_0",
+        "80968061_0",
+        "90738052_0"
+      ],
+      "retrieved_sample": [
+        "83316864_0",
+        "12016058_0",
+        "96034780_1",
+        "96034780_0",
+        "93921166_0"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": null,
+      "query": "Finnish art exhibitions",
+      "skipped": true,
+      "reason": "No events found matching filters: {'category': 'Expositions'}"
+    },
+    {
+      "query_id": null,
+      "query": "VR immersive digital art experiences in Île-de-France",
+      "skipped": true,
+      "reason": "No events found matching filters: {'category': 'Expositions'}"
+    },
+    {
+      "query_id": null,
+      "query": "Expositions de photographie contemporaine",
+      "skipped": true,
+      "reason": "No events found matching filters: {'category': 'Expositions'}"
+    },
+    {
+      "query_id": null,
+      "query": "Street art festivals in Paris in summer 2026",
+      "skipped": true,
+      "reason": "No events found matching filters: {'city': 'Paris', 'category': 'Expositions', 'year': 2026}"
+    },
+    {
+      "query_id": null,
+      "query": "Concerts gratuits ce soir à Paris",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Musique",
+        "is_free": true
+      },
+      "ground_truth_count": 10,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "5791113_0",
+        "5791113_1",
+        "66000118_0",
+        "66000118_1",
+        "66000118_2"
+      ],
+      "retrieved_sample": [
+        "86336894_0",
+        "49647096_0",
+        "37622343_0",
+        "61473832_0",
+        "14551589_0"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": null,
+      "query": "Dance performances for children under 10",
+      "skipped": true,
+      "reason": "No events found matching filters: {'category': 'Danse'}"
+    },
+    {
+      "query_id": null,
+      "query": "Spectacles de marionnettes pour enfants à Versailles",
+      "expected_filters": {
+        "city": "Versailles",
+        "category": "Théâtre / Spectacle",
+        "audience": "kids"
+      },
+      "ground_truth_count": 7,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "19760238_0",
+        "24047696_0",
+        "28000498_0",
+        "22187002_0",
+        "12921511_0"
+      ],
+      "retrieved_sample": [
+        "20319013_2",
+        "20319013_0",
+        "8671845_8",
+        "8671845_0",
+        "8671845_6"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": null,
+      "query": "Comedy shows in English in Paris",
+      "expected_filters": {
+        "city": "Paris",
+        "category": "Théâtre / Spectacle"
+      },
+      "ground_truth_count": 50,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "63166587_0",
+        "63166587_1",
+        "63166587_2",
+        "63166587_3",
+        "63166587_4"
+      ],
+      "retrieved_sample": [
+        "28377334_0",
+        "77156128_0",
+        "77156128_1",
+        "19583203_1",
+        "19583203_0"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": null,
+      "query": "Electronic music festivals in Île-de-France",
+      "expected_filters": {
+        "category": "Musique"
+      },
+      "ground_truth_count": 50,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "64588773_0",
+        "72683435_0",
+        "38258900_0",
+        "77343074_0",
+        "44536555_0"
+      ],
+      "retrieved_sample": [
+        "28377334_0",
+        "30659059_0",
+        "73038729_0",
+        "73038729_1",
+        "39475383_0"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 0.3333333333333333,
+        "precision@10": 0.4,
+        "recall@10": 0.08,
+        "f1@10": 0.13333333333333333
+      },
+      "skipped": false
+    },
+    {
+      "query_id": null,
+      "query": "Événements pour les seniors à Paris",
+      "expected_filters": {
+        "city": "Paris",
+        "audience": "seniors"
+      },
+      "ground_truth_count": 50,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "22683319_0",
+        "66491477_0",
+        "63166587_0",
+        "63166587_1",
+        "63166587_2"
+      ],
+      "retrieved_sample": [
+        "37817632_0",
+        "83321547_0",
+        "12506428_0",
+        "43065225_0",
+        "81047749_0"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": null,
+      "query": "Concerts de jazz en février",
+      "expected_filters": {
+        "month": 2
+      },
+      "ground_truth_count": 50,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "30745065_0",
+        "29724318_0",
+        "48478814_0",
+        "83908187_0",
+        "16661902_0"
+      ],
+      "retrieved_sample": [
+        "49561051_0",
+        "40987313_0",
+        "17928543_0",
+        "25919196_0",
+        "44104225_0"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 1.0,
+        "precision@10": 0.5,
+        "recall@10": 0.1,
+        "f1@10": 0.16666666666666669
+      },
+      "skipped": false
+    },
+    {
+      "query_id": null,
+      "query": "Events in Paris this weekend",
+      "expected_filters": {
+        "city": "Paris"
+      },
+      "ground_truth_count": 50,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "22683319_0",
+        "66491477_0",
+        "63166587_0",
+        "63166587_1",
+        "63166587_2"
+      ],
+      "retrieved_sample": [
+        "28377334_0",
+        "37817632_0",
+        "37967243_0",
+        "19583203_2",
+        "19583203_1"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": null,
+      "query": "Jazz concerts in Versailles",
+      "expected_filters": {
+        "city": "Versailles"
+      },
+      "ground_truth_count": 13,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "92816716_0",
+        "19760238_0",
+        "83399179_0",
+        "24047696_0",
+        "759170_0"
+      ],
+      "retrieved_sample": [
+        "88608974_0",
+        "86336894_0",
+        "28377334_0",
+        "41589408_0",
+        "21301376_0"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 0.25,
+        "precision@10": 0.1,
+        "recall@10": 0.07692307692307693,
+        "f1@10": 0.08695652173913043
+      },
+      "skipped": false
+    },
+    {
+      "query_id": null,
+      "query": "Paris",
+      "expected_filters": {
+        "city": "Paris"
+      },
+      "ground_truth_count": 50,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "22683319_0",
+        "66491477_0",
+        "63166587_0",
+        "63166587_1",
+        "63166587_2"
+      ],
+      "retrieved_sample": [
+        "37817632_0",
+        "81047749_0",
+        "12506428_0",
+        "83321547_0",
+        "72338086_0"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": null,
+      "query": "Show me all events in Paris",
+      "expected_filters": {
+        "city": "Paris"
+      },
+      "ground_truth_count": 50,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "22683319_0",
+        "66491477_0",
+        "63166587_0",
+        "63166587_1",
+        "63166587_2"
+      ],
+      "retrieved_sample": [
+        "28377334_0",
+        "19583203_2",
+        "19583203_1",
+        "19583203_0",
+        "77156128_0"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": null,
+      "query": "Montre-moi tout ce qui se passe à Versailles",
+      "expected_filters": {
+        "city": "Versailles"
+      },
+      "ground_truth_count": 13,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "92816716_0",
+        "19760238_0",
+        "83399179_0",
+        "24047696_0",
+        "759170_0"
+      ],
+      "retrieved_sample": [
+        "41589408_0",
+        "19760238_0",
+        "92816716_0",
+        "39160511_0",
+        "53517737_0"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 1.0,
+        "precision@10": 1.0,
+        "recall@10": 0.7692307692307693,
+        "f1@10": 0.8695652173913044
+      },
+      "skipped": false
+    },
+    {
+      "query_id": null,
+      "query": "Concerts de jazz à Montreuil ce samedi",
+      "expected_filters": {
+        "city": "Montreuil"
+      },
+      "ground_truth_count": 7,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "70170993_0",
+        "66932929_0",
+        "66572920_0",
+        "27567099_0",
+        "84202139_0"
+      ],
+      "retrieved_sample": [
+        "17928543_0",
+        "49561051_0",
+        "4451721_0",
+        "17915072_0",
+        "87806229_0"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": null,
+      "query": "Classical music in Bondy this weekend",
+      "expected_filters": {
+        "city": "Bondy"
+      },
+      "ground_truth_count": 8,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "98928053_0",
+        "64450227_0",
+        "27269183_0",
+        "49477285_0",
+        "32929781_0"
+      ],
+      "retrieved_sample": [
+        "64450227_0",
+        "11038811_0",
+        "41058107_0",
+        "98928053_0",
+        "29677237_0"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 1.0,
+        "precision@10": 0.8,
+        "recall@10": 1.0,
+        "f1@10": 0.888888888888889
+      },
+      "skipped": false
+    },
+    {
+      "query_id": null,
+      "query": "Opera in Fontainebleau on January 15th",
+      "skipped": true,
+      "reason": "No events found matching filters: {'city': 'Fontainebleau', 'month': 1, 'day': 15}"
+    },
+    {
+      "query_id": null,
+      "query": "Expositions d'art contemporain à Nanterre en mars",
+      "expected_filters": {
+        "city": "Nanterre",
+        "month": 3
+      },
+      "ground_truth_count": 6,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "6519744_0",
+        "6519744_1",
+        "6519744_2",
+        "6519744_3",
+        "6519744_4"
+      ],
+      "retrieved_sample": [
+        "29441093_0",
+        "22683319_0",
+        "87849802_0",
+        "96034780_1",
+        "96034780_0"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 0.3333333333333333,
+        "precision@10": 0.2,
+        "recall@10": 0.3333333333333333,
+        "f1@10": 0.25
+      },
+      "skipped": false
+    },
+    {
+      "query_id": null,
+      "query": "Ballet performances in Saint-Denis tomorrow",
+      "expected_filters": {
+        "city": "Saint-Denis"
+      },
+      "ground_truth_count": 13,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "64551568_0",
+        "64551568_1",
+        "64551568_2",
+        "64551568_3",
+        "64551568_4"
+      ],
+      "retrieved_sample": [
+        "85988091_0",
+        "85988091_4",
+        "85988091_2",
+        "91477811_0",
+        "91477811_17"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 1.0,
+        "precision@10": 0.6,
+        "recall@10": 0.46153846153846156,
+        "f1@10": 0.5217391304347826
+      },
+      "skipped": false
+    },
+    {
+      "query_id": null,
+      "query": "Theatre shows in Vincennes on February 29th 2024",
+      "expected_filters": {
+        "city": "Vincennes",
+        "month": 2,
+        "day": 29,
+        "year": 2024
+      },
+      "ground_truth_count": 1,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "53185000_0"
+      ],
+      "retrieved_sample": [
+        "28967386_0",
+        "29743326_0",
+        "83908187_0",
+        "85976355_12",
+        "53185000_0"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 0.2,
+        "precision@10": 0.1,
+        "recall@10": 1.0,
+        "f1@10": 0.18181818181818182
+      },
+      "skipped": false
+    },
+    {
+      "query_id": null,
+      "query": "Free jazz concerts in Paris this weekend",
+      "expected_filters": {
+        "city": "Paris",
+        "is_free": true
+      },
+      "ground_truth_count": 50,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "66491477_0",
+        "63166587_0",
+        "63166587_1",
+        "63166587_2",
+        "63166587_3"
+      ],
+      "retrieved_sample": [
+        "86336894_0",
+        "39166294_0",
+        "17915072_0",
+        "99836885_0",
+        "17928543_0"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": null,
+      "query": "Concerts de jazz gratuits à Paris ce week-end",
+      "expected_filters": {
+        "city": "Paris",
+        "is_free": true
+      },
+      "ground_truth_count": 50,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "66491477_0",
+        "63166587_0",
+        "63166587_1",
+        "63166587_2",
+        "63166587_3"
+      ],
+      "retrieved_sample": [
+        "17928543_0",
+        "17915072_0",
+        "87806229_0",
+        "25919196_0",
+        "51903007_0"
+      ],
+      "metrics": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "precision@10": 0.0,
+        "recall@10": 0.0,
+        "f1@10": 0.0
+      },
+      "skipped": false
+    },
+    {
+      "query_id": null,
+      "query": "Art exhibitions in Versailles in February",
+      "expected_filters": {
+        "city": "Versailles",
+        "month": 2
+      },
+      "ground_truth_count": 3,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "12921511_0",
+        "44710954_0",
+        "19296386_0"
+      ],
+      "retrieved_sample": [
+        "41589408_0",
+        "52218974_0",
+        "19296386_0",
+        "12921511_0",
+        "44710954_0"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 0.3333333333333333,
+        "precision@10": 0.3,
+        "recall@10": 1.0,
+        "f1@10": 0.4615384615384615
+      },
+      "skipped": false
+    },
+    {
+      "query_id": null,
+      "query": "Expositions d'art à Versailles en février",
+      "expected_filters": {
+        "city": "Versailles",
+        "month": 2
+      },
+      "ground_truth_count": 3,
+      "retrieved_count": 10,
+      "ground_truth_sample": [
+        "12921511_0",
+        "44710954_0",
+        "19296386_0"
+      ],
+      "retrieved_sample": [
+        "19296386_0",
+        "759170_0",
+        "41589408_0",
+        "52218974_0",
+        "22683319_0"
+      ],
+      "metrics": {
+        "hit_rate": 1.0,
+        "mrr": 1.0,
+        "precision@10": 0.2,
+        "recall@10": 0.6666666666666666,
+        "f1@10": 0.30769230769230765
+      },
+      "skipped": false
+    }
+  ]
+}

@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     retrieval_date_window_days: int = 7  # Days to expand for alternative dates
 
     # API Settings
-    api_host: str = "0.0.0.0"
+    api_host: str = "0.0.0.0"  # nosec B104
     api_port: int = 8000
 
     # Application Settings

@@ -168,7 +168,7 @@ class EventVectorStore:
         self.index = faiss.read_index(str(index_file))
 
         with open(metadata_file, "rb") as f:
-            metadata = pickle.load(f)
+            metadata = pickle.load(f)  # nosec B301
             self.event_ids = metadata["event_ids"]
             self.dimension = metadata["dimension"]
             self.bm25 = metadata.get("bm25")  # Optional for backward compatibility

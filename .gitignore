@@ -109,6 +109,10 @@ index_backups/
 _UL/
 _ul-*/
 
+# Course materials and demo artifacts (not part of the codebase)
+Instructions/
+Successful Conversations/
+
 # Archived folders (keep out of version control)
 # Pattern: Any directory ending with _archived or named _archived_*
 *_archived/
